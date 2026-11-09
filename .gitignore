@@ -1,0 +1,18 @@
+# 系統檔
+.DS_Store
+Thumbs.db
+
+# 編輯器
+.vscode/
+.idea/
+*.swp
+
+# 部署時產生，不進版本控制
+catalog.json
+shell-manifest.js
+release/
+
+# 本機私人書庫不要放進來（萬一放在專案資料夾裡）
+my-library/
+private/
+*.local.md
