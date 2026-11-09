@@ -1,0 +1,20 @@
+name: 功能建議
+description: 想要新的功能或改進
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 你想解決什麼問題
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: 你想像的做法
+  - type: dropdown
+    id: boundary
+    attributes:
+      label: 這個功能會讓筆記和簡報的界線改變嗎
+      description: 請先讀 docs/INTEROP.md 的「刻意不做的事」
+      options: [不會, 會，我已讀過 INTEROP.md, 不確定]

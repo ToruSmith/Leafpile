@@ -1,0 +1,29 @@
+name: 錯誤回報
+description: 某個功能沒有照預期運作
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: 發生了什麼
+      description: 你做了什麼、預期看到什麼、實際看到什麼
+    validations:
+      required: true
+  - type: dropdown
+    id: channel
+    attributes:
+      label: 發生在哪裡
+      options: [筆記, 簡報, 互通（連結、快閃播放、升級、講後筆記）, 畫布, 守門檢查, 其他]
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: 瀏覽器與作業系統
+      placeholder: 例如 Chrome 131 / macOS 15
+  - type: textarea
+    id: sample
+    attributes:
+      label: 最小重現範例
+      description: 貼上能重現問題的 Markdown 或 yml。請不要貼私人內容。
+      render: markdown
