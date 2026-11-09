@@ -1,0 +1,37 @@
+mdslide: 1
+title: Leafpile 導覽
+subtitle: 一個資料夾，平常是筆記，上台是簡報
+kicker: 官方範例 · 導覽
+author: Leafpile
+event: 範例簡報
+date: 2026-11-09
+theme: paper
+lang: zh-Hant
+tags: [範例, 導覽]
+brand:
+  logo: media/logo.svg
+  footer: Leafpile · 導覽
+layout:
+  stage: pile
+sections:
+  - folder: 01-why
+    title: 為什麼要融合
+    subtitle: 筆記和簡報其實是同一份知識
+    color: "#c0674a"
+    notes: 第一章約 3 分鐘。
+  - folder: 02-how
+    title: 怎麼存
+    subtitle: 一個書庫、兩個渠道
+    color: "#4f73a6"
+    notes: 第二章約 4 分鐘。
+  - folder: 03-bridge
+    title: 中間那座橋
+    subtitle: 引用與一次性轉換，沒有雙向同步
+    color: "#5f8a64"
+    notes: 第三章約 4 分鐘，是重點。
+end: 謝謝聆聽
+end_notes: 進入問答；問答紀錄請存成講後筆記。
+cover_notes: |
+  這份簡報本身就是範例：它的來源筆記在 notes/00-examples/2026-11-leafpile-basics。
+# Leafpile 擴充欄位（Mdslide Pile 會略過）：升級自哪一份筆記
+source: notes/00-examples/2026-11-leafpile-basics

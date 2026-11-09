@@ -1,0 +1,5 @@
+name: 官方範例
+description: 示範所有規則與互通方式，也是驗收基準；請不要刪除。
+category: examples
+color: "#c0674a"
+public: true  # 這個主題的筆記沒寫 public 時的預設值

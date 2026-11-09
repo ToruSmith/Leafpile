@@ -1,0 +1,6 @@
+name: 生活紀錄
+description: 個人生活紀錄，只留在本機。
+category: life
+color: "#a0606e"
+public: false  # 這個主題的筆記沒寫 public 時的預設值
+local_only: true  # 只留在本機，不可放上 GitHub

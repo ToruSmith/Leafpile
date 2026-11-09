@@ -1,0 +1,5 @@
+name: 收件匣
+description: 快速記下的東西，之後再歸檔到其他主題。
+category: inbox
+color: "#8a8178"
+public: false  # 這個主題的筆記沒寫 public 時的預設值

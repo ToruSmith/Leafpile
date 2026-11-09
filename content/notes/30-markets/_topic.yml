@@ -1,0 +1,5 @@
+name: 財經市場
+description: 市場觀察；數字一定要附來源與資料時間。
+category: finance
+color: "#b08a3e"
+public: true  # 這個主題的筆記沒寫 public 時的預設值

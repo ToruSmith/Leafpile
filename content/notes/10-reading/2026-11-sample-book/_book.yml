@@ -1,0 +1,6 @@
+title: 範例書：做筆記的方法（虛構）
+author: 範例作者
+status: reading
+cover: media/cover.svg   # 可省略；圖片請小於 300 KB
+public: true             # 主題預設私人；要放上 GitHub 必須明寫 true
+tags: [讀書會, 範例]

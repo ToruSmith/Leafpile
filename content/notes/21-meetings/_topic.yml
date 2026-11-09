@@ -1,0 +1,5 @@
+name: 會議紀錄
+description: 會議紀錄與待辦。公司內容請留在本機。
+category: work
+color: "#4d7a58"
+public: false  # 這個主題的筆記沒寫 public 時的預設值

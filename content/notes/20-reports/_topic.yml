@@ -1,0 +1,5 @@
+name: 工作報告
+description: 週報、季報、專案成果。公司內容請留在本機。
+category: work
+color: "#5f8a64"
+public: false  # 這個主題的筆記沒寫 public 時的預設值

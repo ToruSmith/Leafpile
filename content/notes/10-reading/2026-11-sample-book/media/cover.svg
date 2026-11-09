@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 420" role="img" aria-label="範例書封面">
+  <rect width="300" height="420" rx="12" fill="#f4efe6"/>
+  <rect x="24" y="24" width="252" height="372" rx="8" fill="none" stroke="#4f73a6" stroke-width="3"/>
+  <text x="150" y="180" text-anchor="middle" font-family="sans-serif" font-size="30" font-weight="700" fill="#2b2b2b">做筆記的方法</text>
+  <text x="150" y="222" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#6b6b6b">範例書（虛構）</text>
+  <path d="M110 300 l40 -30 l40 30 l-40 30z" fill="#4f73a6" opacity="0.8"/>
+</svg>

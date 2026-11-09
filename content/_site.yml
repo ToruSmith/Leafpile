@@ -1,0 +1,36 @@
+# Leafpile 書庫設定（可省略）。這個資料夾放在 GitHub 上，所以裡面一律是公開內容。
+leafpile: 1
+title: Leafpile 公開書庫
+description: 少量公開與急件資料。私人內容請留在自己的電腦，用「開啟本機資料夾」閱讀與播放。
+theme: paper
+lang: zh-Hant
+
+# 分類：主題用 category 指到這裡的 id。順序就是首頁書架的順序。
+categories:
+  - id: examples
+    name: 範例
+    color: "#c0674a"
+  - id: inbox
+    name: 收件匣
+    color: "#8a8178"
+  - id: learning
+    name: 學習
+    color: "#4f73a6"
+  - id: work
+    name: 工作
+    color: "#5f8a64"
+  - id: finance
+    name: 財經
+    color: "#b08a3e"
+  - id: reference
+    name: 參考
+    color: "#7a5fa0"
+  - id: life
+    name: 生活
+    color: "#a0606e"
+
+# GitHub 守門上限（scripts/guard-content.mjs 讀取）
+limits:
+  image_kb: 300
+  text_kb: 100
+  total_mb: 20

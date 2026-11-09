@@ -1,0 +1,5 @@
+name: 課程與講座
+description: 上課筆記與課堂簡報。
+category: learning
+color: "#3f6b8e"
+public: false  # 這個主題的筆記沒寫 public 時的預設值

@@ -1,0 +1,5 @@
+name: 讀書筆記
+description: 一本書一個資料夾；讀書會分享的簡報放在簡報渠道的同名主題。
+category: learning
+color: "#4f73a6"
+public: false  # 這個主題的筆記沒寫 public 時的預設值

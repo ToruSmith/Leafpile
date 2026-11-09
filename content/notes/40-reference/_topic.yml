@@ -1,0 +1,5 @@
+name: 速查與模板
+description: 速查表、清單、可重複使用的模板。
+category: reference
+color: "#7a5fa0"
+public: true  # 這個主題的筆記沒寫 public 時的預設值
