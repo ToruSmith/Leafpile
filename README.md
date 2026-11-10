@@ -6,7 +6,13 @@
 
 Leafpile 把兩件常被分開做的事接起來：用 Markdown 累積筆記，要分享時升級成 3D 牌堆簡報，講完再把問答存回筆記。檔案留在你的電腦或隨身碟，網站只負責讀取，不用安裝、不用上傳。
 
-> **目前狀態：v0.0.1 規劃與骨架。** 這個倉庫現在有規格、預設分類、範例、守門工具與完整的專案文件；網站程式會在第一階段由 [Mdslide Pile](https://github.com/ToruSmith/Mdslide-Pile) 的引擎延伸而來。過渡期間，`slides/` 已經可以直接用 Mdslide Pile 播放，`notes/` 可以用任何 Markdown 軟體（例如 Obsidian）開啟。
+**線上版：<https://torusmith.github.io/Leafpile/>**　·　目前版本 v0.1.0（可以日常使用的第一版）
+
+![書架：筆記與簡報放在同一個主題底下](docs/images/shelf.webp)
+
+| 筆記閱讀：目錄、反向連結、被哪些簡報引用 | 快閃播放：筆記直接變成 3D 牌堆 |
+|---|---|
+| ![筆記閱讀頁](docs/images/note.webp) | ![快閃播放](docs/images/flash.webp) |
 
 ## 為什麼
 
@@ -53,16 +59,34 @@ Leafpile 的答案是：**同一個書庫、兩個渠道、中間一座橋。**
 
 完整規則：[`docs/INTEROP.md`](docs/INTEROP.md)。
 
-## 現在就能用
+## 開始使用
 
-1. 下載或複製本倉庫，把 `content/` 的結構複製到你自己的資料夾（這就是你的書庫）。
-2. **播放簡報**：打開 [Mdslide Pile](https://torusmith.github.io/Mdslide-Pile/)，按「開啟本機資料夾」，選你書庫裡的 `slides/`。
-3. **寫筆記**：用 Obsidian、VS Code 或任何編輯器開 `notes/`，照 [`docs/SPEC.md`](docs/SPEC.md) 寫 front matter。
-4. **放上 GitHub 前**：執行守門檢查。
+1. 下載[最新版的範例書庫](https://github.com/ToruSmith/Leafpile/releases/latest)（`Leafpile-library-*.zip`），解壓到你的電腦或隨身碟。也可以自己建一個資料夾，裡面放 `notes/` 與 `slides/`。
+2. 用 Chrome 或 Edge 打開 <https://torusmith.github.io/Leafpile/>，按「開啟本機資料夾」選那個資料夾。其他瀏覽器可以閱讀與播放，但不能存檔。
+3. 之後在首頁的「最近開啟的書庫」點一下就能重新連線。網站可以安裝成 App，裝過之後離線也能用。
+
+| 想做的事 | 怎麼做 |
+|---|---|
+| 找筆記或簡報、執行動作 | 任何畫面按 **Ctrl+K**（Mac 是 ⌘K） |
+| 寫筆記 | 書架右上「+ 筆記」；或直接在 `notes/<主題>/` 放 `.md` 檔（Obsidian、VS Code 都可以） |
+| 連結 | 編輯時輸入 `[[`，會列出可以連結的筆記與簡報 |
+| 臨時分享一篇筆記 | 筆記右上 **▶ 快閃播放**（或按 P）。不會產生任何檔案 |
+| 正式做一份簡報 | 筆記右上「做成簡報」，在 `slides/<同名主題>/` 建立骨架；之後各自獨立 |
+| 講完留下紀錄 | 播放簡報時 Ctrl+K →「把這份簡報存成講後筆記」 |
+| 上台 | Enter 放大、方向鍵翻頁、S 講者視窗、D 畫筆、P 存成 PDF、匯出單一 HTML |
+| 檢查書庫 | 書架的「✓ 檢查」，或 `node leafpile-check.mjs` |
+
+已經有 Mdslide Pile 書庫？直接開啟就能播放（沒有 `notes/` 與 `slides/` 的資料夾會被當成簡報書庫）；把它放進 Leafpile 書庫的 `slides/` 就能和筆記配對。
+
+### 命令列（選用，Node 18 以上，不用 npm install）
 
 ```bash
-node scripts/guard-content.mjs content   # 檔案大小、路徑、公開與否、急件到期、個資
-node --test tests/*.test.mjs             # 單元測試（Node 18 以上，不用 npm install）
+node scripts/check.mjs <書庫>                          # 檢查筆記、簡報與連結（--slides 列出每一張）
+node scripts/promote.mjs <書庫> notes/<主題>/<筆記>.md   # 筆記 → 新簡報骨架（整本筆記本也可以）
+node scripts/after-talk.mjs <書庫> slides/<主題>/<簡報>  # 簡報 → 講後筆記
+node scripts/new-deck.mjs <資料夾>                      # 空白簡報骨架
+node scripts/guard-content.mjs content                 # 放上 GitHub 前的守門檢查
+node --test tests/*.test.mjs                           # 單元測試
 ```
 
 ## GitHub 上只放什麼
@@ -83,17 +107,20 @@ node --test tests/*.test.mjs             # 單元測試（Node 18 以上，不�
 |---|---|---|
 | Leafpile 入門筆記 | `content/notes/00-examples/2026-11-leafpile-basics/` | 筆記本、front matter、連結、講後筆記 |
 | Leafpile 導覽（13 張） | `content/slides/00-examples/2026-11-leafpile-tour/` | 由上面的筆記升級而來，10 種版型 |
+| Feature Tour、深色主題、最小範例 | `content/slides/00-examples/` | 簡報引擎的所有版型、主題與排列（來自 Mdslide Pile） |
 | 讀書筆記＋讀書會簡報 | `content/notes/10-reading/…`、`content/slides/10-reading/…` | 同名主題配對、私人主題裡的公開筆記 |
 | 急件 | `content/notes/00-examples/urgent-sample.md` | `pinned` 與 `expires` |
 | 畫布 | `content/boards/00-examples-overview.canvas` | 筆記卡與簡報卡在同一張畫布 |
 
-兩份範例簡報都通過 Mdslide Pile v1.14.0 的檢查工具（`node scripts/check.mjs content/slides`）。
+所有範例都通過 `node scripts/check.mjs content` 與守門檢查，CI 每次都會重跑。
 
 ## 文件
 
 | 文件 | 給誰 |
 |---|---|
 | [`docs/SPEC.md`](docs/SPEC.md) | 存檔規格：資料夾、設定檔、front matter、連結語法（人與 AI 都照這份） |
+| [`docs/slides/GUIDE.zh-Hant.md`](docs/slides/GUIDE.zh-Hant.md) | 簡報的完整規則：版型、媒體、圖表、外觀（[English](docs/slides/GUIDE.en.md)） |
+| [`docs/slides/MANUAL.zh-Hant.md`](docs/slides/MANUAL.zh-Hant.md) | 簡報播放器的使用手冊：快捷鍵、編輯模式、匯出（[English](docs/slides/MANUAL.en.md)） |
 | [`docs/INTEROP.md`](docs/INTEROP.md) | 筆記與簡報怎麼互通、界線在哪 |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 系統架構與模組 |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | 路線圖與每階段的驗收閘門 |

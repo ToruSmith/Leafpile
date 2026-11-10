@@ -1,6 +1,6 @@
 {
   "name": "leafpile",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "一個資料夾，平常是筆記，上台是簡報。Local-first Markdown notes and slides in one folder.",
@@ -10,6 +10,9 @@
   },
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "guard": "node scripts/guard-content.mjs content"
+    "check": "node scripts/check.mjs content",
+    "guard": "node scripts/guard-content.mjs content",
+    "bundle": "node scripts/bundle-check.mjs",
+    "catalog": "node scripts/build-catalog.mjs"
   }
 }

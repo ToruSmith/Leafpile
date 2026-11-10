@@ -1,0 +1,68 @@
+/* 主題:只定義變數。新增主題 = 複製一段 [data-theme] 改顏色,再到 app/player/themes.js 登記名稱。 */
+
+:root, [data-theme="paper"] {
+  color-scheme: light;
+  --bg: #f3eee4;
+  --bg-deep: #e9e2d4;
+  --surface: #fffdf8;
+  --ink: #2d2a26;
+  --muted: #8a8378;
+  --line: #dcd3c2;
+  --shadow: 60 40 20;
+  --accent: #b4654a;
+  --vignette: rgba(110, 90, 60, .14);
+  --slide-bg: #fffdf8;
+  --slide-ink: #2d2a26;
+  --slide-muted: #8a8378;
+  --slide-soft: #f4efe6;
+  --font-display: "Noto Serif TC", "Source Han Serif TC", "Songti TC", "PMingLiU", Georgia, serif;
+  --font-body: "Noto Sans TC", "Source Han Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --bar: 12px;
+}
+
+[data-theme="ink"] {
+  color-scheme: dark;
+  --bg: #0f1116;
+  --bg-deep: #08090c;
+  --surface: #191c24;
+  --ink: #ece8e1;
+  --muted: #8d8a84;
+  --line: #2b2f3a;
+  --shadow: 0 0 0;
+  --accent: #d9a55b;
+  --vignette: rgba(0, 0, 0, .55);
+  --slide-bg: #171a21;
+  --slide-ink: #ece8e1;
+  --slide-muted: #8f8c86;
+  --slide-soft: #20242d;
+  --bar: 6px;
+}
+
+[data-theme="slate"] {
+  color-scheme: light;
+  --bg: #e8ecf1;
+  --bg-deep: #dbe1e8;
+  --surface: #ffffff;
+  --ink: #1d2533;
+  --muted: #6b7686;
+  --line: #d3d9e1;
+  --shadow: 20 35 60;
+  --accent: #2f5fa7;
+  --vignette: rgba(40, 60, 90, .12);
+  --slide-bg: #ffffff;
+  --slide-ink: #1d2533;
+  --slide-muted: #6b7686;
+  --slide-soft: #f1f4f8;
+  --font-display: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --bar: 0px;
+}
+
+/* 英文簡報:拉丁字型優先(只作用在 lang="en" 的投影片,中文簡報外觀不變;不載入外部字型) */
+.slide:lang(en) {
+  --font-display: Georgia, "Times New Roman", "Noto Serif TC", serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", sans-serif;
+}
+[data-theme="slate"] .slide:lang(en) {
+  --font-display: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}

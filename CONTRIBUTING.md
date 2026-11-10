@@ -15,8 +15,10 @@
 
 ```bash
 node --test tests/*.test.mjs             # 單元測試
+node scripts/check.mjs content           # 內建書庫的規則檢查
 node scripts/guard-content.mjs content   # content/ 守門檢查
-python3 -m http.server 8000              # 第一階段之後：開 http://localhost:8000
+node scripts/build-catalog.mjs           # 產生 catalog.json（「內建範例」需要）
+python3 -m http.server 8000              # 開 http://localhost:8000
 ```
 
 ## 不能違反的原則

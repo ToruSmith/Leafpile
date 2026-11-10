@@ -1,0 +1,35 @@
+mdslide: 1
+lang: en
+title: Mdslide Pile
+subtitle: Turn a folder into a moving deck
+kicker: Official example · Feature tour (English)
+author: Mdslide Pile
+event: Example deck
+date: 2026-11-08
+theme: paper
+tags: [example, english, feature tour]
+brand:
+  logo: media/logo.svg
+  footer: Mdslide Pile · Feature tour
+layout:
+  stage: pile
+sections:
+  - folder: 01-why
+    title: Why it exists
+    subtitle: Three old problems with slides
+    color: "#c0674a"
+    notes: First section, about 3 minutes.
+  - folder: 02-how
+    title: How it works
+    subtitle: The website is the console, your folder is the game
+    color: "#4f73a6"
+    notes: Second section, about 4 minutes.
+  - folder: 03-showcase
+    title: Showcase
+    subtitle: Every layout in one place
+    color: "#5f8a64"
+    notes: Third section, about 4 minutes.
+end: Thank you
+end_notes: Open the floor for questions.
+cover_notes: |
+  English acceptance deck. Every automatic text on these slides should be in English.

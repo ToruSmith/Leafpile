@@ -1,0 +1,121 @@
+name: CI 與部署
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '17 1 * * 1'   # 每週一(台北時間 09:17)重跑一次:提醒到期的急件
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: 單元測試
+        run: node --test tests/*.test.mjs
+      - name: 檢查內建書庫(筆記、簡報、連結)
+        run: node scripts/check.mjs content
+      - name: content/ 守門(檔案大小、路徑、公開、急件、個資)
+        run: node scripts/guard-content.mjs content
+      - name: 確認 dist/ 與原始碼同步
+        run: |
+          node scripts/bundle-check.mjs
+          git diff --exit-code dist/
+
+  smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    name: smoke (${{ matrix.browser }})
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: 安裝無頭瀏覽器(只在 CI 臨時安裝,不寫進專案)
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps ${{ matrix.browser }}
+      - name: 瀏覽器冒煙測試
+        run: |
+          node scripts/build-catalog.mjs
+          python -m http.server 8000 &
+          sleep 2
+          python tests/smoke/smoke.py http://localhost:8000/ ${{ matrix.browser }}
+
+  # PR 才跑:和目標分支逐張比對官方範例的畫面,結果寫在摘要(提醒用,不會擋 PR)
+  visual:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: 安裝無頭瀏覽器、Pillow 與中文字型(只在 CI 臨時安裝)
+        run: |
+          pip install playwright pillow
+          python -m playwright install --with-deps chromium
+          sudo apt-get install -y fonts-noto-cjk
+      - name: 準備目標分支(舊版)與 PR(新版)
+        run: |
+          git worktree add ../base "origin/${{ github.base_ref }}"
+          (cd ../base && node scripts/build-catalog.mjs && python -m http.server 8001 >/dev/null 2>&1 &)
+          node scripts/build-catalog.mjs
+          python -m http.server 8000 >/dev/null 2>&1 &
+          sleep 3
+      - name: 畫面比對
+        run: python tests/visual/compare.py http://localhost:8001/ http://localhost:8000/ visual-diff
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: visual-diff
+          path: visual-diff/*-diff.png
+          if-no-files-found: ignore
+
+  # 測試全部通過才部署(只在 main 的推送)
+  deploy:
+    needs: [test, smoke]
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: true
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: 產生 catalog.json 與 shell-manifest.js
+        run: node scripts/build-catalog.mjs
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: .
+      - id: deployment
+        uses: actions/deploy-pages@v5

@@ -6,7 +6,13 @@ English · [繁體中文](README.md)
 
 Leafpile connects two things that are usually done twice: you collect notes in Markdown, promote them into a 3D card-pile slide deck when it is time to share, and save the Q&A back into your notes afterwards. Files stay on your computer or USB drive; the website only reads them. Nothing to install, nothing uploaded.
 
-> **Status: v0.0.1 — plan and scaffold.** This repository holds the format spec, default categories, examples, a content guard and the project documents. The web app will grow out of the [Mdslide Pile](https://github.com/ToruSmith/Mdslide-Pile) engine in phase 1. Until then, `slides/` already plays in Mdslide Pile, and `notes/` opens in any Markdown editor such as Obsidian.
+**Live site: <https://torusmith.github.io/Leafpile/>** · current version v0.1.0 (the first version meant for daily use)
+
+![Shelf: notes and decks under the same topic](docs/images/shelf.en.webp)
+
+| Reading a note: contents, backlinks, decks that use it | Flash play: a note as a 3D pile of slides |
+|---|---|
+| ![Note reader](docs/images/note.en.webp) | ![Flash play](docs/images/flash.en.webp) |
 
 ## The idea
 
@@ -31,18 +37,33 @@ my-library/
 | Promote to deck | note → new deck skeleton | adds files, then they diverge |
 | After-talk note | speaker notes and Q&A → new note | adds a file |
 
-Full rules: [`docs/INTEROP.md`](docs/INTEROP.md) (Traditional Chinese).
+Full rules: [`docs/INTEROP.md`](docs/INTEROP.md) (Traditional Chinese). Deck format: [`docs/slides/GUIDE.en.md`](docs/slides/GUIDE.en.md); player manual: [`docs/slides/MANUAL.en.md`](docs/slides/MANUAL.en.md).
 
-## Use it today
+## Getting started
 
-1. Copy the structure of `content/` into your own folder.
-2. Play decks: open [Mdslide Pile](https://torusmith.github.io/Mdslide-Pile/) and choose your `slides/` folder.
-3. Write notes in any editor, following [`docs/SPEC.md`](docs/SPEC.md).
-4. Before pushing to GitHub:
+1. Download the [starter library](https://github.com/ToruSmith/Leafpile/releases/latest) (`Leafpile-library-*.zip`) and unzip it, or make a folder containing `notes/` and `slides/`.
+2. Open <https://torusmith.github.io/Leafpile/> in Chrome or Edge and choose **Open a local folder**. Other browsers can read and present but cannot save.
+3. Reconnect later from **Recent libraries** on the home page. The site installs as an app and then works offline.
+
+| To do this | Do this |
+|---|---|
+| Find anything, run a command | **Ctrl+K** (⌘K on Mac) on any screen |
+| Write a note | **+ Note** on the shelf, or drop a `.md` file into `notes/<topic>/` |
+| Link | Type `[[` in the editor to pick a note or deck |
+| Share a note right now | **▶ Flash play** on the note (or press P). No files are created |
+| Build a real deck | **Make a deck** on the note: a new skeleton in `slides/<same topic>/`, independent afterwards |
+| Keep what was said | While playing a deck, Ctrl+K → **Save this deck as an after-talk note** |
+| Present | Enter to zoom, arrows to move, S speaker view, D pen, P for PDF, export to a single HTML file |
+| Check the library | **✓ Check** on the shelf, or `node leafpile-check.mjs` |
+
+A Mdslide Pile library opens as it is (a folder without `notes/` and `slides/` is treated as a deck library).
 
 ```bash
-node scripts/guard-content.mjs content   # size, paths, visibility, expiry, personal data
-node --test tests/*.test.mjs             # unit tests (Node 18+, no npm install)
+node scripts/check.mjs <library>                           # notes, decks and links
+node scripts/promote.mjs <library> notes/<topic>/<note>.md  # note → new deck skeleton
+node scripts/after-talk.mjs <library> slides/<topic>/<deck>  # deck → after-talk note
+node scripts/guard-content.mjs content                     # before pushing to GitHub
+node --test tests/*.test.mjs                               # unit tests (Node 18+, no npm install)
 ```
 
 ## What goes on GitHub

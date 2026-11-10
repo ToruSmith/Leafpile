@@ -2,7 +2,7 @@
 
 這份文件定義一個 Leafpile 書庫怎麼存。**人與 AI 都照這一份**；程式、守門腳本與範例都以它為準。
 
-- 簡報渠道的細節（版型、投影片設定、媒體、圖表）完全沿用 [Mdslide Pile 製作專案指南](https://github.com/ToruSmith/Mdslide-Pile/blob/main/製作專案指南.md)，這裡只寫 Leafpile 新增或不同的地方。
+- 簡報渠道的細節（版型、投影片設定、媒體、圖表）在 [`slides/GUIDE.zh-Hant.md`](slides/GUIDE.zh-Hant.md)（[English](slides/GUIDE.en.md)），這裡只寫 Leafpile 新增或不同的地方。
 - 筆記與簡報怎麼互通，見 [`INTEROP.md`](INTEROP.md)。
 
 ---
@@ -50,7 +50,7 @@ Leafpile 新增：
 
 - **主題資料夾建議用兩位數字分段**：`0x` 系統（範例、收件匣）、`1x` 學習、`2x` 工作、`3x` 財經、`4x` 參考、`5x` 生活。留空位方便插入。
 - **要放上 GitHub 的路徑只用英文字母、數字、`-`、`_`、`.`**；中文寫在 `name`、`title`。本機書庫可以用中文。
-- 舊的 `_封存/` 仍然讀得懂；新的封存一律寫到 `_archive/`。
+- 底線開頭的資料夾一律略過，所以舊的 `_封存/` 不受影響；新的封存一律寫到 `_archive/`。
 
 ## 3. 設定檔
 
@@ -199,17 +199,18 @@ from_deck: slides/10-reading/2026-11-x
 
 ## 8. 封存
 
-刪除一律是封存：搬到書庫根目錄的 `_archive/`，保留原本的相對路徑；同名時加編號。Leafpile 從不呼叫刪除。
+刪除一律是封存：搬到書庫根目錄的 `_archive/`，保留原本的相對路徑（例如 `_archive/slides/10-reading/2026-11-x/01-why/02-old.md`）；同名時加編號。Leafpile 從不直接刪除你的檔案。
+
+開啟的是 Mdslide Pile 書庫或單一簡報（沒有 `notes/` 與 `slides/`）時，封存放在該簡報資料夾下的 `_archive/`。
 
 ## 9. 自動判斷開啟的層級
 
-使用者可能開啟整個書庫、單一渠道、主題或單一簡報。依序判斷：
+1. 資料夾裡有 `notes/` 或 `slides/` 子資料夾 → **Leafpile 書庫**（兩個渠道）。
+2. 其他 → 當成**簡報渠道**，沿用 Mdslide Pile 的判斷：有 `deck.yml` 是單一簡報、有 `_topic.yml` 是主題、其他是簡報書庫。所以 Mdslide Pile 的書庫與單一簡報資料夾可以直接開啟。
 
-1. 有 `notes/` 或 `slides/` 子資料夾 → 書庫
-2. 有 `deck.yml` → 單一簡報（交給 Mdslide 規則）
-3. 有 `_book.yml` → 筆記本
-4. 有 `_topic.yml` → 主題（看父資料夾名稱判斷渠道；判斷不出來時，有 `deck.yml` 子資料夾就是簡報主題）
-5. 其他 → 交給 Mdslide Pile 原本的判斷（簡報書庫）
+筆記渠道裡的層級：`notes/<主題>/` 底下直接放的 `.md` 是散篇筆記；子資料夾是筆記本（`_book.yml` 可省略，筆記本裡還可以再分資料夾，最多三層）。直接放在 `notes/` 底下的 `.md` 顯示為「未歸檔」。
+
+筆記裡的圖片：`![說明](media/a.png)` 相對於這篇筆記所在的資料夾；`/` 開頭則相對於 `notes/`。
 
 ## 10. 版本
 

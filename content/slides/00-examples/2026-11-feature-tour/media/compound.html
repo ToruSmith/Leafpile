@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compound interest</title>
+<style>
+  :root { --ink: #2d2a26; --muted: #8a8378; --accent: #b4654a; --soft: #f3eee4; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #fffdf8; color: var(--ink);
+    font: 18px/1.5 system-ui, -apple-system, "Segoe UI", "Noto Sans TC", "PingFang TC", sans-serif; }
+  main { width: min(560px, 92vw); padding: 18px 24px; }
+  h1 { margin: 0 0 8px; font-size: 24px; }
+  label { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; margin: 8px 0; font-size: 16px; color: var(--muted); }
+  label b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); }
+  .result { margin-top: 14px; padding: 14px 18px; border-radius: 14px; background: var(--soft); }
+  .result small { color: var(--muted); }
+  .result strong { display: block; font-size: 34px; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .bars { display: flex; align-items: flex-end; gap: 3px; height: 64px; margin-top: 10px; }
+  .bars i { flex: 1; background: var(--accent); opacity: .75; border-radius: 3px 3px 0 0; min-height: 2px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Compound interest</h1>
+  <label>Starting amount<b id="v-start"></b><input id="start" type="range" min="10" max="500" step="10" value="100"></label>
+  <label>Yearly return<b id="v-rate"></b><input id="rate" type="range" min="0" max="12" step="0.5" value="6"></label>
+  <label>Years<b id="v-years"></b><input id="years" type="range" min="1" max="40" step="1" value="20"></label>
+  <div class="result"><small>Final amount</small><strong id="out"></strong><div class="bars" id="bars"></div></div>
+</main>
+<script>
+  const $ = id => document.getElementById(id);
+  const fmt = n => n.toLocaleString('en-US', { maximumFractionDigits: 1 });
+  function draw() {
+    const p = +$('start').value, r = +$('rate').value / 100, y = +$('years').value;
+    $('v-start').textContent = fmt(p) + ' k';
+    $('v-rate').textContent = $('rate').value + ' %';
+    $('v-years').textContent = y + ' yrs';
+    const values = Array.from({ length: y + 1 }, (_, i) => p * Math.pow(1 + r, i));
+    $('out').textContent = fmt(values[y]) + ' k';
+    const max = values[y];
+    $('bars').innerHTML = values.map(v => '<i style="height:' + (v / max * 100).toFixed(1) + '%"></i>').join('');
+  }
+  document.querySelectorAll('input').forEach(i => i.addEventListener('input', draw));
+  draw();
+</script>
+</body>
+</html>

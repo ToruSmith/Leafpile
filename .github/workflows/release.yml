@@ -1,0 +1,59 @@
+name: 發布新版
+
+# 兩種觸發方式(結果相同):
+#   1. 在 GitHub 網頁:Actions → 發布新版 → Run workflow(版本號取自 package.json,會自動建立標籤)
+#   2. 推送版本標籤:git tag v0.1.0 && git push origin v0.1.0
+# 流程:跑測試 → 組出範例書庫 → 打包 Leafpile-library-vX.Y.Z.zip → 建立 GitHub Release(說明取自 CHANGELOG)
+# 同一版重跑時會更新附件,不會失敗。
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: 測試與檢查
+        run: |
+          node --test tests/*.test.mjs
+          node scripts/check.mjs content
+          node scripts/guard-content.mjs content
+          node scripts/bundle-check.mjs
+          git diff --exit-code dist/
+      - name: 決定版本標籤
+        run: |
+          TAG="v$(node -p "require('./package.json').version")"
+          if [ "$GITHUB_REF_TYPE" = tag ] && [ "$GITHUB_REF_NAME" != "$TAG" ]; then
+            echo "標籤 $GITHUB_REF_NAME 與 package.json 的 $TAG 不一致"; exit 1
+          fi
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+      - name: 組出範例書庫並打包
+        run: |
+          node scripts/build-starter.mjs build/leafpile-library
+          node build/leafpile-library/leafpile-check.mjs build/leafpile-library
+          cd build && python3 -m zipfile -c "Leafpile-library-$TAG.zip" leafpile-library/
+      - name: 從 CHANGELOG 取出這一版的說明
+        run: |
+          v="${TAG#v}"
+          awk -v v="$v" '$0 ~ "^## "v" " {on=1; next} /^## / {on=0} on' CHANGELOG.md > build/notes.md
+          test -s build/notes.md
+      - name: 建立 Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          files=("build/Leafpile-library-$TAG.zip" dist/leafpile-check.mjs)
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            for a in $(gh release view "$TAG" --json assets -q '.assets[].name'); do gh release delete-asset "$TAG" "$a" -y; done
+            gh release upload "$TAG" "${files[@]}"
+            gh release edit "$TAG" --notes-file build/notes.md
+          else
+            gh release create "$TAG" "${files[@]}" --title "$TAG" --notes-file build/notes.md --target "$GITHUB_SHA"
+          fi

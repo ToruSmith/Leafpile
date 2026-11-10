@@ -8,10 +8,10 @@ Leafpile 沿用 Mdslide Pile 的分層：資料只往下流，**來源 → `core
 │ HttpSource（GitHub Pages 的 content/）  EmbeddedSource（匯出的單一 HTML） │
 └──────────────────────────────┬──────────────────────────────────────┘
 ┌ ② core/ 純邏輯（無 DOM、無 Node API）───────────────────────────────┐
-│ names  yaml  markdown(+wikilink)  slide  note  library  links       │
-│ privacy  check  chart  style  color  i18n                            │
+│ names  yaml  markdown(+wikilink)  slide  library  chart  style  i18n │
+│ vault  note  links  graph  privacy  bridge  check                    │
 └──────────────────────────────┬──────────────────────────────────────┘
-┌ ③ 索引快取（IndexedDB）：標題、別名、標籤、連結、修改時間 ─────────────┐
+┌ ③ 圖譜（記憶體，背景建立）：標題、別名、標籤、連結、反向連結、搜尋 ────┐
 └──────────────────────────────┬──────────────────────────────────────┘
 ┌ ④ 介面 ─────────────────────────────────────────────────────────────┐
 │ 筆記：書架、閱讀、編輯、搜尋、反向連結                                   │
@@ -20,39 +20,36 @@ Leafpile 沿用 Mdslide Pile 的分層：資料只往下流，**來源 → `core
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-## 目錄（第一階段之後）
+## 目錄
+
+完整的目錄與每個模組的用途在 [`AGENTS.md`](../AGENTS.md#目錄)。Leafpile 在 Mdslide Pile 引擎上新增的模組：
+
+| 模組 | 做什麼 |
+|---|---|
+| `core/vault.js` | `openVault()`：判斷是 Leafpile 書庫還是簡報書庫；`subSource()` 把 `notes/`、`slides/` 包成各自的資料來源；同名主題配對；分類 |
+| `core/note.js` | `parseNote()`：front matter、標題、`[[連結]]`、`sectionOf()` 取出一段 |
+| `core/links.js` | `createResolver()`：標題 → 別名 → 檔名 → 路徑；`computeBacklinks()` |
+| `core/graph.js` | `buildGraph()`：背景讀完所有筆記與投影片裡的連結；`searchGraph()` 全文搜尋 |
+| `core/privacy.js` | `resolvePublic()`、`isLocalOnly()`、`scanPII()`：網站與守門腳本共用 |
+| `core/bridge.js` | `expandEmbeds()`、`promoteNote()`、`promoteBook()`、`distillDeck()` |
+| `core/check.js` | `checkVault()`：簡報規則（沿用）＋筆記與互通規則；錯誤與警告分開 |
+| `player/flash.js` | `noteToDeck()`：筆記 → 播放器要的 deck 物件 |
+| `ui/shelf.js` | 書架：分類、主題、筆記本、散篇、簡報卡片、急件、全文搜尋 |
+| `ui/notes/reader.js`、`editor.js` | 閱讀（目錄、反向連結）與編輯（即時預覽、草稿保護、`[[` 自動完成） |
+| `ui/palette.js`、`ui/dialog.js` | Ctrl+K 指令面板、對話框與提示 |
+
+### 網址
 
 ```
-index.html            入口（CSP；只載入 CSS 與 app/main.js）
-sw.js / offline.html  離線快取（只快取網站本身，不快取使用者內容）
-app/
-  main.js             路由、首頁、資料來源、介面語言
-  core/               ── 沿用 Mdslide ──
-    names.js yaml.js markdown.js slide.js style.js color.js chart.js highlight.js i18n.js check.js
-                      ── Leafpile 新增 ──
-    note.js           一個筆記檔 → 筆記資料（front matter、標題、段落、連結、摘錄）
-    library.js        擴充：雙渠道掃描、主題配對、筆記本層
-    links.js          [[連結]] 解析、目標比對、反向連結
-    privacy.js        公開判斷（筆記 > 筆記本 > 主題 > 私人）、個資樣式
-    locales/          zh-Hant.js、en.js
-  sources/            沿用 Mdslide：sources.js、store.js；新增 index.js（IndexedDB 索引）
-  ui/
-    shelf.js          雙渠道書架（筆記｜簡報｜全部）、分類分組、急件區
-    palette.js        Ctrl+K 指令面板
-    notes/            reader.js、editor.js、backlinks.js、search.js
-    check-view.js
-  player/             沿用 Mdslide 播放器；新增 flash.js（快閃播放）、embed-note.js（摘錄）、qa.js（講者視窗問答）
-  boards/             （第三階段）畫布，由 Vault 的 canvas*.js 改寫成 ES 模組
-  styles/             themes.css、slides.css、app.css、notes.css
-scripts/
-  guard-content.mjs   GitHub 守門（已完成）
-  check.mjs           規則檢查（筆記＋簡報＋互通）
-  new-note.mjs        新增筆記或筆記本
-  new-deck.mjs        沿用 Mdslide
-  promote.mjs         升級成簡報
-  build-catalog.mjs   產生 content/ 的目錄（部署時）
-tests/                node:test；smoke/（Playwright 冒煙測試，不寫進 package.json）
+#/<書庫>                                書架
+#/<書庫>/n/<筆記路徑>[/<段落>]            閱讀筆記
+#/<書庫>/e/<筆記路徑>                     編輯筆記
+#/<書庫>/f/<筆記路徑>[/<第幾張>]          快閃播放
+#/<書庫>/d/<主題>/<簡報>[/<第幾張>[/read]]  播放簡報
+#/<書庫>/go/<連結>/<來自哪篇>             解析 [[連結]] 後轉過去
 ```
+
+`<書庫>` 是 `repo`（內建）、`local/<id>`（記住的本機資料夾）或 `session`。Mdslide Pile 的舊網址 `#/<書庫>/<主題>/<簡報>/<n>` 會自動轉到新網址。
 
 ## 資料來源介面
 
@@ -66,7 +63,9 @@ tests/                node:test；smoke/（Playwright 冒煙測試，不寫進 p
 | `mediaURL(path)` | 取得媒體的網址 |
 | `releaseMedia()` | 釋放媒體網址 |
 
-可寫入的來源另外提供 `canWrite`、`writeText(path, text, { expect })`、`stat(path)`、`archive(path)`。
+可寫入的來源另外提供 `canWrite`、`writeText(path, text, { expect, mkdir })`、`stat(path)`、`archive(path, dir)`。
+
+`subSource(parent, 'notes')` 把書庫的一個子資料夾包成同樣介面的來源：路徑自動加前綴，寫入與監看轉給原來的來源，封存一律搬到書庫根目錄的 `_archive/`。播放器與編輯器因此不需要知道自己在 Leafpile 書庫裡。
 
 ## 讀取分層（按需讀取）
 
@@ -76,9 +75,11 @@ tests/                node:test；smoke/（Playwright 冒煙測試，不寫進 p
 | 封面 | 書架捲到 | `_book.yml`、`deck.yml`、筆記的 front matter（只讀前 4 KB） |
 | 內容 | 點開 | 整篇筆記或整份簡報 |
 | 媒體 | 快要看到 | 圖片、影片 |
-| 索引 | 背景、閒置時 | 全部筆記的標題、別名、連結；以「路徑＋修改時間」增量更新 |
+| 圖譜 | 開啟書架後在背景 | 全部筆記的標題、別名、連結，與投影片裡的 `[[連結]]`（同時最多 6 個讀取） |
 
-反向連結、全文搜尋、`[[連結]]` 自動完成依賴索引；索引還沒建好時，介面顯示「建立索引中」，不擋住閱讀。
+反向連結、全文搜尋、`[[連結]]` 自動完成依賴圖譜；圖譜還沒建好時，介面顯示「建立索引中」，不擋住閱讀。
+
+圖譜目前放在記憶體裡，每次開啟書庫重建一次。1,000 篇以上的書庫需要把它存進 IndexedDB、依修改時間增量更新，排在第三階段。
 
 ## 安全
 

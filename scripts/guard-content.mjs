@@ -12,58 +12,20 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, extname, dirname, basename, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { parseYaml } from '../app/core/yaml.js';
+import { splitFrontMatter } from '../app/core/note.js';
+import { resolvePublic, isLocalOnly, scanPII } from '../app/core/privacy.js';
+
 export const DEFAULT_LIMITS = { image_kb: 300, text_kb: 100, total_mb: 20 };
 
 const IMAGE_EXT = new Set(['.svg', '.webp', '.png', '.jpg', '.jpeg', '.gif', '.avif']);
-const TEXT_EXT = new Set(['.md', '.yml', '.yaml', '.json', '.canvas']);
+// .html:簡報裡的互動網頁(沙箱執行,見 docs/slides/GUIDE.zh-Hant.md);和其他文字檔一樣有大小上限
+const TEXT_EXT = new Set(['.md', '.yml', '.yaml', '.json', '.canvas', '.html']);
 const SAFE_PATH = /^[A-Za-z0-9._\-/]+$/;
 
-// 個資樣式（沿用讀書筆記 Vault 的個資掃描精神）：只警告、不阻擋。
-const PII = [
-  { key: 'email', re: /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/ },
-  { key: 'phone', re: /(?<!\d)09\d{2}[-\s]?\d{3}[-\s]?\d{3}(?!\d)/ },
-  { key: 'tw-id', re: /(?<![A-Za-z0-9])[A-Z][12]\d{8}(?!\d)/ }
-];
-
-/** 精簡 YAML：只讀第一層的 `key: value`（值可為 true/false/數字/字串/[a, b]），足夠守門使用。 */
-export function parseFlatYaml(text) {
-  const out = {};
-  for (const raw of text.split(/\r?\n/)) {
-    if (/^\s/.test(raw) || /^\s*(#|$)/.test(raw)) continue;
-    const m = raw.match(/^([A-Za-z_][\w-]*):\s*(.*)$/);
-    if (!m) continue;
-    out[m[1]] = scalar(m[2]);
-  }
-  return out;
-}
-
-/** 讀出某個區塊底下第二層的 `key: value`，例如 _site.yml 的 limits。 */
-export function parseBlock(text, name) {
-  const out = {};
-  let inside = false;
-  for (const raw of text.split(/\r?\n/)) {
-    if (!/^\s/.test(raw) && raw.trim()) inside = raw.startsWith(name + ':');
-    else if (inside) {
-      const m = raw.match(/^\s+([A-Za-z_][\w-]*):\s*(.*)$/);
-      if (m) out[m[1]] = scalar(m[2]);
-    }
-  }
-  return out;
-}
-
-function scalar(v) {
-  v = v.replace(/\s+#.*$/, '').trim();
-  if (v === 'true') return true;
-  if (v === 'false') return false;
-  if (/^-?\d+(\.\d+)?$/.test(v)) return Number(v);
-  if (/^\[.*\]$/.test(v)) return v.slice(1, -1).split(',').map(s => s.trim()).filter(Boolean);
-  return v.replace(/^["']|["']$/g, '');
-}
-
-/** 取出 Markdown 開頭的 front matter。 */
+/** 取出 Markdown 開頭的 front matter(與網站同一個解析器)。 */
 export function frontMatter(md) {
-  const m = md.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
-  return m ? parseFlatYaml(m[1]) : {};
+  return splitFrontMatter(md).data;
 }
 
 function walk(dir, list = []) {
@@ -78,27 +40,19 @@ function walk(dir, list = []) {
 }
 
 function readYaml(path) {
-  try { return parseFlatYaml(readFileSync(path, 'utf8')); } catch { return null; }
+  try {
+    const v = parseYaml(readFileSync(path, 'utf8'));
+    return v && typeof v === 'object' ? v : {};
+  } catch { return null; }
 }
 
-/**
- * 筆記是否公開：筆記 > 筆記本（_book.yml）> 主題（_topic.yml）> 私人。
- * 也回傳主題是否 local_only。
- */
-function noteVisibility(root, file, fm) {
+/** 筆記的主題與筆記本設定(公開判斷用 app/core/privacy.js,與網站同一套規則)。 */
+function noteContext(root, file, fm) {
   const rel = relative(root, file).split(/[\\/]/);
-  const out = { public: undefined, localOnly: false };
-  // rel = ['notes', '<topic>', ...]
-  if (rel[0] !== 'notes' || rel.length < 3) return { public: fm.public === true, localOnly: false };
+  if (rel[0] !== 'notes' || rel.length < 3) return { note: fm, book: {}, topic: {} };
   const topic = readYaml(join(root, 'notes', rel[1], '_topic.yml')) || {};
-  out.localOnly = topic.local_only === true;
-  let book = {};
-  if (rel.length >= 4) book = readYaml(join(root, 'notes', rel[1], rel[2], '_book.yml')) || {};
-  for (const v of [fm.public, book.public, topic.public]) {
-    if (typeof v === 'boolean') { out.public = v; break; }
-  }
-  if (out.public === undefined) out.public = false;
-  return out;
+  const book = rel.length >= 4 ? readYaml(join(root, 'notes', rel[1], rel[2], '_book.yml')) || {} : {};
+  return { note: fm, book, topic };
 }
 
 /** 主程式：回傳 { errors, warnings, stats }。 */
@@ -109,10 +63,8 @@ export function guard(root, { today = new Date().toISOString().slice(0, 10) } = 
   const warn = (file, msg) => warnings.push({ file: relative(root, file) || '.', msg });
 
   let limits = { ...DEFAULT_LIMITS };
-  try {
-    const site = readFileSync(join(root, '_site.yml'), 'utf8');
-    limits = { ...limits, ...parseBlock(site, 'limits') };
-  } catch { /* _site.yml 可省略 */ }
+  const site = readYaml(join(root, '_site.yml'));
+  if (site?.limits && typeof site.limits === 'object') limits = { ...limits, ...site.limits };
 
   const files = walk(root);
   let total = 0;
@@ -138,19 +90,15 @@ export function guard(root, { today = new Date().toISOString().slice(0, 10) } = 
     const isNote = rel.startsWith('notes/');
 
     if (isNote) {
-      const vis = noteVisibility(root, path, fm);
-      if (vis.localOnly) err(path, '這個主題設定 local_only，只能留在本機，不可放上 GitHub');
-      else if (!vis.public) err(path, '這篇筆記不是公開的（筆記、筆記本或主題設為私人或沒寫）；放上 GitHub 等於公開，請改 public: true 或移回本機');
+      const ctx = noteContext(root, path, fm);
+      if (isLocalOnly(ctx.topic)) err(path, '這個主題設定 local_only，只能留在本機，不可放上 GitHub');
+      else if (!resolvePublic(ctx)) err(path, '這篇筆記不是公開的（筆記、筆記本或主題設為私人或沒寫）；放上 GitHub 等於公開，請改 public: true 或移回本機');
     }
 
     if (fm.pinned === true && !fm.expires) warn(path, '急件（pinned）請加上 expires 到期日');
     if (fm.expires && String(fm.expires) < today) warn(path, `已在 ${fm.expires} 到期，請刪除或移到 _archive/`);
 
-    const body = text.replace(/```[\s\S]*?```/g, '');
-    for (const { key, re } of PII) {
-      const hit = body.match(re);
-      if (hit) warn(path, `可能含有個資（${key}）：「${hit[0]}」`);
-    }
+    for (const hit of scanPII(text)) warn(path, `可能含有個資（${hit.key}）：「${hit.match}」`);
   }
 
   if (total > limits.total_mb * 1024 * 1024) {
