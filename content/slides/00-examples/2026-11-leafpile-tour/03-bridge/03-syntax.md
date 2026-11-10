@@ -9,4 +9,4 @@
 完整規則：docs/INTEROP.md
 
 Note:
-現在的 Mdslide Pile 會把這些語法顯示成文字；Leafpile 第一、二階段才會解析。
+Mdslide Pile 會把這些語法顯示成文字；在 Leafpile 裡才會解析。下一張就是摘錄的實例。

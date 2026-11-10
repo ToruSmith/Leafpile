@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Mdslide Pile</title>
+<!--
+  播放簡報資料夾裡的 HTML 檔用的中繼頁(見 app/player/hydrate.js)。
+  這一頁刻意不設內容安全政策:收到的 HTML 放進下面那個隔離的框框(沒有 allow-same-origin),
+  裡面的程式可以執行,但碰不到本網站的資料。只接受同網站送來的內容。
+-->
+<style>html, body { margin: 0; height: 100%; background: #fff; } iframe { display: block; width: 100%; height: 100%; border: 0; }</style>
+</head>
+<body>
+<iframe sandbox="allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox" allow="fullscreen" allowfullscreen></iframe>
+<script src="app/embed-host.js"></script>
+</body>
+</html>

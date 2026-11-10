@@ -1,0 +1,11 @@
+mdslide: 1
+title: 夜間模式
+subtitle: 同一份 Markdown,換一套主題
+kicker: 官方範例 · 主題與排列
+date: 2026-11-08
+theme: ink
+cover_image: media/night.jpg
+tags: [範例, 深色主題, Coverflow]
+layout:
+  stage: coverflow
+end: 晚安

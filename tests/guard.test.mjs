@@ -5,7 +5,7 @@ import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { guard, frontMatter, parseBlock } from '../scripts/guard-content.mjs';
+import { guard, frontMatter } from '../scripts/guard-content.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -28,9 +28,15 @@ test('內建 content/ 沒有錯誤', () => {
   assert.deepEqual(res.warnings, []);
 });
 
-test('front matter 與 limits 解析', () => {
+test('front matter 解析(與網站同一個解析器)', () => {
   assert.deepEqual(frontMatter('---\ntitle: 甲\npublic: true\ntags: [a, b]\n---\n# 甲'), { title: '甲', public: true, tags: ['a', 'b'] });
-  assert.deepEqual(parseBlock('title: x\nlimits:\n  image_kb: 50\n  total_mb: 5\ntheme: paper\n', 'limits'), { image_kb: 50, total_mb: 5 });
+});
+
+test('互動網頁 .html 可以放,但影片仍然不行', () => {
+  const root = lib({ 'slides/00-a/d/media/page.html': '<p>hi</p>', 'slides/00-a/d/media/a.webm': 'x' });
+  const errs = guard(root).errors;
+  assert.equal(errs.length, 1);
+  assert.match(errs[0].file, /a\.webm$/);
 });
 
 test('私人主題底下沒寫 public 的筆記會被擋', () => {

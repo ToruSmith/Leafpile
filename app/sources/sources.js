@@ -1,0 +1,274 @@
+// 資料來源:把「倉庫裡的檔案」與「使用者電腦裡的資料夾」包成同一個介面。
+//
+// 介面(core/library.js 只認這四個):
+//   label                 顯示名稱
+//   list(path)            → [{ name, kind: 'file'|'dir' }]
+//   readText(path)        → string
+//   mediaURL(path)        → 可放進 <img>/<video> 的網址
+//   releaseMedia()        釋放 mediaURL 產生的暫存網址(離開簡報時呼叫)
+//
+// 本機來源讀到的清單都會快取:同一個資料夾只列一次,減少隨身碟讀取。
+
+const enc = p => p.split('/').map(encodeURIComponent).join('/');
+import { t } from '../core/i18n.js';
+
+/** 倉庫模式:讀 GitHub Pages 上的 content/,目錄清單來自建置時產生的 catalog.json。 */
+export class HttpSource {
+  constructor(base, catalog) {
+    this.kind = 'repo';
+    this.base = base.replace(/\/?$/, '/');
+    this.tree = catalog.tree;
+    this.label = catalog.title || t('source.repoLabel');
+  }
+  static async open(base = 'content/', catalogURL = 'catalog.json') {
+    const res = await fetch(catalogURL, { cache: 'no-cache' });
+    if (!res.ok) throw new Error(t('source.noCatalog'));
+    return new HttpSource(base, await res.json());
+  }
+  async list(path) {
+    const entries = this.tree[path];
+    if (!entries) throw new Error('not found: ' + path);
+    return entries;
+  }
+  async readText(path) {
+    const i = path.lastIndexOf('/');
+    const dir = this.tree[i < 0 ? '' : path.slice(0, i)];
+    if (!dir || !dir.some(e => e.name === path.slice(i + 1))) throw new Error('not found: ' + path); // 不存在就不發請求
+    const res = await fetch(this.base + enc(path));
+    if (!res.ok) throw new Error(`${res.status} ${path}`);
+    return res.text();
+  }
+  async mediaURL(path) { return this.base + enc(path); }
+  releaseMedia() {}
+}
+
+/** 本機模式(Chrome / Edge):FileSystemDirectoryHandle,可以記住並在下次重新連線。 */
+export class HandleSource {
+  constructor(handle, id = null) {
+    this.kind = 'handle';
+    this.handle = handle;
+    this.id = id;
+    this.label = handle.name;
+    this.dirCache = new Map([['', handle]]);
+    this.listCache = new Map();
+    this.urls = new Map();
+  }
+  async dir(path) {
+    if (this.dirCache.has(path)) return this.dirCache.get(path);
+    const i = path.lastIndexOf('/');
+    const parent = await this.dir(i < 0 ? '' : path.slice(0, i));
+    const h = await parent.getDirectoryHandle(path.slice(i + 1));
+    this.dirCache.set(path, h);
+    return h;
+  }
+  async list(path) {
+    if (this.listCache.has(path)) return this.listCache.get(path);
+    const d = await this.dir(path);
+    const out = [];
+    for await (const [name, h] of d.entries()) {
+      out.push({ name, kind: h.kind === 'directory' ? 'dir' : 'file' });
+      if (h.kind === 'directory') this.dirCache.set(path ? `${path}/${name}` : name, h);
+    }
+    this.listCache.set(path, out);
+    return out;
+  }
+  async file(path) {
+    const i = path.lastIndexOf('/');
+    const d = await this.dir(i < 0 ? '' : path.slice(0, i));
+    return (await d.getFileHandle(path.slice(i + 1))).getFile();
+  }
+  async readText(path) { return (await this.file(path)).text(); }
+  async mediaURL(path) {
+    if (!this.urls.has(path)) this.urls.set(path, this.file(path).then(f => URL.createObjectURL(f)));
+    return this.urls.get(path);
+  }
+  releaseMedia() {
+    for (const p of this.urls.values()) p.then(u => URL.revokeObjectURL(u), () => {});
+    this.urls.clear();
+  }
+  /** 重新整理:清掉快取,下次會重新讀資料夾。 */
+  refresh() { this.listCache.clear(); this.dirCache = new Map([['', this.handle]]); }
+
+  // ---------------- 寫入(編輯模式) ----------------
+  // 安全規則:
+  //   1. 一定要使用者授權才寫得了(瀏覽器會跳出詢問)。
+  //   2. 只寫 .md 與 .yml,而且只在這個書庫資料夾裡面。
+  //   3. 寫之前先比對「打開時的檔案狀態」,別的程式改過就停下來問使用者。
+  //   4. 刪除一律改成搬到 _封存/,不真的刪檔。
+  get canWrite() { return true; }
+
+  /** 要求寫入權限;使用者沒答應就回傳 false。 */
+  async ensureWritable() {
+    const q = await this.handle.queryPermission?.({ mode: 'readwrite' });
+    if (q === 'granted') return true;
+    return (await this.handle.requestPermission?.({ mode: 'readwrite' })) === 'granted';
+  }
+
+  /** 檔案目前的狀態(修改時間與大小),用來判斷有沒有被別的程式改過。 */
+  async stat(path) {
+    try { const f = await this.file(path); return `${f.lastModified}:${f.size}`; } catch { return null; }
+  }
+
+  /**
+   * 寫入文字檔。expect = 打開時的 stat();不符就丟出 'stale'(檔案被別的程式改過)。
+   * 瀏覽器會先寫暫存檔,關閉時才取代原檔,所以寫到一半中斷不會弄壞原檔。
+   */
+  async writeText(path, text, { expect = undefined, mkdir = false } = {}) {
+    checkPath(path);
+    if (!(await this.ensureWritable())) throw new Error('denied');
+    if (expect !== undefined && (await this.stat(path)) !== expect) throw new Error('stale');
+    const i = path.lastIndexOf('/');
+    let d;
+    if (mkdir) {
+      // 新增簡報骨架、講後筆記時:沿路建立還不存在的資料夾
+      d = this.handle;
+      for (const part of (i < 0 ? '' : path.slice(0, i)).split('/').filter(Boolean)) d = await d.getDirectoryHandle(part, { create: true });
+      this.refresh();
+    } else d = await this.dir(i < 0 ? '' : path.slice(0, i));
+    const h = await d.getFileHandle(path.slice(i + 1), { create: true });
+    const w = await h.createWritable();
+    try {
+      await w.write(text);
+    } finally {
+      await w.close();
+    }
+    this.listCache.delete(i < 0 ? '' : path.slice(0, i));
+    return this.stat(path);
+  }
+
+  /** 搬到同一個簡報資料夾下的 _封存/(不真的刪檔)。回傳新位置。 */
+  async archive(path, archiveDir) {
+    checkPath(path);
+    const text = await this.readText(path);
+    const name = path.slice(path.lastIndexOf('/') + 1);
+    if (!(await this.ensureWritable())) throw new Error('denied');
+    const parts = archiveDir.split('/').filter(Boolean);
+    let d = this.handle;
+    for (const part of parts) d = await d.getDirectoryHandle(part, { create: true });
+    let target = name;
+    for (let n = 2; await exists(d, target); n++) target = name.replace(/(\.[^.]*)?$/, `-${n}$&`); // 同名就加編號
+    const w = await (await d.getFileHandle(target, { create: true })).createWritable();
+    try { await w.write(text); } finally { await w.close(); }
+    const i = path.lastIndexOf('/');
+    await (await this.dir(i < 0 ? '' : path.slice(0, i))).removeEntry(name);
+    this.refresh();
+    return `${archiveDir}/${target}`;
+  }
+
+  /**
+   * 監看簡報資料夾:每隔一段時間比對 .md 與設定檔的修改時間(只讀檔案資訊,不讀內容),
+   * 以及子資料夾的增減;有變化就呼叫 onChange。分頁不在前景時暫停。回傳停止監看的函式。
+   */
+  watch(dirPaths, onChange, interval = 1500) {
+    let last = null, timer = null, stopped = false;
+    const snapshot = async () => {
+      const parts = [];
+      for (const p of dirPaths) {
+        let d;
+        try { d = await this.dir(p); } catch { parts.push(`${p}:gone`); continue; }
+        for await (const [name, h] of d.entries()) {
+          if (h.kind === 'directory') parts.push(`${p}/${name}/`);
+          else if (/\.(md|ya?ml)$/i.test(name)) { const f = await h.getFile(); parts.push(`${p}/${name}:${f.lastModified}:${f.size}`); }
+        }
+      }
+      return parts.sort().join('|');
+    };
+    const tick = async () => {
+      if (stopped) return;
+      if (typeof document === 'undefined' || !document.hidden) {
+        try {
+          const s = await snapshot();
+          if (last !== null && s !== last) await onChange();
+          last = s;
+        } catch { /* 隨身碟拔掉等情況:下次再試 */ }
+      }
+      if (!stopped) timer = setTimeout(tick, interval);
+    };
+    tick();
+    return () => { stopped = true; clearTimeout(timer); };
+  }
+}
+
+/** 只允許寫入書庫資料夾裡的 .md / .yml,路徑不能跳出去。 */
+function checkPath(path) {
+  if (!/^[^/][^\0]*$/.test(path) || path.split('/').some(p => !p || p === '.' || p === '..')) throw new Error('bad path');
+  if (!/\.(md|ya?ml)$/i.test(path)) throw new Error('bad type');
+}
+
+async function exists(dir, name) {
+  try { await dir.getFileHandle(name); return true; } catch { return false; }
+}
+
+/** 本機模式(所有瀏覽器):<input webkitdirectory> 或拖放取得的檔案清單。只讀到檔名,內容等需要時才讀。 */
+export class FileListSource {
+  constructor(files, label) {
+    this.kind = 'files';
+    this.files = new Map();
+    this.dirs = new Map([['', new Map()]]);
+    this.urls = new Map();
+    let root = label;
+    for (const { file, path } of files) {
+      const parts = path.split('/').filter(Boolean);
+      if (!root) root = parts[0];
+      if (parts[0] === root && parts.length > 1) parts.shift(); // 去掉最外層的資料夾名稱
+      this.files.set(parts.join('/'), file);
+      for (let i = 0; i < parts.length; i++) {
+        const dir = parts.slice(0, i).join('/');
+        if (!this.dirs.has(dir)) this.dirs.set(dir, new Map());
+        this.dirs.get(dir).set(parts[i], i === parts.length - 1 ? 'file' : 'dir');
+      }
+    }
+    this.label = root || t('source.localLabel');
+  }
+  static fromInput(fileList) {
+    return new FileListSource([...fileList].map(f => ({ file: f, path: f.webkitRelativePath || f.name })));
+  }
+  async list(path) {
+    const d = this.dirs.get(path);
+    if (!d) throw new Error('not found: ' + path);
+    return [...d].map(([name, kind]) => ({ name, kind }));
+  }
+  async readText(path) {
+    const f = this.files.get(path);
+    if (!f) throw new Error('not found: ' + path);
+    return f.text();
+  }
+  async mediaURL(path) {
+    if (!this.urls.has(path)) {
+      const f = this.files.get(path);
+      if (!f) throw new Error('not found: ' + path);
+      this.urls.set(path, URL.createObjectURL(f));
+    }
+    return this.urls.get(path);
+  }
+  releaseMedia() { for (const u of this.urls.values()) URL.revokeObjectURL(u); this.urls.clear(); }
+}
+
+/** 拖放:Chrome/Edge 優先拿到可記住的 handle;其他瀏覽器逐層走訪(只讀檔名)。 */
+export async function sourceFromDrop(dataTransfer) {
+  const item = [...dataTransfer.items].find(i => i.kind === 'file');
+  if (!item) return null;
+  if (item.getAsFileSystemHandle) {
+    const h = await item.getAsFileSystemHandle();
+    if (h && h.kind === 'directory') return new HandleSource(h);
+  }
+  const entry = item.webkitGetAsEntry?.();
+  if (!entry || !entry.isDirectory) return null;
+  const files = [];
+  const readAll = reader => new Promise((res, rej) => {
+    const out = [];
+    const step = () => reader.readEntries(batch => batch.length ? (out.push(...batch), step()) : res(out), rej);
+    step();
+  });
+  const walk = async (dir, prefix) => {
+    for (const e of await readAll(dir.createReader())) {
+      if (e.name.startsWith('.') || e.name === 'node_modules') continue;
+      if (e.isDirectory) await walk(e, `${prefix}/${e.name}`);
+      else files.push({ file: await new Promise((res, rej) => e.file(res, rej)), path: `${prefix}/${e.name}` });
+    }
+  };
+  await walk(entry, entry.name);
+  return new FileListSource(files, entry.name);
+}
+
+export const canPickDirectory = () => typeof window !== 'undefined' && 'showDirectoryPicker' in window;

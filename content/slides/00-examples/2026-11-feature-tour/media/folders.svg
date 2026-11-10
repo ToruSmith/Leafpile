@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 640">
+  <rect width="800" height="640" fill="#eef2ec"/>
+  <g font-family="sans-serif" font-size="26" fill="#2d2a26">
+    <path d="M80 90 a12 12 0 0 1 12 -12 h80 l18 18 h120 a12 12 0 0 1 12 12 v76 a12 12 0 0 1 -12 12 h-218 a12 12 0 0 1 -12 -12z" fill="#5f8a64"/>
+    <text x="340" y="150" font-weight="700">Deck</text>
+    <path d="M140 196 v330" stroke="#9fb3a1" stroke-width="4"/>
+    <path d="M140 270 h60 M140 430 h60" stroke="#9fb3a1" stroke-width="4"/>
+    <path d="M210 236 a10 10 0 0 1 10 -10 h60 l14 14 h90 a10 10 0 0 1 10 10 v56 a10 10 0 0 1 -10 10 h-164 a10 10 0 0 1 -10 -10z" fill="#8fb093"/>
+    <text x="420" y="282">Section</text>
+    <path d="M210 396 a10 10 0 0 1 10 -10 h60 l14 14 h90 a10 10 0 0 1 10 10 v56 a10 10 0 0 1 -10 10 h-164 a10 10 0 0 1 -10 -10z" fill="#8fb093"/>
+    <text x="420" y="442">Section</text>
+    <g fill="#fffdf8" stroke="#5f8a64" stroke-width="3">
+      <rect x="560" y="226" width="150" height="84" rx="8"/>
+      <rect x="590" y="250" width="150" height="84" rx="8"/>
+      <rect x="560" y="386" width="150" height="84" rx="8"/>
+    </g>
+    <path d="M394 270 h150 M394 430 h150" stroke="#9fb3a1" stroke-width="4" stroke-dasharray="8 8"/>
+    <text x="566" y="370" font-size="22" fill="#5f6b60">Slides .md</text>
+  </g>
+</svg>

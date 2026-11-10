@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 640">
+  <rect width="800" height="640" fill="#f4efe6"/>
+  <!-- 螢幕(遊戲機) -->
+  <rect x="120" y="70" width="560" height="340" rx="22" fill="#2d2a26"/>
+  <rect x="146" y="96" width="508" height="288" rx="10" fill="#fffdf8"/>
+  <g transform="translate(400 240)">
+    <rect x="-120" y="-60" width="200" height="112" rx="8" fill="#e9e2d4" transform="rotate(-8) translate(60 -30)"/>
+    <rect x="-120" y="-60" width="200" height="112" rx="8" fill="#dcd3c2" transform="rotate(5) translate(30 -12)"/>
+    <rect x="-110" y="-56" width="200" height="112" rx="8" fill="#ffffff" stroke="#c0674a" stroke-width="4"/>
+    <rect x="-110" y="-56" width="12" height="112" fill="#c0674a"/>
+    <rect x="-80" y="-30" width="120" height="12" rx="6" fill="#2d2a26"/>
+    <rect x="-80" y="-4" width="140" height="8" rx="4" fill="#cfc6b5"/>
+    <rect x="-80" y="14" width="110" height="8" rx="4" fill="#cfc6b5"/>
+  </g>
+  <rect x="360" y="410" width="80" height="34" fill="#2d2a26"/>
+  <rect x="270" y="440" width="260" height="16" rx="8" fill="#2d2a26"/>
+  <!-- 遊戲片(資料夾) -->
+  <g transform="translate(180 500)">
+    <path d="M0 18 a10 10 0 0 1 10 -10 h52 l14 14 h74 a10 10 0 0 1 10 10 v70 a10 10 0 0 1 -10 10 h-140 a10 10 0 0 1 -10 -10z" fill="#c0674a"/>
+  </g>
+  <g transform="translate(330 500)">
+    <path d="M0 18 a10 10 0 0 1 10 -10 h52 l14 14 h74 a10 10 0 0 1 10 10 v70 a10 10 0 0 1 -10 10 h-140 a10 10 0 0 1 -10 -10z" fill="#4f73a6"/>
+  </g>
+  <g transform="translate(480 500)">
+    <path d="M0 18 a10 10 0 0 1 10 -10 h52 l14 14 h74 a10 10 0 0 1 10 10 v70 a10 10 0 0 1 -10 10 h-140 a10 10 0 0 1 -10 -10z" fill="#5f8a64"/>
+  </g>
+  <path d="M400 492 v-28" stroke="#8a8378" stroke-width="4" stroke-dasharray="6 6"/>
+</svg>

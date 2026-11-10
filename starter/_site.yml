@@ -1,0 +1,27 @@
+# Leafpile 書庫設定(可省略)。這個資料夾放在你自己的電腦或隨身碟,內容不會上傳。
+leafpile: 1
+title: 我的頁堆
+description: 筆記在 notes/,簡報在 slides/。在 https://torusmith.github.io/Leafpile/ 按「開啟本機資料夾」選這個資料夾。
+theme: paper
+lang: zh-Hant
+
+# 分類:主題的 _topic.yml 用 category 指到這裡的 id。順序就是書架的順序。
+categories:
+  - id: inbox
+    name: 收件匣
+    color: "#8a8178"
+  - id: learning
+    name: 學習
+    color: "#4f73a6"
+  - id: work
+    name: 工作
+    color: "#5f8a64"
+  - id: finance
+    name: 財經
+    color: "#b08a3e"
+  - id: reference
+    name: 參考
+    color: "#7a5fa0"
+  - id: life
+    name: 生活
+    color: "#a0606e"

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" data-theme="paper">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https:; media-src 'self' blob: https:; frame-src 'self' https://www.youtube-nocookie.com https://player.bilibili.com https://drive.google.com https://player.vimeo.com https://*.github.io https://codepen.io; connect-src 'self' blob:; font-src 'self' data:; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<title>Leafpile · 一個資料夾，平常是筆記，上台是簡報</title>
+<meta name="description" content="用 Markdown 累積筆記,要分享時變成 3D 牌堆簡報。檔案留在你的電腦,網站只負責讀取。">
+<meta name="theme-color" content="#f3eee4">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='14' y='22' width='40' height='26' rx='4' fill='%23e9e2d4' transform='rotate(-8 34 35)'/><rect x='10' y='18' width='40' height='26' rx='4' fill='%23b4654a'/></svg>">
+<link rel="stylesheet" href="app/styles/themes.css">
+<link rel="stylesheet" href="app/styles/slides.css">
+<link rel="stylesheet" href="app/styles/app.css">
+<link rel="stylesheet" href="app/styles/notes.css">
+</head>
+<body>
+<div id="app"><div class="loading"><p>載入中…</p>
+  <!-- 程式沒載入時才會看到(例如用 file:// 直接開檔案)。app/main.js 一載入就會換掉整個 #app -->
+  <div class="boot-hint">
+    <p><strong>打不開嗎?</strong>如果你是直接用瀏覽器開啟下載下來的 <code>index.html</code>,瀏覽器基於安全規定會擋下程式載入。請改用下面任一種方式:</p>
+    <ul>
+      <li>在這個資料夾執行 <code>python3 -m http.server 8000</code>,再開 <code>http://localhost:8000</code>(需要 Python;也可以用任何靜態伺服器)</li>
+      <li>或直接用線上版 <a href="https://torusmith.github.io/Leafpile/">torusmith.github.io/Leafpile</a></li>
+    </ul>
+    <p lang="en"><strong>Not loading?</strong> Opening the downloaded <code>index.html</code> straight from disk is blocked by the browser for security. Run <code>python3 -m http.server 8000</code> in this folder and open <code>http://localhost:8000</code>, or use the online version linked above.</p>
+  </div>
+</div></div>
+<noscript>這個網站需要啟用 JavaScript。</noscript>
+<script type="module" src="app/main.js"></script>
+</body>
+</html>
