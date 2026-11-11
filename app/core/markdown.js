@@ -18,8 +18,14 @@ export function escapeHTML(s) {
 
 const defaultImage = (src, alt) => `<img data-media="${escapeHTML(src)}" alt="${escapeHTML(alt)}">`;
 
-/** 沒有指定時,[[連結]] 顯示成帶樣式的文字(簡報與匯出的單檔不知道連結要去哪裡)。 */
-const defaultWikilink = link => `<span class="wikilink${link.embed ? ' embed' : ''}">${escapeHTML(linkLabel(link))}</span>`;
+/**
+ * 沒有指定時,[[連結]] 顯示成帶樣式的文字(簡報與匯出的單檔不能跳轉)。
+ * data-link / data-heading 記下目標,播放器據此補上「連到哪裡」的說明(player/render.js 的 describeLinks)。
+ */
+const defaultWikilink = link => `<span class="wikilink${link.embed ? ' embed' : ''}" data-link="${escapeHTML(linkKey(link))}"${link.heading ? ` data-heading="${escapeHTML(link.heading)}"` : ''}>${escapeHTML(linkLabel(link))}</span>`;
+
+/** 連結目標的鍵(簡報的 deck.links 用它查目標說明)。 */
+export const linkKey = link => `${link.channel === 'slides' ? 'slides' : 'notes'}:${link.target}`;
 
 /**
  * @param {string} src

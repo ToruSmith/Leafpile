@@ -101,11 +101,14 @@ tags: [習慣]
 
 ### `deck.yml`（簡報）
 
-完全沿用 Mdslide Pile（`mdslide: 1`）。Leafpile 新增一個欄位，Mdslide Pile 會略過它：
+完全沿用 Mdslide Pile（`mdslide: 1`）。Leafpile 新增兩個欄位，Mdslide Pile 會略過它們：
 
 ```yaml
 source: notes/10-reading/2026-11-atomic-habits   # 升級自哪一份筆記或筆記本
+source_hash: "75bd4f04"                          # 升級時來源筆記內文的指紋（工具自動寫入，請不要手改）
 ```
+
+`source_hash` 是 8 個十六進位字元（FNV-1a 32 位元），算法在 `app/core/note.js` 的 `sourceFingerprint`。它只用來判斷「來源筆記在升級之後有沒有改過」（docs/INTEROP.md 第 4 節）；請保留引號，否則全是數字的指紋會被當成數字讀。
 
 ## 4. 筆記怎麼寫
 

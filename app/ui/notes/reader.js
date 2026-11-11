@@ -9,6 +9,7 @@ import { openLightbox } from '../../player/lightbox.js';
 import { applyUITheme } from '../../player/themes.js';
 import { t } from '../../core/i18n.js';
 import { notesOfTopic } from '../../core/vault.js';
+import { sourceStatus } from '../../core/graph.js';
 import { resolvePublic, isLocalOnly } from '../../core/privacy.js';
 
 const SCALE_KEY = 'leafpile-note-scale';
@@ -146,7 +147,13 @@ export function renderReader(root, { vault, rel, note, topic, book, header, href
       : `<p class="muted">${esc(t('note.noBacklinks'))}</p>`);
     const ub = root.querySelector('.used-by');
     ub.hidden = !fromDecks.length;
-    ub.querySelector('ul').innerHTML = fromDecks.map(b => `<li><a href="${href.deck(b.from.topicId, b.from.project.id)}">▦ ${esc(b.from.title)}</a><small>${esc(t(b.via === 'source' ? 'note.viaSource' : 'note.viaLink'))}</small></li>`).join('');
+    ub.querySelector('ul').innerHTML = fromDecks.map(b => {
+      // 反向連結裡一份簡報只算一次:既是升級來源又有連結時 via 是 link,所以直接看 source
+      const st = b.from.source ? sourceStatus(g, b.from) : null;
+      const isSource = !!st?.notes.some(n => n.rel === rel);
+      const stale = isSource && st.status === 'changed' ? `<small class="stale" title="${esc(t('note.sourceChangedTip'))}">${esc(t('note.sourceChanged'))}</small>` : '';
+      return `<li><a href="${href.deck(b.from.topicId, b.from.project.id)}">▦ ${esc(b.from.title)}</a><small>${esc(t(isSource || b.via === 'source' ? 'note.viaSource' : 'note.viaLink'))}</small>${stale}</li>`;
+    }).join('');
     for (const a of article.querySelectorAll('a.wikilink[data-raw]')) {
       let l;
       try { l = JSON.parse(a.dataset.raw); } catch { continue; }

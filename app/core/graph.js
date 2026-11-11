@@ -3,7 +3,7 @@
 
 import { limiter } from './library.js';
 import { join, isHidden, isMarkdown, RESERVED_DIRS } from './names.js';
-import { parseNote, wikilinksOf } from './note.js';
+import { parseNote, wikilinksOf, sourceFingerprint } from './note.js';
 import { createResolver, computeBacklinks, norm } from './links.js';
 import { resolvePublic, isLocalOnly } from './privacy.js';
 import { notesOfTopic } from './vault.js';
@@ -54,7 +54,7 @@ export async function buildGraph(vault, { onProgress, slides = true } = {}) {
   }
   for (const tp of vault.slides.topics) {
     for (const p of tp.projects) {
-      const rec = { kind: 'deck', path: vault.deckPath(p), rel: p.path, topicId: tp.id, title: p.title, folder: p.folder, date: p.date, source: p.config?.source ? String(p.config.source) : '', links: [], project: p, search: norm([p.title, p.subtitle, p.author, ...p.tags].join(' ')) };
+      const rec = { kind: 'deck', path: vault.deckPath(p), rel: p.path, topicId: tp.id, title: p.title, folder: p.folder, date: p.date, source: p.config?.source ? String(p.config.source) : '', sourceHash: p.config?.source_hash != null ? String(p.config.source_hash) : '', links: [], project: p, search: norm([p.title, p.subtitle, p.author, ...p.tags].join(' ')) };
       decks.push(rec);
       if (!slides) continue;
       jobs.push(async () => {
@@ -80,6 +80,38 @@ export async function buildGraph(vault, { onProgress, slides = true } = {}) {
     backlinks: computeBacklinks(records, resolver),
     builtAt: Date.now(),
   };
+}
+
+/** deck.yml 的 source 指到的筆記:一篇筆記,或筆記本資料夾裡的所有筆記(依路徑排序)。 */
+export function sourceNotesOf(graph, source) {
+  const src = norm(String(source || '').replace(/\.md$/i, '').replace(/^\/+|\/+$/g, ''));
+  if (!src) return [];
+  return [...graph.notes.values()].filter(n => { const p = norm(n.path.replace(/\.md$/i, '')); return p === src || p.startsWith(src + '/'); });
+}
+
+/**
+ * 簡報與來源筆記的關係(docs/INTEROP.md 第 4 節):
+ *   ''          沒有 source
+ *   'missing'   source 找不到
+ *   'untracked' 有 source 但沒有 source_hash(手寫或舊版升級的簡報)
+ *   'same'      升級之後來源筆記沒改過
+ *   'changed'   升級之後來源筆記改過了:簡報可能需要跟上
+ * @returns {{ status: string, notes: object[], hash: string }}
+ */
+export function sourceStatus(graph, deck) {
+  if (!deck?.source) return { status: '', notes: [], hash: '' };
+  return { ...compareSource(deck.sourceHash, sourceNotesOf(graph, deck.source)), notes: sourceNotesOf(graph, deck.source) };
+}
+
+/**
+ * 比對指紋。notes = [{ path, body }]:可以是圖譜裡的,也可以是剛重新讀取的(圖譜可能是之前建的)。
+ * @returns {{ status: 'missing'|'untracked'|'same'|'changed', hash: string }}
+ */
+export function compareSource(sourceHash, notes) {
+  if (!notes.length) return { status: 'missing', hash: '' };
+  const hash = sourceFingerprint(notes);
+  if (!sourceHash) return { status: 'untracked', hash };
+  return { status: String(sourceHash).toLowerCase() === hash ? 'same' : 'changed', hash };
 }
 
 /**

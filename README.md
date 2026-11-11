@@ -6,7 +6,7 @@
 
 Leafpile 把兩件常被分開做的事接起來：用 Markdown 累積筆記，要分享時升級成 3D 牌堆簡報，講完再把問答存回筆記。檔案留在你的電腦或隨身碟，網站只負責讀取，不用安裝、不用上傳。
 
-**線上版：<https://torusmith.github.io/Leafpile/>**　·　目前版本 v0.1.0（可以日常使用的第一版）
+**線上版：<https://torusmith.github.io/Leafpile/>**　·　目前版本 v0.2.0
 
 ![書架：筆記與簡報放在同一個主題底下](docs/images/shelf.webp)
 
@@ -83,7 +83,8 @@ Leafpile 的答案是：**同一個書庫、兩個渠道、中間一座橋。**
 ```bash
 node scripts/check.mjs <書庫>                          # 檢查筆記、簡報與連結（--slides 列出每一張）
 node scripts/promote.mjs <書庫> notes/<主題>/<筆記>.md   # 筆記 → 新簡報骨架（整本筆記本也可以）
-node scripts/after-talk.mjs <書庫> slides/<主題>/<簡報>  # 簡報 → 講後筆記
+node scripts/after-talk.mjs <書庫> slides/<主題>/<簡報>  # 簡報 → 講後筆記（--qa 問答.json 帶入現場問答）
+node scripts/source-sync.mjs <書庫>                    # 哪些簡報的來源筆記在升級後改過了
 node scripts/new-deck.mjs <資料夾>                      # 空白簡報骨架
 node scripts/guard-content.mjs content                 # 放上 GitHub 前的守門檢查
 node --test tests/*.test.mjs                           # 單元測試

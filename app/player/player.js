@@ -39,7 +39,8 @@ function motionReduced() {
 }
 
 export class Player {
-  constructor(root, { deck, source, start = 0, onExit, onIndex, theme, onReload, onExport, reading = false }) {
+  constructor(root, { deck, source, start = 0, onExit, onIndex, theme, onReload, onExport, reading = false, qaKey = '' }) {
+    this.qaKey = qaKey;
     this.onReload = onReload;
     this.reduced = motionReduced();
     this.root = root;
@@ -832,6 +833,7 @@ export class Player {
       type: 'state', title: this.deck.title, section: this.sections[s.sec]?.title || '',
       n: gi + 1, total: this.slides.length, cur, next, media, theme: currentTheme(),
       ink: this.ink.get(gi), gi, canEdit: !!this.source.canWrite && !this.deck.flash,
+      qaKey: this.deck.flash ? '' : this.qaKey || '',
       notes: s.notes ? renderMarkdown(s.notes) : '', notesText: s.notes || '', steps: this.steps.length, step: this.stepIndex, viewing: this.viewing, startedAt: this.startedAt,
     });
   }

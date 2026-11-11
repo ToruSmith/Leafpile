@@ -230,3 +230,5 @@ a.wikilink.missing { color: var(--muted); border-bottom-color: var(--muted); }
   .note-layout { display: block; padding: 0; }
   .note-article { border: 0; box-shadow: none; padding: 0; }
 }
+.used-by small.stale { justify-self: start; padding: 0 8px; border-radius: 999px; font-size: 11px; color: #9a5b12; background: color-mix(in srgb, #e8a33d 18%, transparent); }
+.slide .wikilink[title] { cursor: help; }

@@ -4,7 +4,7 @@
 //   distillDeck()    講後筆記:簡報的大綱與講者備註 → 一篇新筆記的內容
 // 原則:筆記是知識的唯一來源,簡報是一次演出;這裡沒有任何雙向同步。
 
-import { sectionOf, parseTarget, plainInline } from './note.js';
+import { sectionOf, parseTarget, plainInline, sourceFingerprint } from './note.js';
 import { t } from './i18n.js';
 
 const FENCE = /^\s*(```+|~~~+)/;
@@ -131,6 +131,7 @@ export function promoteNote(note, { source, today = new Date().toISOString().sli
     `end: ${yamlStr(t('promote.end', null, note.lang))}`,
     `# ${t('promote.sourceComment')}`,
     `source: ${source.replace(/\.md$/i, '')}`,
+    `source_hash: "${sourceFingerprint([note])}"`,
     '',
   ].filter(l => l != null).join('\n');
   return { folder: `${today}-${safeName(note.title, 'deck')}`, files, slides, sections: sections.length };
@@ -157,7 +158,7 @@ export function promoteBook(book, { source, today = new Date().toISOString().sli
     'mdslide: 1', `title: ${yamlStr(book.title)}`, author ? `author: ${yamlStr(author)}` : null, `date: ${today}`, `theme: ${theme}`,
     lang ? `lang: ${lang}` : null, tags.length ? `tags: [${tags.join(', ')}]` : null,
     'sections:', ...sections.flatMap(s => [`  - folder: ${s.folder}`, `    title: ${yamlStr(s.title)}`]),
-    `end: ${yamlStr(t('promote.end', null, lang))}`, `# ${t('promote.sourceComment')}`, `source: ${source}`, '',
+    `end: ${yamlStr(t('promote.end', null, lang))}`, `# ${t('promote.sourceComment')}`, `source: ${source}`, `source_hash: "${sourceFingerprint(book.notes)}"`, '',
   ].filter(l => l != null).join('\n');
   return { folder: `${today}-${safeName(book.title, 'deck')}`, files, slides, sections: sections.length };
 }
@@ -189,11 +190,58 @@ export function distillDeck(deck, { deckPath, today = new Date().toISOString().s
     out.push('');
   }
   out.push(`## ${L('distill.qa')}`, '');
-  if (qa.length) for (const x of qa) out.push(`- **${L('distill.q')}** ${x.q}`, `  **${L('distill.a')}** ${x.a || ''}`);
-  else out.push(`- **${L('distill.q')}** `, `  **${L('distill.a')}** `);
+  const lines = v => String(v || '').replace(/\r/g, '').split('\n').map(l => l.trim()).filter(Boolean);
+  const items = qa.filter(x => x && lines(x.q).length);
+  for (const x of items) {
+    const [q1, ...qs] = lines(x.q), [a1 = '', ...as] = lines(x.a);
+    const ref = Number.isInteger(x.n) && x.n > 0 ? ` ${t('distill.slideRef', { n: x.n }, deck.lang)}` : '';
+    out.push(`- **${L('distill.q')}** ${q1}${ref}`, ...qs.map(l => `  ${l}`), `  **${L('distill.a')}** ${a1}`, ...as.map(l => `  ${l}`));
+  }
+  if (!items.length) out.push(`- **${L('distill.q')}** `, `  **${L('distill.a')}** `);
   out.push('', `## ${L('distill.next')}`, '', '- [ ] ', '');
   return { file: `${today}-${safeName(deck.title, 'talk')}-${safeName(L('distill.suffix'), 'after')}.md`, text: out.join('\n') };
 }
 
-/** 來源筆記在升級之後有沒有改過:比對 deck.yml 與筆記的修改時間(由呼叫端提供)。 */
-export const sourceIsNewer = (noteMtime, deckMtime) => Number.isFinite(noteMtime) && Number.isFinite(deckMtime) && noteMtime > deckMtime + 1000;
+/**
+ * 讀入問答紀錄:講者視窗下載的 JSON([{ q, a, n }]),或手寫的純文字:
+ *   Q: 問題 / 問:問題   開始新的一題
+ *   A: 答案 / 答:答案   這一題的答案
+ *   其他行接在上一個欄位後面;空行忽略。
+ * @returns {{ q: string, a: string, n?: number }[]}
+ */
+export function parseQA(text) {
+  const src = String(text || '').replace(/^\uFEFF/, '');
+  if (/^\s*\[/.test(src)) {
+    let arr;
+    try { arr = JSON.parse(src); } catch { return []; }
+    if (!Array.isArray(arr)) return [];
+    return arr.filter(x => x && typeof x.q === 'string' && x.q.trim())
+      .map(x => ({ q: x.q.trim(), a: typeof x.a === 'string' ? x.a.trim() : '', ...(Number.isInteger(x.n) && x.n > 0 ? { n: x.n } : {}) }));
+  }
+  const out = [];
+  let cur = null, field = 'q';
+  for (const raw of src.replace(/\r/g, '').split('\n')) {
+    const line = raw.trim();
+    if (!line) continue;
+    const m = /^(Q|A|\u554f|\u7b54)\s*[:\uff1a]\s*(.*)$/i.exec(line);
+    if (m) {
+      const isQ = /^(q|\u554f)$/i.test(m[1]);
+      if (isQ || !cur) { cur = { q: '', a: '' }; out.push(cur); }
+      field = isQ ? 'q' : 'a';
+      cur[field] = m[2];
+    } else if (cur) cur[field] = cur[field] ? `${cur[field]}\n${line}` : line;
+  }
+  return out.filter(x => x.q.trim());
+}
+
+/**
+ * 「簡報已跟上來源筆記」:把 deck.yml 的 source_hash 換成新的指紋(沒有就加在 source: 下一行)。
+ * 只動這一行,其他內容、註解與排版保持原樣。
+ */
+export function withSourceHash(yml, hash) {
+  const line = `source_hash: "${hash}"`;
+  const text = String(yml);
+  if (/^source_hash:.*$/m.test(text)) return text.replace(/^source_hash:.*$/m, line);
+  if (/^source:.*$/m.test(text)) return text.replace(/^(source:.*)$/m, `$1\n${line}`);
+  return `${text.replace(/\n*$/, '\n')}${line}\n`;
+}
