@@ -47,7 +47,8 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
         <div class="lib-tools">
           <input type="search" class="search" placeholder="${esc(t(hasNotes ? 'shelf.search' : 'lib.search'))}" aria-label="${esc(t('lib.search'))}">
           <button class="btn ghost palette-btn" title="${esc(t('palette.open'))}"><kbd>⌘K</kbd></button>
-          ${onNewNote ? `<button class="btn ghost new-note" title="${esc(t('shelf.newNoteTitle'))}">${esc(t('shelf.newNote'))}</button>` : ''}
+          ${onNewNote ? `<button class="btn ghost new-note" title="${esc(t('shelf.newNoteTitle'))}">${esc(t('shelf.newNote'))}</button>`
+            : hasNotes && sourceKey !== 'repo' ? `<span class="ro-chip" tabindex="0" title="${esc(t('shelf.readonlyTip'))}">${esc(t('shelf.readonly'))}</span>` : ''}
           <button class="btn ghost check" title="${esc(t('lib.checkTitle'))}">${esc(t('lib.check'))}</button>
           ${onRefresh ? `<button class="btn ghost refresh" title="${esc(t('lib.refreshTitle'))}">${esc(t('lib.refresh'))}</button>` : ''}
         </div>
