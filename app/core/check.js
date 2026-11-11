@@ -9,9 +9,8 @@ import { undefinedFootnotes } from './markdown.js';
 import { t } from './i18n.js';
 import { isHidden, isMarkdown, RESERVED_DIRS, join } from './names.js';
 import { openVault } from './vault.js';
-import { buildGraph } from './graph.js';
+import { buildGraph, sourceStatus } from './graph.js';
 import { sectionOf } from './note.js';
-import { norm } from './links.js';
 
 export const MAX_SLIDES = 45;
 
@@ -206,11 +205,9 @@ export async function checkVault(source, onProgress, { today = new Date().toISOS
   }
   for (const d of graph.decks.values()) {
     for (const l of d.links) { links++; checkLink(d, l, l.file || d.path); }
-    if (d.source) {
-      const src = norm(d.source.replace(/\.md$/i, '').replace(/^\/+|\/+$/g, ''));
-      const found = [...graph.notes.values()].some(n => { const p = norm(n.path.replace(/\.md$/i, '')); return p === src || p.startsWith(src + '/'); });
-      if (!found) say('warn', join(d.path, 'deck.yml'), t('check.sourceMissing', { source: d.source }));
-    }
+    const st = sourceStatus(graph, d).status;
+    if (st === 'missing') say('warn', join(d.path, 'deck.yml'), t('check.sourceMissing', { source: d.source }));
+    if (st === 'changed') say('warn', join(d.path, 'deck.yml'), t('check.sourceChanged', { source: d.source }));
   }
   return {
     kind: 'leafpile', title: vault.title, topics: slides.topics, problems, warnings,

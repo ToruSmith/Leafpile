@@ -180,3 +180,19 @@ export function parseNote(text, { path }) {
     issues,
   };
 }
+
+/**
+ * 來源筆記的內容指紋(升級成簡報時記在 deck.yml 的 source_hash)。
+ * 只看內文(不含 front matter),依路徑排序;換行與行尾空白不算改動。
+ * FNV-1a 32 位元,8 個十六進位字元:夠用來判斷「有沒有改過」,不是安全用途。
+ * @param {{ path: string, body: string }[]} notes
+ */
+export function sourceFingerprint(notes) {
+  let h = 0x811c9dc5;
+  const feed = str => { for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } };
+  for (const n of [...notes].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))) {
+    feed(String(n.body || '').replace(/\r\n?/g, '\n').replace(/[ \t]+$/gm, '').trim());
+    feed('\u0000');
+  }
+  return h.toString(16).padStart(8, '0');
+}

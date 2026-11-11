@@ -10,7 +10,7 @@
 - [x] 守門腳本與 CI
 - [x] README、貢獻、AI 揭露、安全、行為準則
 - [x] 建立 GitHub repo（<https://github.com/ToruSmith/Leafpile>）
-- [ ] 開啟 Pages：Settings → Pages → Source 選 **GitHub Actions**（只需要做一次）
+- [x] 開啟 Pages（Source：GitHub Actions）
 - [ ] 在 Mdslide Pile 補上 LICENSE（MIT）
 - [ ] 確認名稱可用（網域；若發 CLI 再查 npm）
 
@@ -31,15 +31,15 @@
 
 **閘門：自用一個月**：每天用它寫筆記，至少一次真的上台報告。
 
-## P2 互通（v0.1.0 完成核心）
+## P2 互通（v0.2.0 完成）
 
 - [x] `![[摘錄]]` 嵌入（播放時讀取筆記的一段）
 - [x] 升級成簡報（介面＋`scripts/promote.mjs`；單篇或整本筆記本）
 - [x] 講後筆記（指令面板＋`scripts/after-talk.mjs`）
 - [x] 檢查工具的互通規則（連結、摘錄、`source`、版型設定、急件）
-- [ ] 講者視窗的「問答」分頁，講後筆記自動帶入
-- [ ] 提醒「來源筆記在升級後改過」
-- [ ] 匯出單一 HTML 時，保留投影片裡的 `[[連結]]` 目標說明
+- [x] 講者視窗的「問答」分頁，講後筆記自動帶入（`after-talk.mjs --qa`）
+- [x] 提醒「來源筆記在升級後改過」（內容指紋 `source_hash`；`scripts/source-sync.mjs`）
+- [x] 匯出單一 HTML 時，保留投影片裡的 `[[連結]]` 目標說明
 
 **閘門：公開 Beta**：三位以上外部使用者完成「筆記 → 簡報 → 講後筆記」一輪並回饋。
 

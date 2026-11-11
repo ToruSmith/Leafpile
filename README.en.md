@@ -6,7 +6,7 @@ English · [繁體中文](README.md)
 
 Leafpile connects two things that are usually done twice: you collect notes in Markdown, promote them into a 3D card-pile slide deck when it is time to share, and save the Q&A back into your notes afterwards. Files stay on your computer or USB drive; the website only reads them. Nothing to install, nothing uploaded.
 
-**Live site: <https://torusmith.github.io/Leafpile/>** · current version v0.1.0 (the first version meant for daily use)
+**Live site: <https://torusmith.github.io/Leafpile/>** · current version v0.2.0
 
 ![Shelf: notes and decks under the same topic](docs/images/shelf.en.webp)
 
@@ -61,7 +61,8 @@ A Mdslide Pile library opens as it is (a folder without `notes/` and `slides/` i
 ```bash
 node scripts/check.mjs <library>                           # notes, decks and links
 node scripts/promote.mjs <library> notes/<topic>/<note>.md  # note → new deck skeleton
-node scripts/after-talk.mjs <library> slides/<topic>/<deck>  # deck → after-talk note
+node scripts/after-talk.mjs <library> slides/<topic>/<deck>  # deck → after-talk note (--qa qa.json adds the Q&A)
+node scripts/source-sync.mjs <library>                    # which decks have a changed source note
 node scripts/guard-content.mjs content                     # before pushing to GitHub
 node --test tests/*.test.mjs                               # unit tests (Node 18+, no npm install)
 ```

@@ -88,7 +88,7 @@ export function renderSlide(slide, ctx) {
   if (st.ratio) css += `;--ratio:${st.ratio}`;
   const bgPath = st.bgImage || (!st.bgColor && meta.background ? String(meta.background) : '');
   const bg = bgPath ? ` data-bg="${esc(resolveMediaPath(bgPath, pathCtx))}"${st.overlay ? ` data-overlay="${st.overlay}"` : ''}` : '';
-  return `<div class="slide l-${layout}${cls.length ? ' ' + cls.join(' ') : ''}" lang="${esc(lang)}" style="${esc(css)}"${bg}>${inner}${foot}</div>`;
+  return `<div class="slide l-${layout}${cls.length ? ' ' + cls.join(' ') : ''}" lang="${esc(lang)}" style="${esc(css)}"${bg}>${describeLinks(inner, deck.links)}${foot}</div>`;
 }
 
 function titleSlide(deck, ctx, image) {
@@ -356,4 +356,29 @@ export function measureOverflow(slideEl) {
     over = Math.max(over, bottom - limit);
   }
   return over > 4 * k ? Math.round(over / k) : 0;
+}
+
+const unesc = s => s.replace(/&(amp|lt|gt|quot|#39);/g, (_, k) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" }[k]));
+const WIKI_SPAN = /<span class="wikilink( embed)?" data-link="([^"]*)"(?: data-heading="([^"]*)")?>/g;
+
+/**
+ * 投影片裡的 [[連結]] 不能跳轉(播放中、匯出的單檔、PDF),所以把「連到哪裡」寫進提示文字:
+ * 有 deck.links(開啟簡報時用圖譜解析好的目標)就用目標的標題與路徑,沒有就用連結本身寫的目標。
+ * deck.links 跟著簡報資料一起匯出,單檔離線開啟時也看得到。
+ * @param {string} html
+ * @param {Record<string, { kind?: 'note'|'deck', title?: string, path?: string, missing?: boolean }>} [links]
+ */
+export function describeLinks(html, links) {
+  if (!html.includes('class="wikilink')) return html;
+  return html.replace(WIKI_SPAN, (m, embed, key, heading) => {
+    const k = unesc(key), h = heading ? unesc(heading) : '';
+    const info = links?.[k];
+    const target = k.replace(/^(notes|slides):/, '');
+    const at = h ? ` \u203a ${h}` : '';
+    let tip;
+    if (info?.missing) tip = t('link.tipMissing', { target: target + at });
+    else if (info?.title) tip = t(info.kind === 'deck' ? 'link.tipDeck' : 'link.tipNote', { title: info.title + at, path: info.path || '' });
+    else tip = t('link.tipRaw', { target: (k.startsWith('slides:') ? 'slides:' : '') + target + at });
+    return `<span class="wikilink${embed || ''}" data-link="${key}"${heading ? ` data-heading="${heading}"` : ''} title="${esc(tip)}">`;
+  });
 }

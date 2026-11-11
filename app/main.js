@@ -11,11 +11,11 @@
 
 import { loadDeck, refreshProject } from './core/library.js';
 import { openVault, findNote, findDeck, notesOfTopic } from './core/vault.js';
-import { buildGraph } from './core/graph.js';
-import { parseNote, slugify, splitFrontMatter } from './core/note.js';
-import { expandEmbeds, promoteNote, promoteBook, distillDeck } from './core/bridge.js';
+import { buildGraph, sourceStatus, compareSource } from './core/graph.js';
+import { parseNote, slugify, splitFrontMatter, wikilinksOf } from './core/note.js';
+import { expandEmbeds, promoteNote, promoteBook, distillDeck, withSourceHash } from './core/bridge.js';
 import { checkVault } from './core/check.js';
-import { escapeHTML as esc } from './core/markdown.js';
+import { escapeHTML as esc, linkKey } from './core/markdown.js';
 import { HttpSource, HandleSource, FileListSource, sourceFromDrop, canPickDirectory } from './sources/sources.js';
 import { listRecent, remember, getRecent, forget, ensurePermission } from './sources/store.js';
 import { renderShelf } from './ui/shelf.js';
@@ -28,10 +28,11 @@ import { Player } from './player/player.js';
 import { noteToDeck } from './player/flash.js';
 import { openExportDialog } from './player/export.js';
 import { startPresenter } from './player/presenter.js';
+import { loadQA, saveQA } from './player/qa-store.js';
 import { applyUITheme } from './player/themes.js';
 import { t, setLang, getLang, normalizeLang } from './core/i18n.js';
 
-export const VERSION = '0.1.0';
+export const VERSION = '0.2.0';
 const REPO_URL = 'https://github.com/ToruSmith/Leafpile';
 const MDSLIDE_URL = 'https://github.com/ToruSmith/Mdslide-Pile';
 
@@ -56,7 +57,7 @@ function applyLang(lang) {
 applyLang(pickLang());
 
 const state = {
-  sources: new Map(), vaults: new Map(), graphs: new Map(),
+  sources: new Map(), vaults: new Map(), graphs: new Map(), sourceWarned: new Set(),
   session: null,
   player: null, playerKey: '',
   view: null,            // { cleanup?, isDirty? } 目前畫面
@@ -441,9 +442,10 @@ async function showFlash(key, rel, start) {
     const deck = noteToDeck(r.note, { rel, theme: r.vault.theme, color: r.topic.conf?.color || r.vault.topics.find(tp => tp.id === r.topic.id)?.color, topicTitle: r.topic.title });
     const href = hrefs(key);
     state.playerKey = flashKey;
+    describeDeckLinks(key, r.vault, deck, r.topic.id);
     state.player = new Player(app, {
       deck, source: r.vault.notesSource, start, theme: r.vault.theme,
-      onExport: openExportDialog,
+      onExport: p => exportWithLinks(key, r.vault, p, r.topic.id),
       onExit: () => { location.hash = href.note(rel); },
       onIndex: i => history.replaceState(null, '', href.flash(rel, i + 1)),
     });
@@ -485,22 +487,93 @@ async function showDeck(key, topicId, projectId, start, reading = false) {
         return await withEmbeds(key, vault, await loadDeck(source, current));
       } finally { busy = false; }
     } : null;
+    describeDeckLinks(key, vault, deck, topicId);
     state.player = new Player(app, {
       deck, source, start, reading, theme: deck.theme || vault.theme, onReload: reload,
-      onExport: openExportDialog,
+      qaKey: vault.kind === 'leafpile' ? deckKey : '', // 講後筆記只在 Leafpile 書庫產生
+      onExport: p => exportWithLinks(key, vault, p, topicId),
       onExit: () => { location.hash = single ? '#/' : href.shelf; },
       onIndex: (i, read) => history.replaceState(null, '', href.deck(topicId, projectId, i + 1, read ?? state.player?.reader)),
     });
     lastHash = location.hash;
     document.title = `${deck.title} · Leafpile`;
+    remindSource(key, vault, project, deckKey);
     if (reload) {
       const dirs = [...new Set([deck.path, ...deck.sections.map(s => s.path)])];
       state.stopWatch = source.watch(dirs, async () => {
         const next = await reload();
-        if (next && state.player) state.player.replaceDeck(next);
+        if (next && state.player) { describeDeckLinks(key, vault, next, topicId); state.player.replaceDeck(next); }
       });
     }
   } catch (e) { showError(e, keyBase(key)); }
+}
+
+/**
+ * 投影片裡的 [[連結]]:用圖譜解析出目標的標題與路徑,存在 deck.links(播放時當提示文字,匯出時一起帶走)。
+ * 背景進行、不擋播放;回傳的 Promise 給匯出用(匯出前一定要等它)。
+ */
+function describeDeckLinks(key, vault, deck, topicId) {
+  if (vault.kind !== 'leafpile' || deck.links) return Promise.resolve();
+  const found = new Map();
+  for (const sec of deck.sections) for (const sl of sec.slides) for (const l of wikilinksOf([sl.title, sl.body, sl.notes].filter(Boolean).join('\n'))) found.set(linkKey(l), l);
+  if (!found.size) return Promise.resolve();
+  return getGraph(key).then(g => {
+    const links = {};
+    for (const [k, l] of found) {
+      const r = g.resolver.resolve(l, { fromTopic: topicId });
+      links[k] = r.target ? { kind: r.target.kind, title: r.target.title, path: r.target.path } : { missing: true };
+    }
+    deck.links = links;
+  }, () => { /* 圖譜建不起來:提示文字退回連結本身寫的目標 */ });
+}
+
+async function exportWithLinks(key, vault, player, topicId) {
+  await describeDeckLinks(key, vault, player.deck, topicId);
+  return openExportDialog(player);
+}
+
+/** 來源筆記在升級之後改過:開簡報時提醒一次(背景比對,不擋播放)。 */
+async function remindSource(key, vault, project, deckKey) {
+  if (vault.kind !== 'leafpile' || project.config?.source_hash == null || state.sourceWarned.has(deckKey)) return;
+  try {
+    const st = await freshSourceStatus(key, vault, project);
+    if (st?.status !== 'changed' || state.playerKey !== deckKey) return;
+    state.sourceWarned.add(deckKey);
+    toast(t('deck.sourceChanged'), { ms: 8000 });
+  } catch { /* 圖譜建不起來就不提醒 */ }
+}
+
+/**
+ * 簡報與來源筆記的狀態,用「現在」的筆記內容比對:圖譜只用來找出是哪幾篇筆記
+ * (圖譜可能是稍早建的,筆記之後才在別的編輯器裡改過)。
+ */
+async function freshSourceStatus(key, vault, project) {
+  const g = await getGraph(key);
+  const rec = g.decks.get(vault.deckPath(project));
+  if (!rec?.source) return null;
+  const { notes } = sourceStatus(g, rec);
+  vault.notesSource.refresh?.();
+  const fresh = await Promise.all(notes.map(async n => ({ path: n.path, body: parseNote(await vault.notesSource.readText(n.rel), { path: n.rel }).body })));
+  return { ...compareSource(rec.sourceHash, fresh), notes, rec };
+}
+
+/** 「簡報已跟上來源筆記」:更新 deck.yml 的 source_hash(只改這一行)。 */
+async function markSynced(key, topicId, projectId) {
+  try {
+    const vault = await getVault(key);
+    if (!vault) return;
+    const src = state.sources.get(key);
+    if (!src.canWrite) return toast(t('bridge.needWrite'));
+    const project = findDeck(vault, topicId, projectId);
+    const st = project ? await freshSourceStatus(key, vault, project) : null;
+    if (!st?.hash) return toast(t('check.sourceMissing', { source: st?.rec?.source || '' }));
+    const path = `${vault.deckPath(project)}/deck.yml`;
+    const expect = await src.stat(path);
+    await src.writeText(path, withSourceHash(await src.readText(path), st.hash), { expect });
+    invalidate(key);
+    state.sourceWarned.add(`${key}/d/${topicId}/${projectId}`);
+    toast(t('deck.markedSynced'));
+  } catch (e) { toast(e.message === 'stale' ? t('ne.staleTitle') : e.message === 'denied' ? t('ne.denied') : t('ne.saveFailed', { error: e.message || e }), { ms: 5000 }); }
 }
 
 /** 摘錄嵌入:投影片裡的 ![[筆記#標題]] 換成筆記內容(只在有用到時才等圖譜)。 */
@@ -565,10 +638,14 @@ async function distill(key, topicId, projectId) {
     const project = findDeck(vault, topicId, projectId);
     if (!project) return;
     const deck = await loadDeck(vault.slidesSource, project);
-    const { file, text } = distillDeck(deck, { deckPath: vault.deckPath(project) });
-    if (!(await confirmDialog(t('distill.ask', { topic: topicId, file }), t('distill.create')))) return;
+    const qaKey = `${key}/d/${topicId}/${projectId}`;
+    const qa = loadQA(qaKey);
+    const { file, text } = distillDeck(deck, { deckPath: vault.deckPath(project), qa });
+    const ask = t('distill.ask', { topic: topicId, file }) + (qa.length ? ' ' + t('distill.withQA', { n: qa.length }) : '');
+    if (!(await confirmDialog(ask, t('distill.create')))) return;
     const rel = `${topicId}/${file}`;
     await writeNew(src, { [`notes/${rel}`]: text });
+    if (qa.length) saveQA(qaKey, []); // 已經寫進筆記了,下一場重新開始
     invalidate(key);
     toast(t('distill.done', { path: `notes/${rel}` }), { ms: 5000 });
     location.hash = hrefs(key).edit(rel);
@@ -593,6 +670,11 @@ async function paletteItems() {
         if (vault.kind === 'leafpile' && state.sources.get(key)?.canWrite) act(t('promote.button'), () => promote(key, rel));
       }
       if (deck && vault.kind === 'leafpile' && state.sources.get(key)?.canWrite) act(t('distill.action'), () => distill(key, deck.topicId, deck.projectId));
+      const project = deck && g && vault.kind === 'leafpile' ? findDeck(vault, deck.topicId, deck.projectId) : null;
+      let st = null;
+      try { st = project ? await freshSourceStatus(key, vault, project) : null; } catch { /* 讀不到就不顯示這兩項 */ }
+      if (st?.notes.length) act(t('deck.openSource'), () => { location.hash = href.note(st.notes[0].rel); });
+      if ((st?.status === 'changed' || st?.status === 'untracked') && state.sources.get(key)?.canWrite) act(t(st.status === 'changed' ? 'deck.markSynced' : 'deck.trackSource'), () => markSynced(key, deck.topicId, deck.projectId));
       if (vault.notesSource?.canWrite) act(t('palette.newNote'), () => newNote(key, rel ? findNote(vault, rel)?.topic.id : undefined));
       act(t('palette.shelf'), () => { location.hash = href.shelf; });
       act(t('palette.check'), () => runCheck(key));

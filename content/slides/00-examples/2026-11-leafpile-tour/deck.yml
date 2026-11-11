@@ -35,3 +35,4 @@ cover_notes: |
   這份簡報本身就是範例：它的來源筆記在 notes/00-examples/2026-11-leafpile-basics。
 # Leafpile 擴充欄位（Mdslide Pile 會略過）：升級自哪一份筆記
 source: notes/00-examples/2026-11-leafpile-basics
+source_hash: "75bd4f04"

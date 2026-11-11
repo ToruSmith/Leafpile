@@ -3,11 +3,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { memorySource } from './helpers.mjs';
 import { nodeSource } from '../scripts/node-source.mjs';
-import { parseNote, splitFrontMatter, headingsOf, wikilinksOf, sectionOf, slugify, parseTarget, linkLabel } from '../app/core/note.js';
+import { sourceFingerprint, parseNote, splitFrontMatter, headingsOf, wikilinksOf, sectionOf, slugify, parseTarget, linkLabel } from '../app/core/note.js';
 import { createResolver, computeBacklinks } from '../app/core/links.js';
 import { resolvePublic, isLocalOnly, publishable, scanPII } from '../app/core/privacy.js';
 import { openVault, subSource, findNote, findDeck, notesOfTopic } from '../app/core/vault.js';
-import { buildGraph, searchGraph } from '../app/core/graph.js';
+import { buildGraph, searchGraph, sourceStatus } from '../app/core/graph.js';
 import { renderMarkdown } from '../app/core/markdown.js';
 
 // ---------------- note.js ----------------
@@ -198,7 +198,7 @@ test('內建 content/ 是合法的 Leafpile 書庫,而且範例之間的連結�
 });
 
 // ---------------- bridge.js / flash.js ----------------
-import { expandEmbeds, promoteNote, promoteBook, distillDeck, slideFromSection, safeName } from '../app/core/bridge.js';
+import { expandEmbeds, promoteNote, promoteBook, distillDeck, slideFromSection, safeName, parseQA, withSourceHash } from '../app/core/bridge.js';
 import { splitNoteForSlides, noteToDeck } from '../app/player/flash.js';
 import { loadDeck } from '../app/core/library.js';
 import { checkVault } from '../app/core/check.js';
@@ -260,6 +260,72 @@ test('升級與講後筆記的產物放回書庫後,通過檢查而且互相連�
   assert.ok(g.backlinks.get('notes/10-reading/2026-11-book/02-ch2.md').some(b => b.from.folder === book.folder));
 });
 
+test('sourceFingerprint:只看內文;換行格式、行尾空白、front matter 不算改動;順序依路徑', () => {
+  const a = sourceFingerprint([{ path: 'x.md', body: '# 題\n\n內容' }]);
+  assert.match(a, /^[0-9a-f]{8}$/);
+  assert.equal(sourceFingerprint([{ path: 'x.md', body: '# 題\r\n\r\n內容   \n' }]), a);
+  assert.equal(sourceFingerprint([{ path: 'y.md', body: parseNote('---\ntags: [a]\npublic: true\n---\n# 題\n\n內容', { path: 'y.md' }).body }]), a);
+  assert.notEqual(sourceFingerprint([{ path: 'x.md', body: '# 題\n\n內容。' }]), a);
+  const p = { path: 'b/01.md', body: '一' }, q = { path: 'b/02.md', body: '二' };
+  assert.equal(sourceFingerprint([q, p]), sourceFingerprint([p, q]));
+  assert.notEqual(sourceFingerprint([p, q]), sourceFingerprint([{ ...p, body: '二' }, { ...q, body: '一' }]));
+  // 兩篇的內容不能「接起來」剛好相同
+  assert.notEqual(sourceFingerprint([{ path: 'a', body: 'ab' }, { path: 'b', body: 'c' }]), sourceFingerprint([{ path: 'a', body: 'a' }, { path: 'b', body: 'bc' }]));
+});
+
+test('升級時記下 source_hash;來源筆記改過之後 sourceStatus 與檢查工具都會提醒,標記後恢復一致', async () => {
+  const lib = { ...files };
+  const notePath = 'notes/10-reading/2026-11-book/01-ch1.md';
+  const r = promoteNote(parseNote(lib[notePath], { path: notePath }), { source: notePath, today: '2026-11-11' });
+  assert.match(r.files['deck.yml'], /^source: notes\/10-reading\/2026-11-book\/01-ch1\nsource_hash: "[0-9a-f]{8}"$/m);
+  for (const [f, text] of Object.entries(r.files)) lib[`slides/10-reading/${r.folder}/${f}`] = text;
+  const status = async () => { const g = await buildGraph(await openVault(memorySource(lib)), { slides: false }); return sourceStatus(g, [...g.decks.values()].find(d => d.folder === r.folder)); };
+  assert.equal((await status()).status, 'same');
+  assert.deepEqual((await checkVault(memorySource(lib))).warnings.filter(w => /source/.test(w.path + w.message) && w.path.includes(r.folder)), []);
+  lib[notePath] += '\n\n補一段新的想法。\n';
+  const st = await status();
+  assert.equal(st.status, 'changed');
+  assert.equal(st.notes[0].rel, '10-reading/2026-11-book/01-ch1.md');
+  assert.ok((await checkVault(memorySource(lib))).warnings.some(w => w.path.endsWith(`${r.folder}/deck.yml`)));
+  const yml = `slides/10-reading/${r.folder}/deck.yml`;
+  lib[yml] = withSourceHash(lib[yml], st.hash);
+  assert.equal((await status()).status, 'same');
+  // 整本筆記本:任何一章改過都算
+  const book = promoteBook({ title: '書', notes: ['01-ch1.md', '02-ch2.md'].map(f => parseNote(lib[`notes/10-reading/2026-11-book/${f}`], { path: `notes/10-reading/2026-11-book/${f}` })) }, { source: 'notes/10-reading/2026-11-book', today: '2026-11-12' });
+  for (const [f, text] of Object.entries(book.files)) lib[`slides/10-reading/${book.folder}/${f}`] = text;
+  const bookStatus = async () => { const g = await buildGraph(await openVault(memorySource(lib)), { slides: false }); return sourceStatus(g, [...g.decks.values()].find(d => d.folder === book.folder)).status; };
+  assert.equal(await bookStatus(), 'same');
+  lib['notes/10-reading/2026-11-book/02-ch2.md'] = lib['notes/10-reading/2026-11-book/02-ch2.md'].replace(/\n$/, '') + '改了\n';
+  assert.equal(await bookStatus(), 'changed');
+});
+
+test('withSourceHash:只改那一行;沒有就加在 source 下面', () => {
+  assert.equal(withSourceHash('title: A\nsource: notes/x\nsource_hash: "00000000"\n# 註解\n', 'abcdef12'), 'title: A\nsource: notes/x\nsource_hash: "abcdef12"\n# 註解\n');
+  assert.equal(withSourceHash('title: A\nsource: notes/x\nend: 完\n', 'abcdef12'), 'title: A\nsource: notes/x\nsource_hash: "abcdef12"\nend: 完\n');
+  assert.equal(withSourceHash('title: A', 'abcdef12'), 'title: A\nsource_hash: "abcdef12"\n');
+});
+
+test('parseQA:講者視窗的 JSON 與手寫的 Q:/A: 純文字都讀得懂', () => {
+  assert.deepEqual(parseQA('[{"q":" 為什麼? ","a":"因為","n":3},{"q":""},{"x":1},{"q":"沒答","n":-1}]'),
+    [{ q: '為什麼?', a: '因為', n: 3 }, { q: '沒答', a: '' }]);
+  assert.deepEqual(parseQA('壞掉的 [json'), []);
+  assert.deepEqual(parseQA('[壞掉'), []);
+  assert.deepEqual(parseQA('\uFEFFQ: 第一題\n接著問\n\nA: 第一答\n問:第二題\n答:\nA: 沒有題目的答案會接在上一題'),
+    [{ q: '第一題\n接著問', a: '第一答' }, { q: '第二題', a: '沒有題目的答案會接在上一題' }]);
+  assert.deepEqual(parseQA('A: 沒有問題\nq: 小寫也可以'), [{ q: '小寫也可以', a: '' }]);
+});
+
+test('講後筆記:問答帶入頁碼,多行的問題與答案縮排在同一個項目裡', async () => {
+  const v = await openVault(memorySource(files));
+  const project = v.slides.topics.flatMap(tp => tp.projects)[0];
+  const deck = await loadDeck(v.slidesSource, project);
+  const { text } = distillDeck(deck, { deckPath: v.deckPath(project), qa: [{ q: '第一行\n第二行', a: '答一\n答二', n: 2 }, { q: '  ' }, { q: '沒頁碼' }] });
+  const qa = text.slice(text.indexOf('## 現場問答'), text.indexOf('## 下次要改'));
+  assert.equal(qa, '## 現場問答\n\n- **問:** 第一行 (第 2 張)\n  第二行\n  **答:** 答一\n  答二\n- **問:** 沒頁碼\n  **答:** \n\n');
+  // 解析回來仍是一個合法的 Markdown 清單,不會冒出空的題目
+  assert.equal((qa.match(/^- /gm) || []).length, 2);
+});
+
 test('checkVault:連結找不到與急件到期是提醒,摘錄找不到是錯誤', async () => {
   const report = await checkVault(memorySource({
     ...files,
@@ -271,4 +337,20 @@ test('checkVault:連結找不到與急件到期是提醒,摘錄找不到是錯�
   const w = report.warnings.map(x => x.message).join('\n');
   for (const re of [/\[\[不存在\]\]/, /2026-01-01/, /layout/]) assert.match(w, re);
   assert.deepEqual(report.notes, { topics: 3, notes: 6, books: 1, links: 5 });
+});
+
+test('describeLinks:投影片裡的 [[連結]] 帶上目標說明(解析過的標題、找不到、或連結本身)', async () => {
+  const { describeLinks } = await import('../app/player/render.js');
+  const html = renderMarkdown('看 [[原子習慣#第 1 章|這本書]]、[[slides:分享會]] 與 [[不存在]] 還有 [[a"b]]');
+  assert.equal((html.match(/data-link=/g) || []).length, 4);
+  const out = describeLinks(html, {
+    'notes:原子習慣': { kind: 'note', title: '原子習慣', path: 'notes/10-reading/a.md' },
+    'slides:分享會': { kind: 'deck', title: '讀書分享會', path: 'slides/10-reading/share' },
+    'notes:不存在': { missing: true },
+  });
+  assert.match(out, /title="連到筆記「原子習慣 › 第 1 章」\(notes\/10-reading\/a\.md\)">這本書</);
+  assert.match(out, /title="連到簡報「讀書分享會」\(slides\/10-reading\/share\)"/);
+  assert.match(out, /title="連結「不存在」找不到目標"/);
+  assert.match(out, /title="連到 a&quot;b"/); // 沒有解析資料:用連結本身,而且屬性值跳脫正確
+  assert.equal(describeLinks('<p>沒有連結</p>'), '<p>沒有連結</p>');
 });

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Leafpile 書庫檢查工具(單檔版 v0.1.0)
+// Leafpile 書庫檢查工具(單檔版 v0.2.0)
 // 由 scripts/bundle-check.mjs 自動產生,請不要手動修改。原始碼:https://github.com/ToruSmith/Leafpile
 //
 // 用法(需要 Node.js 18 以上):
@@ -358,7 +358,7 @@ const LOCALE_ZH_HANT = {
   'pv.next': '下一張',
   'pv.notes': '備註',
   'pv.waiting': '等待主視窗…(在主視窗按 S 開啟)',
-  'pv.keys': '← → 翻頁 · ↑ ↓ 換章 · Enter 放大 · B 黑屏(再按一次回來)· 這個視窗的按鍵會同步到主視窗(全螢幕除外)',
+  'pv.keys': '← → 翻頁 · ↑ ↓ 換章 · Enter 放大 · B 黑屏(再按一次回來)· Q 記下問題 · 這個視窗的按鍵會同步到主視窗(全螢幕除外)',
   'pv.last': '(最後一張)',
   'pv.steps': ' · 逐步 {a}/{b}',
   'pv.notViewing': ' · <em>主畫面未放大</em>',
@@ -569,6 +569,28 @@ const LOCALE_ZH_HANT = {
   'check.embedLong': '摘錄 {link} 超過 {n} 字;簡報應該比筆記短',
   'check.pinnedNoExpiry': '急件(pinned)請加上 expires 到期日',
   'check.expired': '已在 {date} 到期,請刪除或移到 _archive/',
+  'note.sourceChanged': '筆記已更新',
+  'note.sourceChangedTip': '這份簡報建立之後,這篇筆記又改過了。簡報可能需要跟上。',
+  'deck.sourceChanged': '提醒:這份簡報的來源筆記在升級之後改過了。按 Ctrl+K 可以開啟來源筆記,或標記為已跟上。',
+  'deck.openSource': '開啟這份簡報的來源筆記',
+  'deck.markSynced': '標記簡報已跟上來源筆記(不再提醒)',
+  'deck.trackSource': '開始追蹤來源筆記的變動',
+  'deck.markedSynced': '已更新 deck.yml 的 source_hash。',
+  'check.sourceChanged': '來源筆記「{source}」在升級之後改過了,簡報可能需要跟上(跟上之後更新 source_hash,或執行 node scripts/source-sync.mjs)',
+  'sync.usage': '用法:node scripts/source-sync.mjs <書庫> [<簡報的路徑> --mark]\n列出由筆記升級的簡報,來源筆記在升級後有沒有改過;--mark 表示簡報已經跟上,更新 source_hash。',
+  'sync.notDeck': '找不到由筆記升級的簡報 {path}(路徑像 slides/10-reading/2026-11-share)。',
+  'sync.marked': '已更新 {path}/deck.yml 的 source_hash 為 {hash}。',
+  'sync.none': '沒有由筆記升級的簡報(deck.yml 裡沒有 source)。',
+  'sync.changed': '{n} 份簡報的來源筆記改過了。簡報跟上之後,用 --mark 更新。',
+  'sync.allSame': '所有可以比對的簡報都跟來源筆記一致。',
+  'sync.status.same': '[一致]  ',
+  'sync.status.changed': '[已改過]',
+  'sync.status.missing': '[找不到]',
+  'sync.status.untracked': '[未追蹤]',
+  'link.tipNote': '連到筆記「{title}」({path})',
+  'link.tipDeck': '連到簡報「{title}」({path})',
+  'link.tipMissing': '連結「{target}」找不到目標',
+  'link.tipRaw': '連到 {target}',
   'check.sourceMissing': 'deck.yml 的 source「{source}」找不到對應的筆記',
   'check.report.notes': '📝 筆記:{topics} 個主題、{books} 本筆記本、{notes} 篇筆記、{links} 個連結',
   'check.report.warnings': '提醒 {n} 項(不影響檢查結果):',
@@ -715,9 +737,24 @@ const LOCALE_ZH_HANT = {
   'distill.qa': '現場問答',
   'distill.q': '問:',
   'distill.a': '答:',
+  'distill.slideRef': '(第 {n} 張)',
+  'pv.qa': '問答',
+  'pv.qaPlaceholder': '記下現場的問題…(Enter 記下,Shift+Enter 換行)',
+  'pv.qaAdd': '記下',
+  'pv.qaHint': '產生講後筆記時會自動帶入。',
+  'pv.qaDownload': '下載問答',
+  'pv.qaAnswer': '答案(可以之後再補)',
+  'pv.qaDelete': '刪除',
+  'pv.qaDeleteConfirm': '再按一次刪除',
+  'pv.qaEmpty': '還沒有問題。按 Q 開始記錄。',
+  'pv.qaSlide': '第 {n} 張',
+  'pv.qaSaveFailed': '問答沒有存到(瀏覽器不允許本機儲存)',
+  'distill.withQA': '會帶入講者視窗記下的 {n} 則問答。',
+  'distill.qaMissing': '讀不到問答檔 {path}。',
+  'distill.qaEmpty': '{path} 裡沒有讀到任何問題(格式:講者視窗下載的 JSON,或每題一行「Q: 問題」、下一行「A: 答案」)。',
   'distill.next': '下次要改',
   'distill.suffix': '講後',
-  'distill.usage': '用法:node scripts/after-talk.mjs <書庫> <簡報的路徑> [--dry-run]\n例:node scripts/after-talk.mjs ~/我的頁堆 slides/10-reading/2026-11-share',
+  'distill.usage': '用法:node scripts/after-talk.mjs <書庫> <簡報的路徑> [--dry-run] [--qa <問答檔>]\n例:node scripts/after-talk.mjs ~/我的頁堆 slides/10-reading/2026-11-share',
   'distill.notDeck': '{path} 不是 slides/ 裡的簡報資料夾。',
   'distill.done': '已建立講後筆記 {path}(預設私人)。',
   'distill.action': '把這份簡報存成講後筆記',
@@ -959,7 +996,7 @@ const LOCALE_EN = {
   'pv.next': 'Next',
   'pv.notes': 'Notes',
   'pv.waiting': 'Waiting for the main window… (press S there)',
-  'pv.keys': '← → slides · ↑ ↓ sections · Enter zoom · B black screen (press again to return) · keys here control the main window (except full screen)',
+  'pv.keys': '← → slides · ↑ ↓ sections · Enter zoom · B black screen (press again to return) · Q record a question · keys here control the main window (except full screen)',
   'pv.last': '(last slide)',
   'pv.steps': ' · step {a}/{b}',
   'pv.notViewing': ' · <em>main screen not zoomed</em>',
@@ -1170,6 +1207,28 @@ const LOCALE_EN = {
   'check.embedLong': 'Excerpt {link} is over {n} characters; slides should be shorter than notes',
   'check.pinnedNoExpiry': 'Pinned notes need an expires date',
   'check.expired': 'Expired on {date}; delete it or move it to _archive/',
+  'note.sourceChanged': 'note updated',
+  'note.sourceChangedTip': 'This note changed after the deck was created. The deck may need to catch up.',
+  'deck.sourceChanged': 'Heads-up: the source note of this deck changed after it was promoted. Press Ctrl+K to open the note or mark the deck as caught up.',
+  'deck.openSource': 'Open the source note of this deck',
+  'deck.markSynced': 'Mark the deck as caught up with its source note',
+  'deck.trackSource': 'Start tracking changes to the source note',
+  'deck.markedSynced': 'Updated source_hash in deck.yml.',
+  'check.sourceChanged': 'Source note “{source}” changed after promotion; the deck may need to catch up (then update source_hash, or run node scripts/source-sync.mjs)',
+  'sync.usage': 'Usage: node scripts/source-sync.mjs <library> [<deck path> --mark]\nLists decks promoted from notes and whether the source note changed since; --mark records that the deck has caught up.',
+  'sync.notDeck': 'No promoted deck at {path} (paths look like slides/10-reading/2026-11-share).',
+  'sync.marked': 'Set source_hash in {path}/deck.yml to {hash}.',
+  'sync.none': 'No decks promoted from notes (no source in any deck.yml).',
+  'sync.changed': '{n} deck(s) have a changed source note. Once a deck has caught up, run with --mark.',
+  'sync.allSame': 'Every trackable deck matches its source note.',
+  'sync.status.same': '[same]     ',
+  'sync.status.changed': '[changed]  ',
+  'sync.status.missing': '[missing]  ',
+  'sync.status.untracked': '[untracked]',
+  'link.tipNote': 'Links to the note “{title}” ({path})',
+  'link.tipDeck': 'Links to the deck “{title}” ({path})',
+  'link.tipMissing': 'Link “{target}” has no matching target',
+  'link.tipRaw': 'Links to {target}',
   'check.sourceMissing': 'deck.yml source “{source}” does not match any note',
   'check.report.notes': '📝 Notes: {topics} topics, {books} notebooks, {notes} notes, {links} links',
   'check.report.warnings': '{n} reminders (these do not fail the check):',
@@ -1316,9 +1375,24 @@ const LOCALE_EN = {
   'distill.qa': 'Q&A',
   'distill.q': 'Q:',
   'distill.a': 'A:',
+  'distill.slideRef': '(slide {n})',
+  'pv.qa': 'Q&A',
+  'pv.qaPlaceholder': 'Jot down a question… (Enter to add, Shift+Enter for a new line)',
+  'pv.qaAdd': 'Add',
+  'pv.qaHint': 'Included automatically in the after-talk note.',
+  'pv.qaDownload': 'Download Q&A',
+  'pv.qaAnswer': 'Answer (fill in later if you like)',
+  'pv.qaDelete': 'Delete',
+  'pv.qaDeleteConfirm': 'Click again to delete',
+  'pv.qaEmpty': 'No questions yet. Press Q to start.',
+  'pv.qaSlide': 'Slide {n}',
+  'pv.qaSaveFailed': 'Could not save Q&A (this browser blocks local storage)',
+  'distill.withQA': 'It will include {n} question(s) recorded in the presenter view.',
+  'distill.qaMissing': 'Cannot read the Q&A file {path}.',
+  'distill.qaEmpty': 'No questions found in {path} (use the JSON downloaded from the presenter view, or plain text with “Q: question” and “A: answer” lines).',
   'distill.next': 'Next time',
   'distill.suffix': 'after-talk',
-  'distill.usage': 'Usage: node scripts/after-talk.mjs <library> <path to a deck> [--dry-run]\nExample: node scripts/after-talk.mjs ~/my-library slides/10-reading/2026-11-share',
+  'distill.usage': 'Usage: node scripts/after-talk.mjs <library> <path to a deck> [--dry-run] [--qa <file>]\nExample: node scripts/after-talk.mjs ~/my-library slides/10-reading/2026-11-share',
   'distill.notDeck': '{path} is not a deck folder under slides/.',
   'distill.done': 'Created after-talk note {path} (private by default).',
   'distill.action': 'Save this deck as an after-talk note',
@@ -2453,7 +2527,23 @@ function parseNote(text, { path }) {
     issues,
   };
 }
-return { LAYOUT_KEYS, splitFrontMatter, slugify, plainInline, headingsOf, parseTarget, wikilinksOf, linkLabel, sectionOf, parseNote };
+
+/**
+ * 來源筆記的內容指紋(升級成簡報時記在 deck.yml 的 source_hash)。
+ * 只看內文(不含 front matter),依路徑排序;換行與行尾空白不算改動。
+ * FNV-1a 32 位元,8 個十六進位字元:夠用來判斷「有沒有改過」,不是安全用途。
+ * @param {{ path: string, body: string }[]} notes
+ */
+function sourceFingerprint(notes) {
+  let h = 0x811c9dc5;
+  const feed = str => { for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } };
+  for (const n of [...notes].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))) {
+    feed(String(n.body || '').replace(/\r\n?/g, '\n').replace(/[ \t]+$/gm, '').trim());
+    feed('\u0000');
+  }
+  return h.toString(16).padStart(8, '0');
+}
+return { LAYOUT_KEYS, splitFrontMatter, slugify, plainInline, headingsOf, parseTarget, wikilinksOf, linkLabel, sectionOf, parseNote, sourceFingerprint };
 })();
 
 // ───────── app/core/markdown.js ─────────
@@ -2477,8 +2567,14 @@ function escapeHTML(s) {
 
 const defaultImage = (src, alt) => `<img data-media="${escapeHTML(src)}" alt="${escapeHTML(alt)}">`;
 
-/** 沒有指定時,[[連結]] 顯示成帶樣式的文字(簡報與匯出的單檔不知道連結要去哪裡)。 */
-const defaultWikilink = link => `<span class="wikilink${link.embed ? ' embed' : ''}">${escapeHTML(linkLabel(link))}</span>`;
+/**
+ * 沒有指定時,[[連結]] 顯示成帶樣式的文字(簡報與匯出的單檔不能跳轉)。
+ * data-link / data-heading 記下目標,播放器據此補上「連到哪裡」的說明(player/render.js 的 describeLinks)。
+ */
+const defaultWikilink = link => `<span class="wikilink${link.embed ? ' embed' : ''}" data-link="${escapeHTML(linkKey(link))}"${link.heading ? ` data-heading="${escapeHTML(link.heading)}"` : ''}>${escapeHTML(linkLabel(link))}</span>`;
+
+/** 連結目標的鍵(簡報的 deck.links 用它查目標說明)。 */
+const linkKey = link => `${link.channel === 'slides' ? 'slides' : 'notes'}:${link.target}`;
 
 /**
  * @param {string} src
@@ -2678,7 +2774,7 @@ function inline(text, ctx, slots = []) {
   for (let i = 0; i < 5 && s.includes('\u0000'); i++) s = s.replace(/\u0000(\d+)\u0000/g, (_, n) => slots[n]);
   return s;
 }
-return { escapeHTML, renderMarkdown, undefinedFootnotes, renderInline };
+return { escapeHTML, linkKey, renderMarkdown, undefinedFootnotes, renderInline };
 })();
 
 // ───────── app/core/vault.js ─────────
@@ -3051,7 +3147,7 @@ __m["app/core/graph.js"] = (() => {
 
 const { limiter } = __m["app/core/library.js"];
 const { join, isHidden, isMarkdown, RESERVED_DIRS } = __m["app/core/names.js"];
-const { parseNote, wikilinksOf } = __m["app/core/note.js"];
+const { parseNote, wikilinksOf, sourceFingerprint } = __m["app/core/note.js"];
 const { createResolver, computeBacklinks, norm } = __m["app/core/links.js"];
 const { resolvePublic, isLocalOnly } = __m["app/core/privacy.js"];
 const { notesOfTopic } = __m["app/core/vault.js"];
@@ -3101,7 +3197,7 @@ async function buildGraph(vault, { onProgress, slides = true } = {}) {
   }
   for (const tp of vault.slides.topics) {
     for (const p of tp.projects) {
-      const rec = { kind: 'deck', path: vault.deckPath(p), rel: p.path, topicId: tp.id, title: p.title, folder: p.folder, date: p.date, source: p.config?.source ? String(p.config.source) : '', links: [], project: p, search: norm([p.title, p.subtitle, p.author, ...p.tags].join(' ')) };
+      const rec = { kind: 'deck', path: vault.deckPath(p), rel: p.path, topicId: tp.id, title: p.title, folder: p.folder, date: p.date, source: p.config?.source ? String(p.config.source) : '', sourceHash: p.config?.source_hash != null ? String(p.config.source_hash) : '', links: [], project: p, search: norm([p.title, p.subtitle, p.author, ...p.tags].join(' ')) };
       decks.push(rec);
       if (!slides) continue;
       jobs.push(async () => {
@@ -3129,6 +3225,38 @@ async function buildGraph(vault, { onProgress, slides = true } = {}) {
   };
 }
 
+/** deck.yml 的 source 指到的筆記:一篇筆記,或筆記本資料夾裡的所有筆記(依路徑排序)。 */
+function sourceNotesOf(graph, source) {
+  const src = norm(String(source || '').replace(/\.md$/i, '').replace(/^\/+|\/+$/g, ''));
+  if (!src) return [];
+  return [...graph.notes.values()].filter(n => { const p = norm(n.path.replace(/\.md$/i, '')); return p === src || p.startsWith(src + '/'); });
+}
+
+/**
+ * 簡報與來源筆記的關係(docs/INTEROP.md 第 4 節):
+ *   ''          沒有 source
+ *   'missing'   source 找不到
+ *   'untracked' 有 source 但沒有 source_hash(手寫或舊版升級的簡報)
+ *   'same'      升級之後來源筆記沒改過
+ *   'changed'   升級之後來源筆記改過了:簡報可能需要跟上
+ * @returns {{ status: string, notes: object[], hash: string }}
+ */
+function sourceStatus(graph, deck) {
+  if (!deck?.source) return { status: '', notes: [], hash: '' };
+  return { ...compareSource(deck.sourceHash, sourceNotesOf(graph, deck.source)), notes: sourceNotesOf(graph, deck.source) };
+}
+
+/**
+ * 比對指紋。notes = [{ path, body }]:可以是圖譜裡的,也可以是剛重新讀取的(圖譜可能是之前建的)。
+ * @returns {{ status: 'missing'|'untracked'|'same'|'changed', hash: string }}
+ */
+function compareSource(sourceHash, notes) {
+  if (!notes.length) return { status: 'missing', hash: '' };
+  const hash = sourceFingerprint(notes);
+  if (!sourceHash) return { status: 'untracked', hash };
+  return { status: String(sourceHash).toLowerCase() === hash ? 'same' : 'changed', hash };
+}
+
 /**
  * 搜尋:多個關鍵字全部符合才算;標題符合的排前面。
  * @returns {object[]} 筆記與簡報紀錄
@@ -3144,7 +3272,7 @@ function searchGraph(graph, query, { limit: max = 50 } = {}) {
   }
   return hits.sort((a, b) => b.score - a.score || String(b.r.date || '').localeCompare(String(a.r.date || ''))).slice(0, max).map(h => h.r);
 }
-return { buildGraph, searchGraph };
+return { buildGraph, sourceNotesOf, sourceStatus, compareSource, searchGraph };
 })();
 
 // ───────── app/core/check.js ─────────
@@ -3160,9 +3288,8 @@ const { undefinedFootnotes } = __m["app/core/markdown.js"];
 const { t } = __m["app/core/i18n.js"];
 const { isHidden, isMarkdown, RESERVED_DIRS, join } = __m["app/core/names.js"];
 const { openVault } = __m["app/core/vault.js"];
-const { buildGraph } = __m["app/core/graph.js"];
+const { buildGraph, sourceStatus } = __m["app/core/graph.js"];
 const { sectionOf } = __m["app/core/note.js"];
-const { norm } = __m["app/core/links.js"];
 const MAX_SLIDES = 45;
 
 /** 檔案是否存在:列出上一層資料夾來確認(本機來源會快取清單,不會重複讀)。 */
@@ -3356,11 +3483,9 @@ async function checkVault(source, onProgress, { today = new Date().toISOString()
   }
   for (const d of graph.decks.values()) {
     for (const l of d.links) { links++; checkLink(d, l, l.file || d.path); }
-    if (d.source) {
-      const src = norm(d.source.replace(/\.md$/i, '').replace(/^\/+|\/+$/g, ''));
-      const found = [...graph.notes.values()].some(n => { const p = norm(n.path.replace(/\.md$/i, '')); return p === src || p.startsWith(src + '/'); });
-      if (!found) say('warn', join(d.path, 'deck.yml'), t('check.sourceMissing', { source: d.source }));
-    }
+    const st = sourceStatus(graph, d).status;
+    if (st === 'missing') say('warn', join(d.path, 'deck.yml'), t('check.sourceMissing', { source: d.source }));
+    if (st === 'changed') say('warn', join(d.path, 'deck.yml'), t('check.sourceChanged', { source: d.source }));
   }
   return {
     kind: 'leafpile', title: vault.title, topics: slides.topics, problems, warnings,
