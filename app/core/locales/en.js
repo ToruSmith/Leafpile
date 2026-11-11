@@ -474,6 +474,7 @@ export const LOCALE_EN = {
   'shelf.newNote': '+ Note',
   'shelf.readonly': 'Read-only',
   'shelf.readonlyTip': 'This library is read-only, so you cannot create or save notes. Use Chrome or Edge, click “Open a local folder” on the home page and allow write access.',
+  'shelf.readonlyBrowserTip': 'This browser cannot save files, so you can only read and play. To create notes, use Chrome or Edge (Brave turns this feature off by default).',
   'shelf.newNoteTitle': 'Create a note',
   'shelf.emptyTopics': 'Topics with nothing in them yet: {list}',
   'shelf.emptyLibrary': 'This library is empty. Put .md files in a topic folder under notes/ or slides/, then press Refresh.',

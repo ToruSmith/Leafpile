@@ -233,3 +233,6 @@ a.wikilink.missing { color: var(--muted); border-bottom-color: var(--muted); }
 .used-by small.stale { justify-self: start; padding: 0 8px; border-radius: 999px; font-size: 11px; color: #9a5b12; background: color-mix(in srgb, #e8a33d 18%, transparent); }
 .slide .wikilink[title] { cursor: help; }
 .ro-chip { align-self: center; padding: 4px 12px; border-radius: 999px; font-size: 13px; color: #9a5b12; background: color-mix(in srgb, #e8a33d 18%, transparent); cursor: help; }
+button.ro-chip { border: 0; font: inherit; font-size: 13px; }
+.ro-note { margin: 0 0 14px; padding: 10px 14px; border-radius: 10px; font-size: 14px; line-height: 1.6; color: #6b430d; background: color-mix(in srgb, #e8a33d 14%, transparent); }
+.ro-note[hidden] { display: none; }

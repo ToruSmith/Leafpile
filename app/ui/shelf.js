@@ -9,6 +9,7 @@ import { searchGraph } from '../core/graph.js';
 import { deckCardHTML, wireDeckCards } from './library-view.js';
 import { hydrate } from '../player/hydrate.js';
 import { resolveMediaPath } from '../core/media.js';
+import { canPickDirectory } from '../sources/sources.js';
 
 const VIEW_KEY = 'leafpile-shelf-view';
 const VIEWS = ['all', 'notes', 'slides'];
@@ -46,13 +47,14 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
         </div>
         <div class="lib-tools">
           <input type="search" class="search" placeholder="${esc(t(hasNotes ? 'shelf.search' : 'lib.search'))}" aria-label="${esc(t('lib.search'))}">
-          <button class="btn ghost palette-btn" title="${esc(t('palette.open'))}"><kbd>⌘K</kbd></button>
+          <button class="btn ghost palette-btn" title="${esc(t('palette.open'))}"><kbd>${/Mac|iPhone|iPad/.test(globalThis.navigator?.platform || '') ? '⌘K' : 'Ctrl K'}</kbd></button>
           ${onNewNote ? `<button class="btn ghost new-note" title="${esc(t('shelf.newNoteTitle'))}">${esc(t('shelf.newNote'))}</button>`
-            : hasNotes && sourceKey !== 'repo' ? `<span class="ro-chip" tabindex="0" title="${esc(t('shelf.readonlyTip'))}">${esc(t('shelf.readonly'))}</span>` : ''}
+            : hasNotes && sourceKey !== 'repo' ? `<button class="ro-chip" title="${esc(t(canPickDirectory() ? 'shelf.readonlyTip' : 'shelf.readonlyBrowserTip'))}">${esc(t('shelf.readonly'))}</button>` : ''}
           <button class="btn ghost check" title="${esc(t('lib.checkTitle'))}">${esc(t('lib.check'))}</button>
           ${onRefresh ? `<button class="btn ghost refresh" title="${esc(t('lib.refreshTitle'))}">${esc(t('lib.refresh'))}</button>` : ''}
         </div>
       </div>
+      <p class="ro-note" role="status" hidden></p>
       <div class="shelf-bar">
         ${hasNotes ? `<div class="segmented" role="tablist" aria-label="${esc(t('shelf.viewLabel'))}">${VIEWS.map(v => `<button role="tab" data-view="${v}" aria-selected="${v === view}">${esc(t('shelf.view.' + v))}<small>${v === 'notes' ? noteCount : v === 'slides' ? deckCount : noteCount + deckCount}</small></button>`).join('')}</div>` : ''}
         ${chipsOf.length ? `<nav class="chips"><button class="chip on" data-filter="*">${esc(t('lib.all'))}</button>${chipsOf.map(c => `<button class="chip${c.n ? '' : ' zero'}" data-filter="${esc(c.id)}" style="--c:${esc(c.color || 'var(--ink)')}">${esc(c.name)}<small>${c.n}</small></button>`).join('')}</nav>` : ''}
@@ -141,6 +143,11 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
   window.addEventListener('keydown', onKey);
   $('.refresh')?.addEventListener('click', onRefresh);
   $('.check')?.addEventListener('click', onCheck);
+  $('.ro-chip')?.addEventListener('click', e => {
+    const note = $('.ro-note');
+    note.textContent = e.currentTarget.title;
+    note.hidden = !note.hidden;
+  });
   $('.new-note')?.addEventListener('click', () => onNewNote());
   $('.palette-btn')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('leafpile:palette')));
   apply();

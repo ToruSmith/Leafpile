@@ -474,6 +474,7 @@ export const LOCALE_ZH_HANT = {
   'shelf.newNote': '+ 筆記',
   'shelf.readonly': '唯讀',
   'shelf.readonlyTip': '這個書庫目前是唯讀的，不能新增或儲存筆記。請用 Chrome 或 Edge，在首頁按「開啟本機資料夾」並允許寫入。',
+  'shelf.readonlyBrowserTip': '這個瀏覽器不能存檔，所以只能閱讀與播放。要新增筆記請改用 Chrome 或 Edge（Brave 預設關閉這項功能）。',
   'shelf.newNoteTitle': '新增一篇筆記',
   'shelf.emptyTopics': '還沒有內容的主題:{list}',
   'shelf.emptyLibrary': '這個書庫還是空的。在 notes/ 或 slides/ 的主題資料夾裡放進 .md 檔,再按「重新整理」。',
