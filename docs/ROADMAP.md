@@ -11,8 +11,7 @@
 - [x] README、貢獻、AI 揭露、安全、行為準則
 - [x] 建立 GitHub repo（<https://github.com/ToruSmith/Leafpile>）
 - [x] 開啟 Pages（Source：GitHub Actions）
-- [ ] 在 Mdslide Pile 補上 LICENSE（MIT）
-- [ ] 確認名稱可用（網域；若發 CLI 再查 npm）
+- [x] 確認名稱可用（已確認：使用 GitHub Pages 網址，不另購網域）
 
 **閘門：規格凍結 v0**：自己照 SPEC 手動整理一個真實書庫（至少 20 篇筆記、2 份簡報），沒有遇到規格答不出來的情況。
 
@@ -41,7 +40,7 @@
 - [x] 提醒「來源筆記在升級後改過」（內容指紋 `source_hash`；`scripts/source-sync.mjs`）
 - [x] 匯出單一 HTML 時，保留投影片裡的 `[[連結]]` 目標說明
 
-**閘門：公開 Beta**：三位以上外部使用者完成「筆記 → 簡報 → 講後筆記」一輪並回饋。
+**閘門：公開 Beta**：三位以上外部使用者完成「筆記 → 簡報 → 講後筆記」一輪並回饋。試用指南：[`docs/BETA.md`](BETA.md)；回饋表：Issue 範本「公開 Beta 試用回饋」（標籤 `beta`）。
 
 ## P3 擴充
 
