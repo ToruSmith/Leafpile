@@ -171,11 +171,12 @@ def main():
         page.keyboard.press('v'); page.wait_for_timeout(1300)
         assert page.evaluate("document.querySelector('.player').dataset.stage") == 'side', 'V 沒有切到對照模式'
         # 動畫在慢機器(CI)上可能還沒跑完:輪詢到大圖放大為止,而不是固定等待
-        try:
-            page.wait_for_function("document.querySelector('.card.focus').getBoundingClientRect().width > 600", timeout=6000)
-        except Exception:
-            pass
-        big = page.evaluate("document.querySelector('.card.focus').getBoundingClientRect().width")
+        # (不用 wait_for_function:WebKit 的輪詢會用 eval 執行判斷式,被網站自己的 CSP 擋下,測試會誤報違規)
+        for _ in range(24):
+            big = page.evaluate("document.querySelector('.card.focus').getBoundingClientRect().width")
+            if big > 600:
+                break
+            page.wait_for_timeout(250)
         assert big > 600, f'對照模式的大圖太小:{big}'
         page.keyboard.press('v'); page.wait_for_timeout(1300)
         errors.extend('csp: ' + v for v in page.evaluate('window.__csp'))
