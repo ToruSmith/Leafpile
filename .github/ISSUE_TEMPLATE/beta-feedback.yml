@@ -1,0 +1,62 @@
+name: 公開 Beta 試用回饋 / Beta feedback
+description: 照 docs/BETA.md 走完（或走到卡住）之後填這份 / After following docs/BETA.md
+title: "[Beta] "
+labels: [beta]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        謝謝試用！請不要貼私人筆記內容、Email 或電話。
+        Thanks for testing! Please don't paste private notes, email addresses or phone numbers.
+  - type: checkboxes
+    id: steps
+    attributes:
+      label: 完成了哪些步驟 / Steps completed
+      description: 沒完成的不要勾 / Leave unfinished steps unchecked
+      options:
+        - label: 1. 寫一篇筆記（含 [[連結]]）/ Write a note with a [[link]]
+        - label: 2. 快閃播放 / Flash play
+        - label: 3. 做成簡報並改一張 / Make a deck and edit a slide
+        - label: 4. 講者視窗記下問答 / Record Q&A in the presenter view
+        - label: 5. 講後筆記裡有問答 / After-talk note contains the Q&A
+        - label: 6. （選做）來源提醒 / (Optional) Source reminder
+  - type: textarea
+    id: stuck
+    attributes:
+      label: 在哪裡卡住或猶豫 / Where did you get stuck or hesitate?
+      description: 哪一步、你以為會怎樣、實際怎樣 / Which step, what you expected, what happened
+    validations:
+      required: true
+  - type: dropdown
+    id: time
+    attributes:
+      label: 大約花了多久 / About how long did it take?
+      options: [少於 20 分鐘 / under 20 min, 20–40 分鐘 / 20–40 min, 超過 40 分鐘 / over 40 min, 沒有走完 / didn't finish]
+    validations:
+      required: true
+  - type: textarea
+    id: useful
+    attributes:
+      label: 最有用的一個地方 / The most useful thing
+  - type: textarea
+    id: confusing
+    attributes:
+      label: 最讓人困惑的一個地方 / The most confusing thing
+  - type: dropdown
+    id: again
+    attributes:
+      label: 下次要寫筆記或做簡報時，會想用它嗎？/ Would you use it next time?
+      options: [會 / Yes, 可能 / Maybe, 不會 / No]
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: 瀏覽器與作業系統 / Browser and OS
+      placeholder: Chrome 131 / Windows 11
+    validations:
+      required: true
+  - type: textarea
+    id: other
+    attributes:
+      label: 其他 / Anything else
