@@ -48,13 +48,13 @@ Full rules: [`docs/INTEROP.md`](docs/INTEROP.md) (Traditional Chinese). Deck for
 | To do this | Do this |
 |---|---|
 | Find anything, run a command | **Ctrl+K** (⌘K on Mac) on any screen |
-| Write a note | **+ Note** on the shelf, or drop a `.md` file into `notes/<topic>/` |
+| Write a note | **+ Note** next to the search box on the library page, or drop a `.md` file into `notes/<topic>/` |
 | Link | Type `[[` in the editor to pick a note or deck |
 | Share a note right now | **▶ Flash play** on the note (or press P). No files are created |
 | Build a real deck | **Make a deck** on the note: a new skeleton in `slides/<same topic>/`, independent afterwards |
 | Keep what was said | While playing a deck, Ctrl+K → **Save this deck as an after-talk note** |
 | Present | Enter to zoom, arrows to move, S speaker view, D pen, P for PDF, export to a single HTML file |
-| Check the library | **✓ Check** on the shelf, or `node leafpile-check.mjs` |
+| Check the library | **✓ Check** on the library page, or `node leafpile-check.mjs` |
 
 A Mdslide Pile library opens as it is (a folder without `notes/` and `slides/` is treated as a deck library).
 
