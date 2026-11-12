@@ -17,7 +17,7 @@ import { escapeHTML as esc, renderMarkdown } from '../core/markdown.js';
 import { t } from '../core/i18n.js';
 import { classifyMedia } from '../core/media.js';
 import { serializeCanvas, canvasColor, edgePath, bounds, resolveFile, newId, SIDES, PRESET_COLORS, fileKind, embedFor, extractURL, slideOrder } from '../core/canvas.js';
-import { withMembers, alignNodes, distribute, snapLines, snapMove, copyFragment, parseFragment, pasteFragment, searchNodes, groupOutline, buildBoardSvg, strokesToSvg } from '../core/canvas-ops.js';
+import { reorderNodes, minimapFrame, withMembers, alignNodes, distribute, snapLines, snapMove, copyFragment, parseFragment, pasteFragment, searchNodes, groupOutline, buildBoardSvg, strokesToSvg } from '../core/canvas-ops.js';
 import { hydrate, mountPage, openPageTab } from '../player/hydrate.js';
 import { prepareMedia } from './media-import.js';
 import { dialog, toast } from './dialog.js';
@@ -67,6 +67,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
               <hr>` : ''}
               <button role="menuitem" data-b="present" title="${esc(t('board.presentTitle'))}">${esc(t('board.present'))}</button>
               <button role="menuitem" data-b="export" title="${esc(t('board.exportTitle'))}">${esc(t('board.export'))}</button>
+              <button role="menuitem" data-b="minimap" data-keep aria-pressed="false">${esc(t('board.minimap'))}<kbd>M</kbd></button>
               <button role="menuitem" data-b="pin" data-keep aria-pressed="false">${esc(t('board.pin'))}</button>
               <hr>
               <div class="zoomrow"><button data-b="out" data-keep aria-label="${esc(t('board.zoomOut'))}">−</button><button class="zoom" data-b="reset" data-keep title="${esc(t('board.zoomReset'))}">100%</button><button data-b="in" data-keep aria-label="${esc(t('board.zoomIn'))}">+</button><button data-b="fit" title="${esc(t('board.fitTitle'))}">${esc(t('board.fit'))}</button></div>
@@ -83,6 +84,9 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
         <div class="board-draw-bar" hidden><span>${esc(t('board.drawing'))}</span>${INKS.map((c, i) => `<button data-ink="${c}" class="${i ? '' : 'on'}" style="--sw:${c}" aria-label="${esc(t('board.color'))}"></button>`).join('')}<button data-d="undo">↶</button><button data-d="cancel">${esc(t('dialog.cancel'))}</button><button data-d="done" class="primary">${esc(t('board.drawDone'))}</button></div>
         <p class="board-empty" hidden>${esc(t(canEdit ? 'board.emptyEdit' : 'board.empty'))}</p>
         <p class="board-hint">${esc(t(canEdit ? 'board.hintEdit' : 'board.hint'))}</p>
+        <div class="board-mini" hidden><svg aria-label="${esc(t('board.minimap'))}" role="img"></svg></div>
+        <button class="board-mini-btn" aria-pressed="false" title="${esc(t('board.minimapTitle'))}" aria-label="${esc(t('board.minimap'))}"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><rect x="7.5" y="7.5" width="5" height="4" fill="currentColor" stroke="none" opacity=".55"/></svg></button>
+        <div class="board-ctx" role="menu" hidden></div>
         <div class="board-hot" aria-hidden="true"></div>
         <button class="board-fab" data-b="menu" aria-label="${esc(t('board.menu'))}" title="${esc(t('board.menu'))}">☰</button>
         <div class="board-present-bar" hidden><button data-p="prev" aria-label="${esc(t('board.prev'))}">‹</button><span class="n"></span><button data-p="next" aria-label="${esc(t('board.next'))}">›</button><button data-p="exit">${esc(t('board.presentExit'))}</button></div>
@@ -115,6 +119,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     view.style.backgroundPosition = `${cam.x}px ${cam.y}px`;
     view.style.backgroundSize = `${24 * cam.z}px ${24 * cam.z}px`;
     placePop();
+    queueMini();
   };
   const toWorld = (cx, cy) => { const r = view.getBoundingClientRect(); return { x: (cx - r.left - cam.x) / cam.z, y: (cy - r.top - cam.y) / cam.z }; };
   const zoomAt = (z, cx, cy) => {
@@ -136,6 +141,56 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   const fit = () => fitTo(bounds(board.nodes));
   const center = () => { const r = view.getBoundingClientRect(); return toWorld(r.left + r.width / 2, r.top + r.height / 2); };
   const centerOn = n => { const r = view.getBoundingClientRect(); world.classList.add('glide'); cam.x = r.width / 2 - (n.x + n.width / 2) * cam.z; cam.y = r.height / 2 - (n.y + n.height / 2) * cam.z; applyCam(); setTimeout(() => world.classList.remove('glide'), 600); };
+
+  // ---------- 小地圖 ----------
+  // 右下角的縮圖:所有卡片加上「目前看得到的範圍」。點或拖曳就把畫面移過去。開關會記住
+  const MINI_KEY = 'leafpile-board-minimap';
+  const mini = $('.board-mini'), miniSvg = mini.querySelector('svg'), miniBtn = $('.board-mini-btn');
+  let miniOn = false, miniRaf = 0, miniFrame = null, miniDrag = false;
+  try { miniOn = localStorage.getItem(MINI_KEY) === '1'; } catch { /* 隱私模式 */ }
+  const viewport = () => { const r = view.getBoundingClientRect(); return { x: -cam.x / cam.z, y: -cam.y / cam.z, width: r.width / cam.z, height: r.height / cam.z }; };
+  function queueMini() { if (miniOn && !miniRaf) miniRaf = requestAnimationFrame(() => { miniRaf = 0; drawMini(); }); }
+  function drawMini() {
+    if (!miniOn || !alive) return;
+    const mw = mini.clientWidth, mh = mini.clientHeight;
+    if (!mw || !mh) return;
+    const vp = viewport();
+    if (!miniDrag || !miniFrame) miniFrame = minimapFrame(bounds(board.nodes), vp, mw / mh);
+    const f = miniFrame, px = f.width / mw; // 小地圖上 1px 等於世界座標多少
+    miniSvg.setAttribute('viewBox', `${f.x} ${f.y} ${f.width} ${f.height}`);
+    const rect = (n, cls, extra = '') => `<rect class="${cls}" x="${n.x}" y="${n.y}" width="${Math.max(n.width, px * 2)}" height="${Math.max(n.height, px * 2)}" rx="${px * 2}"${extra}/>`;
+    const out = [];
+    for (const n of board.nodes) {
+      const c = canvasColor(n.color);
+      out.push(rect(n, n.type === 'group' ? 'g' : isSel(n.id) ? 'n sel' : 'n', c ? ` style="--mc:${c}"` : ''));
+    }
+    out.push(`<rect class="vp" x="${vp.x}" y="${vp.y}" width="${vp.width}" height="${vp.height}" stroke-width="${px * 1.5}"/>`);
+    miniSvg.innerHTML = out.join('');
+  }
+  function setMini(on) {
+    miniOn = on;
+    try { localStorage.setItem(MINI_KEY, on ? '1' : '0'); } catch { /* 略 */ }
+    mini.hidden = !on;
+    miniBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    $('[data-b=minimap]')?.setAttribute('aria-pressed', on ? 'true' : 'false');
+    if (on) { miniFrame = null; drawMini(); }
+  }
+  const miniGo = e => {
+    const r = miniSvg.getBoundingClientRect(), f = miniFrame;
+    if (!f || !r.width) return;
+    const wx = f.x + (e.clientX - r.left) / r.width * f.width, wy = f.y + (e.clientY - r.top) / r.height * f.height;
+    const v = view.getBoundingClientRect();
+    cam.x = v.width / 2 - wx * cam.z; cam.y = v.height / 2 - wy * cam.z;
+    applyCam();
+  };
+  mini.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); miniDrag = true; mini.setPointerCapture?.(e.pointerId); miniGo(e); });
+  mini.addEventListener('pointermove', e => { if (miniDrag) miniGo(e); });
+  const miniUp = () => { if (!miniDrag) return; miniDrag = false; miniFrame = null; queueMini(); };
+  mini.addEventListener('pointerup', miniUp);
+  mini.addEventListener('pointercancel', miniUp);
+  mini.addEventListener('wheel', e => e.stopPropagation(), { passive: true });
+  miniBtn.addEventListener('pointerdown', e => e.stopPropagation());
+  miniBtn.addEventListener('click', () => setMini(!miniOn));
 
   // ---------- 卡片 ----------
   const embedOf = n => (n.type === 'link' ? embedFor(n, classifyMedia) : null);
@@ -219,7 +274,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     edgesEl.innerHTML = parts.join('');
   }
 
-  function draw() { drawNodes(); drawEdges(); drawPop(); }
+  function draw() { drawNodes(); drawEdges(); drawPop(); queueMini(); }
 
   // ---------- 選取後的小工具列 ----------
   const ALIGN = [['left', '⇤'], ['hcenter', '↔'], ['right', '⇥'], ['top', '⤒'], ['vcenter', '↕'], ['bottom', '⤓']];
@@ -243,7 +298,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
       if (n.type !== 'group') items += `<button data-pop="group" title="${esc(t('board.makeGroupTitle'))}">▢</button>`;
       items += colors;
     }
-    pop.innerHTML = `${items}<button data-pop="remove" class="danger" title="${esc(t('board.removeTitle'))}">${esc(t('board.remove'))}</button>`;
+    pop.innerHTML = `${items}<button data-pop="remove" class="danger" title="${esc(t('board.removeTitle'))}">${esc(t('board.remove'))}</button><button data-pop="more" class="more" title="${esc(t('board.ctxTitle'))}" aria-label="${esc(t('board.ctxTitle'))}" aria-haspopup="true">⋯</button>`;
     pop.hidden = false;
     placePop();
   }
@@ -263,6 +318,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     if (!b || b.tagName === 'INPUT') return;
     const what = b.dataset.pop, n = single();
     if (what === 'remove') return removeSelected();
+    if (what === 'more') { const r = b.getBoundingClientRect(); return openCtx(r.left, r.bottom + 6); }
     if (what === 'label') return editEdge(sel.edge);
     if (what === 'edit') return editText(n.id);
     if (what === 'glabel') return editGroup(n.id);
@@ -542,7 +598,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   function select(next) {
     const same = JSON.stringify(next) === JSON.stringify(sel);
     sel = next && next.ids && !next.ids.length ? null : next;
-    if (!same) { placeAll(); drawEdges(); drawPop(); }
+    if (!same) { placeAll(); drawEdges(); drawPop(); queueMini(); }
   }
 
   // ---------- 剪貼簿 ----------
@@ -736,7 +792,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   const isDouble = id => { const now = Date.now(); const d = lastTap.id === id && now - lastTap.t < DOUBLE_MS; lastTap = d ? { id: '', t: 0 } : { id, t: now }; return d; };
 
   view.addEventListener('pointerdown', e => {
-    if (e.target.closest('.board-present-bar, .board-fab, .board-search, .board-draw-bar, a.open, textarea, .embed-tools, .embed-load, .interactive .embed-box')) return;
+    if (e.target.closest('.board-present-bar, .board-fab, .board-mini, .board-mini-btn, .board-ctx, .board-search, .board-draw-bar, a.open, textarea, .embed-tools, .embed-load, .interactive .embed-box')) return;
     if (present) { if (e.button === 0) act = { type: 'pan', sx: e.clientX, sy: e.clientY, cx: cam.x, cy: cam.y, still: true }; return; }
     if (editing || e.button > 0) return;
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -922,6 +978,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     const el = e.target.closest('[data-b]');
     const b = el?.dataset.b;
     if (b === 'more') { setMenu(menu.hidden); return; }
+    if (b === 'minimap') { setMini(!miniOn); return; }
     if (b === 'pin') { pinned = !pinned; try { localStorage.setItem(PIN_KEY, pinned ? '1' : '0'); } catch { /* 略 */ } syncHide(); if (!pinned) barAuto.show(2500); }
     if (el && !el.hasAttribute('data-keep') && el.closest('.board-menu')) setMenu(false);
     if (b === 'in') zoomAt(cam.z * 1.25);
@@ -939,6 +996,114 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     if (b === 'full') setFull(!full);
     if (b === 'text') { const c = center(); addTextAt(c.x, c.y); }
   });
+
+  // ---------- 右鍵選單(手機:選取後小工具列的 ⋯) ----------
+  // 把卡片能做的事集中在一處,旁邊標出快捷鍵
+  const ctx = $('.board-ctx');
+  const MOD = /Mac|iPhone|iPad/.test(globalThis.navigator?.platform || '') ? '⌘' : 'Ctrl+';
+  let ctxAt = null; // 在空白處按右鍵時的世界座標(新增、貼上的位置)
+  const closeCtx = () => { ctx.hidden = true; ctxAt = null; };
+  const openable = n => !!n && (n.type === 'link' || ['html', 'pdf', 'image'].includes(kindOf(n)) || !!els.get(n.id)?.el.querySelector('a.open'));
+  function ctxItems() {
+    const it = (k, label, key = '', cls = '') => ({ k, label, key, cls });
+    const sep = { sep: true }, out = [];
+    if (sel?.edge) {
+      if (canEdit) out.push(it('edit', t('board.ctxEdgeText'), 'Enter'), { colors: true }, sep, it('remove', t('board.remove'), 'Del', 'danger'));
+      return out;
+    }
+    const ids = selIds(), n = single();
+    if (!ids.length) {
+      if (canEdit) out.push(it('text', t('board.addText')), it('card', t('board.addCard')), it('link', t('board.addLink')));
+      if (canEdit && clip) out.push(it('paste', t('board.paste'), MOD + 'V'));
+      if (out.length) out.push(sep);
+      out.push(it('fit', t('board.fit'), 'F'), it('minimap', t('board.minimap'), 'M', miniOn ? 'on' : 'off'));
+      return out;
+    }
+    if (ids.length > 1) out.push({ head: t('board.selected', { n: ids.length }) });
+    if (n && openable(n)) out.push(it('open', t('board.ctxOpen'), 'Enter'));
+    if (n && canEdit) {
+      if (n.type === 'text') out.push(it('edit', t('board.editShort'), 'Enter'));
+      if (n.type === 'group') out.push(it('glabel', t('board.ctxGroupLabel')));
+      if (n.type === 'link') out.push(it('url', t('board.ctxUrl')));
+      if (n.type === 'text' && toNote) out.push(it('note', t('board.toNote')));
+      if (n.type === 'group' && toNote) out.push(it('outline', t('board.outline')));
+    }
+    out.push(it('focus', t('board.ctxFocus')));
+    if (canEdit) {
+      out.push(sep, it('copy', t('board.ctxCopy'), MOD + 'C'), it('cut', t('board.ctxCut'), MOD + 'X'), it('dup', t('board.ctxDup'), MOD + 'D'));
+      if (clip) out.push(it('paste', t('board.paste'), MOD + 'V'));
+      out.push(sep);
+      if (!(n && n.type === 'group')) out.push(it('group', t('board.ctxGroup')));
+      out.push(it('front', t('board.ctxFront')), it('back', t('board.ctxBack')), { colors: true }, sep, it('remove', t('board.remove'), 'Del', 'danger'));
+    }
+    return out;
+  }
+  function openCtx(x, y) {
+    const items = ctxItems();
+    if (!items.length) return;
+    while (items.at(-1)?.sep) items.pop();
+    ctx.innerHTML = items.map(i => i.sep ? '<hr>'
+      : i.head ? `<div class="head">${esc(i.head)}</div>`
+      : i.colors ? `<div class="sw">${['', ...Object.keys(PRESET_COLORS)].map(c => `<button data-c="${c}" style="--sw:${c ? PRESET_COLORS[c] : 'transparent'}" aria-label="${esc(t('board.color'))} ${c || '—'}"${c ? '' : ' class="none"'}></button>`).join('')}</div>`
+      : `<button role="menuitem" data-k="${i.k}" class="${i.cls}"${i.cls === 'on' || i.cls === 'off' ? ` aria-pressed="${i.cls === 'on'}"` : ''}><span>${esc(i.label)}</span>${i.key ? `<kbd>${esc(i.key)}</kbd>` : ''}</button>`).join('');
+    ctx.hidden = false;
+    pop.hidden = true;
+    const v = view.getBoundingClientRect(), w = ctx.offsetWidth, h = ctx.offsetHeight;
+    ctx.style.left = `${Math.max(6, Math.min(v.width - w - 6, x - v.left))}px`;
+    ctx.style.top = `${Math.max(6, Math.min(v.height - h - 6, y - v.top))}px`;
+    ctx.querySelector('button')?.focus({ preventScroll: true });
+  }
+  view.addEventListener('contextmenu', e => {
+    if (present || drawing || editing || e.target.closest('textarea, input, .board-bar, .board-ctx, .board-mini, .board-pop')) return;
+    e.preventDefault();
+    const nodeEl = e.target.closest('.bnode'), edgeEl = e.target.closest('.bedge');
+    if (nodeEl) { const id = nodeEl.dataset.id; if (!isSel(id)) select({ ids: [id] }); }
+    else if (edgeEl) select({ edge: edgeEl.dataset.edge });
+    else { select(null); ctxAt = toWorld(e.clientX, e.clientY); }
+    const keepAt = ctxAt;
+    openCtx(e.clientX, e.clientY);
+    ctxAt = keepAt;
+  });
+  ctx.addEventListener('pointerdown', e => e.stopPropagation());
+  ctx.addEventListener('click', e => {
+    const sw = e.target.closest('[data-c]');
+    if (sw) {
+      const targets = sel?.edge ? [board.edges.find(x => x.id === sel.edge)] : selNodes();
+      for (const tg of targets.filter(Boolean)) { if (sw.dataset.c) tg.color = sw.dataset.c; else delete tg.color; }
+      draw(); changed(); return closeCtx();
+    }
+    const k = e.target.closest('[data-k]')?.dataset.k;
+    if (!k) return;
+    const at = ctxAt, n = single();
+    closeCtx();
+    if (k === 'text') { const c = at || center(); return addTextAt(c.x, c.y); }
+    if (k === 'card') return addCard();
+    if (k === 'link') return addLink();
+    if (k === 'paste') return clip && pasteFrag(clip, at || 'offset');
+    if (k === 'fit') return fit();
+    if (k === 'minimap') return setMini(!miniOn);
+    if (k === 'open') return n && (els.get(n.id)?.el.querySelector('a.open')?.click() ?? openTab(n));
+    if (k === 'edit') return sel?.edge ? editEdge(sel.edge) : n && editText(n.id);
+    if (k === 'glabel') return n && editGroup(n.id);
+    if (k === 'url') return n && editLink(n.id);
+    if (k === 'note') return n && convertToNote(n.id);
+    if (k === 'outline') return n && outlineToNote(n.id);
+    if (k === 'focus') { const b = bounds(selNodes()); if (b) { world.classList.add('glide'); fitTo(b, 80, 1.5); setTimeout(() => world.classList.remove('glide'), 600); } return; }
+    if (k === 'copy') return copySelection();
+    if (k === 'cut') return copySelection(true);
+    if (k === 'dup') return duplicate();
+    if (k === 'group') return makeGroup();
+    if (k === 'front' || k === 'back') { board.nodes = reorderNodes(board.nodes, selIds(), k); draw(); return changed(); }
+    if (k === 'remove') return removeSelected();
+  });
+  ctx.addEventListener('keydown', e => {
+    const list = [...ctx.querySelectorAll('button[data-k]')], i = list.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); list[(i + (e.key === 'ArrowDown' ? 1 : list.length - 1)) % list.length]?.focus(); }
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeCtx(); view.focus({ preventScroll: true }); }
+  });
+  const onCtxOut = e => { if (!ctx.hidden && !e.target.closest('.board-ctx')) closeCtx(); };
+  document.addEventListener('pointerdown', onCtxOut, true);
+  view.addEventListener('wheel', () => { if (!ctx.hidden) closeCtx(); }, { passive: true });
 
   const onKey = e => {
     if (editing || e.target.closest?.('input, textarea, select, .lp-dialog, .palette')) return;
@@ -965,7 +1130,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     if (mod && k === 'd' && canEdit) { e.preventDefault(); return duplicate(); }
     if (mod) return;
     if (e.key === 'Delete' || e.key === 'Backspace') { if (sel && canEdit) { e.preventDefault(); removeSelected(); } return; }
-    if (e.key === 'Escape') { if (!menu.hidden) return setMenu(false); if (search) return closeSearch(); if (sel) return select(null); if (full) setFull(false); return; }
+    if (e.key === 'Escape') { if (!ctx.hidden) return closeCtx(); if (!menu.hidden) return setMenu(false); if (search) return closeSearch(); if (sel) return select(null); if (full) setFull(false); return; }
     if (e.key === 'Enter' && sel) {
       e.preventDefault();
       if (sel.edge) return editEdge(sel.edge);
@@ -973,7 +1138,8 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
       if (n?.type === 'text') return editText(n.id);
       return n && els.get(n.id)?.el.querySelector('a.open')?.click();
     }
-    if (e.key === 'f' || e.key === 'F') fit();
+    if (e.key === 'm' || e.key === 'M') setMini(!miniOn);
+    else if (e.key === 'f' || e.key === 'F') fit();
     else if (e.key === '0') zoomAt(1);
     else if (e.key === '+' || e.key === '=') zoomAt(cam.z * 1.25);
     else if (e.key === '-') zoomAt(cam.z / 1.25);
@@ -983,7 +1149,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   window.addEventListener('beforeunload', onUnload);
 
   draw();
-  requestAnimationFrame(fit);
+  requestAnimationFrame(() => { fit(); setMini(miniOn); });
   graph?.then(x => { g = x; if (alive) draw(); }, () => {});
 
   return {
@@ -991,7 +1157,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
       alive = false;
       window.removeEventListener('keydown', onKey); window.removeEventListener('paste', onPaste);
       window.removeEventListener('beforeunload', onUnload); document.removeEventListener('fullscreenchange', onFs);
-      barAuto.dispose(); document.removeEventListener('pointerdown', onDown);
+      barAuto.dispose(); document.removeEventListener('pointerdown', onDown); document.removeEventListener('pointerdown', onCtxOut, true); cancelAnimationFrame(miniRaf);
       if ((present || full) && document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
       if (dirty) flush();
     },
