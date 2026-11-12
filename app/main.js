@@ -497,7 +497,7 @@ async function showDeck(key, topicId, projectId, start, reading = false) {
     });
     lastHash = location.hash;
     document.title = `${deck.title} · Leafpile`;
-    remindSource(key, vault, project, deckKey);
+    remindSource(key, vault, project, deckKey, topicId);
     if (reload) {
       const dirs = [...new Set([deck.path, ...deck.sections.map(s => s.path)])];
       state.stopWatch = source.watch(dirs, async () => {
@@ -533,13 +533,16 @@ async function exportWithLinks(key, vault, player, topicId) {
 }
 
 /** 來源筆記在升級之後改過:開簡報時提醒一次(背景比對,不擋播放)。 */
-async function remindSource(key, vault, project, deckKey) {
+async function remindSource(key, vault, project, deckKey, topicId) {
   if (vault.kind !== 'leafpile' || project.config?.source_hash == null || state.sourceWarned.has(deckKey)) return;
   try {
     const st = await freshSourceStatus(key, vault, project);
     if (st?.status !== 'changed' || state.playerKey !== deckKey) return;
     state.sourceWarned.add(deckKey);
-    toast(t('deck.sourceChanged'), { ms: 8000 });
+    const actions = [];
+    if (st.notes.length) actions.push({ label: t('deck.openSourceShort'), run: () => { location.hash = hrefs(key).note(st.notes[0].rel); } });
+    if (state.sources.get(key)?.canWrite) actions.push({ label: t('deck.markSyncedShort'), run: () => markSynced(key, topicId, project.id) });
+    toast(t('deck.sourceChanged'), { ms: 15000, actions });
   } catch { /* 圖譜建不起來就不提醒 */ }
 }
 

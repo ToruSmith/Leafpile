@@ -236,3 +236,8 @@ a.wikilink.missing { color: var(--muted); border-bottom-color: var(--muted); }
 button.ro-chip { border: 0; font: inherit; font-size: 13px; }
 .ro-note { margin: 0 0 14px; padding: 10px 14px; border-radius: 10px; font-size: 14px; line-height: 1.6; color: #6b430d; background: color-mix(in srgb, #e8a33d 14%, transparent); }
 .ro-note[hidden] { display: none; }
+.lp-toast.has-actions { display: flex; flex-direction: column; gap: 10px; }
+.lp-toast-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.lp-toast-actions button { font: inherit; font-size: 13px; padding: 4px 12px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--bg) 45%, transparent); background: transparent; color: var(--bg); cursor: pointer; }
+.lp-toast-actions button:hover { background: color-mix(in srgb, var(--bg) 15%, transparent); }
+.lp-toast-actions .lp-toast-close { margin-left: auto; border: 0; font-size: 18px; line-height: 1; padding: 2px 6px; }
