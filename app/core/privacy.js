@@ -43,3 +43,88 @@ export function scanPII(text) {
   }
   return out;
 }
+
+// 範例網域與保留網域:文件裡常見,不算個資
+const EXAMPLE_MAIL = /@(?:[a-z0-9-]+\.)*(?:example\.(?:com|org|net)|example|test|invalid|localhost)$/i;
+
+/**
+ * 掃描個資,列出每一筆(含行號)。程式碼區塊裡的、範例網域的 Email 不算。
+ * @returns {{ key: string, match: string, line: number }[]}  line 從 1 開始
+ */
+export function scanPIIAll(text) {
+  const out = [], seen = new Set();
+  let fence = null;
+  String(text).split('\n').forEach((line, i) => {
+    const f = line.match(/^\s*(```+|~~~+)/);
+    if (f) { if (!fence) fence = f[1]; else if (line.trim().startsWith(fence)) fence = null; return; }
+    if (fence) return;
+    const plain = line.replace(/`[^`]*`/g, m => ' '.repeat(m.length));
+    for (const { key, re } of PII) {
+      for (const m of plain.matchAll(new RegExp(re.source, 'g'))) {
+        if (key === 'email' && EXAMPLE_MAIL.test(m[0])) continue;
+        const id = key + '|' + m[0];
+        if (seen.has(id)) continue;
+        seen.add(id);
+        out.push({ key, match: m[0], line: i + 1 });
+      }
+    }
+  });
+  return out;
+}
+
+/** 螢幕上顯示用:遮掉中間,只留頭尾(截圖時不會整筆外流)。 */
+export function maskPII(key, s) {
+  const str = String(s);
+  if (key === 'email') {
+    const [user, domain] = str.split('@');
+    return `${user.slice(0, 1)}${'*'.repeat(Math.max(2, user.length - 1))}@${domain}`;
+  }
+  const keep = Math.min(3, Math.floor(str.length / 4));
+  return str.slice(0, keep) + str.slice(keep, str.length - keep).replace(/[A-Za-z0-9]/g, '*') + str.slice(str.length - keep);
+}
+
+/**
+ * 發布前檢查:哪些筆記會公開、哪些有個資。
+ * @param {{ rel: string, title: string, text: string, public: boolean, localOnly: boolean, kind?: 'note'|'slide' }[]} items
+ */
+export function auditPrivacy(items) {
+  const notes = items.filter(i => i.kind !== 'slide');
+  const counts = {
+    public: notes.filter(n => n.public && !n.localOnly).length,
+    private: notes.filter(n => !n.public && !n.localOnly).length,
+    localOnly: notes.filter(n => n.localOnly).length,
+  };
+  const exposed = i => i.kind === 'slide' ? !i.localOnly : i.public && !i.localOnly; // 簡報沒有 public 設定:會跟著書庫公開
+  const pii = items.map(i => ({ ...i, exposed: exposed(i), hits: scanPIIAll(i.text) })).filter(i => i.hits.length)
+    .map(({ text, ...rest }) => rest)
+    .sort((a, b) => Number(b.exposed) - Number(a.exposed) || a.rel.localeCompare(b.rel));
+  return { counts, publicNotes: notes.filter(n => n.public && !n.localOnly).map(n => ({ rel: n.rel, title: n.title })), pii };
+}
+
+/**
+ * 訪客視角:只留下會公開的筆記(書庫的其他結構不變,可以直接交給書架畫面)。
+ * 只留本機的主題裡的簡報也拿掉。
+ * @param {object} vault  core/vault.js 的書庫物件
+ * @param {(rel: string) => boolean} visible  這篇筆記訪客看不看得到
+ */
+export function visitorVault(vault, visible) {
+  const keep = nt => nt && {
+    ...nt,
+    items: nt.items
+      .map(i => (i.kind === 'book' ? { ...i, notes: i.notes.filter(n => visible(n.path)) } : i))
+      .filter(i => (i.kind === 'book' ? i.notes.length : visible(i.path))),
+  };
+  const notesTopics = (vault.notes?.topics || []).map(keep);
+  const byId = new Map(notesTopics.map(x => [x.id, x]));
+  const topics = vault.topics.map(tp => {
+    const local = isLocalOnly(tp.conf) || isLocalOnly(tp.notes?.conf);
+    return { ...tp, notes: tp.notes ? byId.get(tp.notes.id) : tp.notes, decks: local ? [] : tp.decks };
+  });
+  const byTopic = new Map(topics.map(x => [x.id, x]));
+  return {
+    ...vault,
+    topics,
+    notes: vault.notes ? { ...vault.notes, topics: notesTopics } : vault.notes,
+    categories: (vault.categories || []).map(c => ({ ...c, topics: c.topics.map(tp => byTopic.get(tp.id) || tp) })),
+  };
+}

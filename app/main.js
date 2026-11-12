@@ -14,6 +14,11 @@ import { openVault, findNote, findDeck, notesOfTopic } from './core/vault.js';
 import { buildGraph, sourceStatus, compareSource } from './core/graph.js';
 import { parseNote, slugify, splitFrontMatter, wikilinksOf } from './core/note.js';
 import { expandEmbeds, promoteNote, promoteBook, distillDeck, withSourceHash } from './core/bridge.js';
+import { openPrivacyPanel } from './ui/privacy-view.js';
+import { renderBoard } from './ui/canvas-view.js';
+import { parseCanvas, emptyCanvas, boardFileName } from './core/canvas.js';
+import { auditPrivacy, visitorVault, isLocalOnly } from './core/privacy.js';
+import { planLinkUpdates, retitle, renamedFile, rebaseLinks, retargetSource, dirOf } from './core/move.js';
 import { checkVault } from './core/check.js';
 import { escapeHTML as esc, linkKey } from './core/markdown.js';
 import { HttpSource, HandleSource, FileListSource, sourceFromDrop, canPickDirectory } from './sources/sources.js';
@@ -32,7 +37,7 @@ import { loadQA, saveQA } from './player/qa-store.js';
 import { applyUITheme } from './player/themes.js';
 import { t, setLang, getLang, normalizeLang } from './core/i18n.js';
 
-export const VERSION = '0.2.0';
+export const VERSION = '0.3.0';
 const REPO_URL = 'https://github.com/ToruSmith/Leafpile';
 const MDSLIDE_URL = 'https://github.com/ToruSmith/Mdslide-Pile';
 
@@ -57,7 +62,7 @@ function applyLang(lang) {
 applyLang(pickLang());
 
 const state = {
-  sources: new Map(), vaults: new Map(), graphs: new Map(), sourceWarned: new Set(),
+  sources: new Map(), vaults: new Map(), graphs: new Map(), sourceWarned: new Set(), visitor: false,
   session: null,
   player: null, playerKey: '',
   view: null,            // { cleanup?, isDirty? } 目前畫面
@@ -77,6 +82,7 @@ function hrefs(key) {
     edit: rel => `${base}/e/${enc(rel)}`,
     flash: (rel, n) => `${base}/f/${enc(rel)}${n ? '/' + n : ''}`,
     deck: (topicId, projectId, n, read) => `${base}/d/${enc(topicId)}/${enc(projectId)}${n ? '/' + n : ''}${read ? '/read' : ''}`,
+    board: name => `${base}/b/${enc(name)}`,
     go: (link, fromRel) => `${base}/go/${enc(JSON.stringify({ c: link.channel, t: link.target, h: link.heading }))}/${enc(fromRel)}`,
   };
 }
@@ -98,8 +104,9 @@ async function route() {
   if (mode === 'n' && a) return leaveView(), showNote(key, a, b);
   if (mode === 'e' && a) return leaveView(), showEditor(key, a);
   if (mode === 'go' && a) return followLink(key, a, b || '');
+  if (mode === 'b' && a) return leaveView(), showBoard(key, a);
   // Mdslide Pile 的舊網址:#/<書庫>/<主題>/<簡報>/<第幾張>
-  if (mode && a && !['n', 'e', 'f', 'd', 'go'].includes(mode)) return location.replace(hrefs(key).deck(mode, a, b, c === 'read'));
+  if (mode && a && !['n', 'e', 'f', 'd', 'go', 'b'].includes(mode)) return location.replace(hrefs(key).deck(mode, a, b, c === 'read'));
   leaveView();
   return showShelf(key);
 }
@@ -301,11 +308,22 @@ async function showShelf(key) {
       return;
     }
     const source = state.sources.get(key);
+    let shown = vault, graph = vault.kind === 'leafpile' ? getGraph(key) : null;
+    if (state.visitor && graph) {
+      // 訪客視角:只留會公開的筆記;搜尋也只搜得到它們
+      const g = await graph;
+      const ok = visibleTo(g, vault);
+      shown = visitorVault(vault, ok);
+      const notes = new Map([...g.notes].filter(([, n]) => ok(n.rel)));
+      graph = Promise.resolve({ ...g, notes, records: g.records.filter(r => r.kind !== 'note' || notes.has(r.path)) });
+    }
     state.view = {
       cleanup: renderShelf(app, {
-        vault, sourceKey: key, href,
+        vault: shown, sourceKey: key, href,
         header: header(key === 'repo' ? 'repo' : 'home'),
-        graph: vault.kind === 'leafpile' ? getGraph(key) : null,
+        graph,
+        onPrivacy: vault.kind === 'leafpile' ? () => runPrivacy(key) : null,
+        onNewBoard: vault.kind === 'leafpile' && source.canWrite ? () => newBoard(key) : null,
         onRefresh: key === 'repo' ? null : () => { invalidate(key); showShelf(key); },
         onCheck: () => runCheck(key),
         onNewNote: vault.notesSource?.canWrite ? () => newNote(key) : null,
@@ -333,6 +351,91 @@ function watchVault(key, vault) {
   state.view.cleanup = () => { stop(); prev?.(); };
 }
 
+// ---------------- 畫布 ----------------
+async function showBoard(key, name) {
+  loading(t('loading.library'));
+  try {
+    const vault = await getVault(key);
+    if (!vault) return;
+    const info = (vault.boards || []).find(b => b.name === name);
+    if (!info) throw new UserError(t('board.notFound', { name }));
+    const src = state.sources.get(key);
+    src.refresh?.();
+    const text = await src.readText(info.path);
+    let board;
+    try { board = parseCanvas(text); } catch (e) { throw new UserError(t('check.boardBroken', { error: e.message })); }
+    let expect = src.canWrite ? await src.stat(info.path) : null;
+    const graph = getGraph(key);
+    const g = await graph.catch(() => null);
+    const choices = g ? [
+      ...[...g.notes.values()].map(n => ({ value: 'n:' + n.path, file: n.path, label: `${t('board.kindNote')} · ${vault.topics.find(tp => tp.id === n.topicId)?.title || ''} › ${n.title}` })),
+      ...[...g.decks.values()].map(d => ({ value: 'd:' + d.path, file: `${d.path}/deck.yml`, deck: true, label: `${t('board.kindDeck')} · ${vault.topics.find(tp => tp.id === d.topicId)?.title || ''} › ${d.title}` })),
+    ] : [];
+    state.view = renderBoard(app, {
+      board, name, header: header(key === 'repo' ? 'repo' : 'home'), href: hrefs(key), graph, choices,
+      colorOf: id => vault.topics.find(tp => tp.id === id)?.color || '',
+      save: src.canWrite ? async text => { expect = await src.writeText(info.path, text, { expect }); } : null,
+    });
+    document.title = `${name} · Leafpile`;
+  } catch (e) { showError(e, keyBase(key)); }
+}
+
+async function newBoard(key) {
+  try {
+    const vault = await getVault(key);
+    const src = state.sources.get(key);
+    if (!src?.canWrite) return toast(t('ne.readonly'));
+    const r = await dialog({ title: t('board.newTitle'), fields: [{ name: 'name', label: t('board.newName'), placeholder: t('board.newPlaceholder') }], buttons: [{ label: t('dialog.cancel'), value: false }, { label: t('board.create'), value: true, primary: true }] });
+    if (!r?.value) return;
+    const file = boardFileName(r.fields.name || '');
+    const name = file.replace(/\.canvas$/, '');
+    if ((vault.boards || []).some(b => b.name === name) || (await src.stat(`boards/${file}`)) != null) return toast(t('move.exists'));
+    await src.writeText(`boards/${file}`, emptyCanvas(), { mkdir: true });
+    invalidate(key);
+    location.hash = hrefs(key).board(name);
+  } catch (e) { noteErr(e); }
+}
+
+/** 訪客看不看得到這篇:公開、而且不在只留本機的主題。 */
+const visibleTo = (g, vault) => rel => { const r = g.notes.get(vault.notePath(rel)); return !!r && r.public && !r.localOnly; };
+
+/** 發布前檢查:重新讀每篇筆記與每張投影片(不用圖譜裡可能過時的內容)。 */
+function runPrivacy(key) {
+  openPrivacyPanel(document.body, async () => {
+    const vault = await getVault(key);
+    state.sources.get(key)?.refresh?.();
+    state.graphs.delete(key);
+    const g = await getGraph(key);
+    const src = state.sources.get(key);
+    const items = await Promise.all([...g.notes.values()].map(async n => ({
+      rel: n.rel, title: n.title, public: n.public, localOnly: n.localOnly, text: await vault.notesSource.readText(n.rel).catch(() => ''),
+    })));
+    const localTopics = new Set(vault.topics.filter(tp => isLocalOnly(tp.conf) || isLocalOnly(tp.notes?.conf)).map(tp => tp.id));
+    for (const d of g.decks.values()) {
+      for (const path of await mdFilesUnder(src, d.path)) {
+        items.push({ kind: 'slide', rel: path, title: d.title, public: false, localOnly: localTopics.has(d.topicId), text: await src.readText(path).catch(() => '') });
+      }
+    }
+    return auditPrivacy(items);
+  }, { href: hrefs(key), visitor: state.visitor, onVisitor: on => setVisitor(on) });
+}
+
+/** 訪客視角開關:畫面下方一直有提示條,可以隨時結束。 */
+function setVisitor(on) {
+  state.visitor = on;
+  document.querySelector('.visitor-bar')?.remove();
+  document.body.classList.toggle('visitor', on);
+  if (on) {
+    const bar = document.createElement('div');
+    bar.className = 'visitor-bar';
+    bar.setAttribute('role', 'status');
+    bar.innerHTML = `<span>👁 ${esc(t('privacy.visitorBar'))}</span><button class="btn ghost">${esc(t('privacy.visitorOff'))}</button>`;
+    bar.querySelector('button').onclick = () => setVisitor(false);
+    document.body.append(bar);
+  }
+  route();
+}
+
 function runCheck(key) {
   const source = state.sources.get(key);
   source.refresh?.(); // 讀最新的檔案(使用者可能剛改過)
@@ -355,6 +458,11 @@ async function showNote(key, rel, heading) {
   try {
     const r = await loadNote(key, rel);
     if (!r) return;
+    if (state.visitor && r.vault.kind === 'leafpile' && !visibleTo(await getGraph(key), r.vault)(rel)) {
+      app.innerHTML = `${header(key === 'repo' ? 'repo' : 'home')}<main class="hidden-note"><h1>${esc(t('privacy.hiddenTitle'))}</h1><p>${esc(t('privacy.hiddenText'))}</p><p><a class="btn ghost" href="${hrefs(key).shelf}">${esc(t('nav.backShelf'))}</a></p></main>`;
+      state.view = null;
+      return;
+    }
     state.view = {
       cleanup: renderReader(app, {
         vault: r.vault, rel, note: r.note, topic: r.topic, book: r.book, heading,
@@ -631,6 +739,127 @@ async function promote(key, rel) {
   } catch (e) { toast(e instanceof UserError ? e.message : e.message === 'denied' ? t('ne.denied') : t('ne.saveFailed', { error: e.message || e }), { ms: 5000 }); }
 }
 
+// ---------------- 筆記的改名、搬移、封存(docs/INTEROP.md 第 7 節) ----------------
+
+const noteErr = e => toast(e instanceof UserError ? e.message
+  : e.message === 'denied' ? t('ne.denied') : e.message === 'stale' ? t('ne.staleTitle') : e.message === 'exists' ? t('move.exists')
+  : t('ne.saveFailed', { error: e.message || e }), { ms: 6000 });
+
+/** 所有 .md(遞迴),給簡報資料夾用:找出哪幾張投影片連到這篇。 */
+async function mdFilesUnder(src, dir) {
+  const out = [];
+  for (const e of await src.list(dir).catch(() => [])) {
+    const p = dir ? `${dir}/${e.name}` : e.name;
+    if (e.kind === 'dir' && !e.name.startsWith('_') && !e.name.startsWith('.')) out.push(...(await mdFilesUnder(src, p)));
+    else if (e.kind === 'file' && /\.md$/i.test(e.name)) out.push(p);
+  }
+  return out;
+}
+
+/** 搬移的目的地:主題資料夾與筆記本資料夾。 */
+function noteFolders(vault) {
+  const out = [];
+  for (const tp of vault.notes.topics) {
+    out.push({ value: tp.path, label: tp.id === '_' ? t('notes.unfiled') : tp.title });
+    for (const b of tp.items.filter(i => i.kind === 'book')) out.push({ value: b.path, label: `${tp.id === '_' ? '' : tp.title} › ${b.title}` });
+  }
+  return out;
+}
+
+/** 改名(mode = 'rename')或搬到別的資料夾(mode = 'move'),並更新連到這篇的 [[連結]]。 */
+async function relocateNote(key, rel, mode) {
+  try {
+    const vault = await getVault(key);
+    if (!vault) return;
+    const src = state.sources.get(key), notes = vault.notesSource;
+    if (!src?.canWrite || !notes?.move) return toast(t('ne.readonly'));
+    const r = await loadNote(key, rel);
+    const name = rel.split('/').pop(), from0 = dirOf(rel);
+    const ask = mode === 'rename'
+      ? await dialog({ title: t('move.renameTitle'), message: t('move.renameHint'), fields: [{ name: 'title', label: t('move.newTitle'), value: r.note.title }], buttons: [{ label: t('dialog.cancel'), value: false }, { label: t('move.next'), value: true, primary: true }] })
+      : await dialog({ title: t('move.moveTitle'), message: t('move.moveHint'), fields: [{ name: 'dir', label: t('move.dest'), type: 'select', value: from0, options: noteFolders(vault) }], buttons: [{ label: t('dialog.cancel'), value: false }, { label: t('move.next'), value: true, primary: true }] });
+    if (!ask?.value) return;
+    const title = mode === 'rename' ? String(ask.fields.title || '').trim() : r.note.title;
+    const dir = mode === 'move' ? ask.fields.dir : from0;
+    if (!title) return toast(t('newNote.needTitle'));
+    const toRel = [dir, title === r.note.title ? name : renamedFile(name, title)].filter(Boolean).join('/');
+    if (toRel === rel && title === r.note.title) return toast(t('move.nothing'));
+
+    // 用最新的檔案建圖譜:改名前看到的連結一定要是現在的
+    state.graphs.delete(key);
+    const g = await getGraph(key);
+    const from = g.notes.get(vault.notePath(rel));
+    if (!from) throw new UserError(t('err.noNote', { path: rel }));
+    const topicOf = p => p.split('/')[1] || '_';
+    const toTopic = dir.split('/')[0] || '_';
+    const to = { path: vault.notePath(toRel), rel: toRel, topicId: toTopic, title };
+
+    // 可能連到這篇的檔案:反向連結裡的筆記,與簡報資料夾裡的每一張投影片
+    const files = [], stats = new Map(), seen = new Set();
+    const addFile = async path => {
+      if (seen.has(path) || path === from.path) return;
+      seen.add(path);
+      const [text, st] = await Promise.all([src.readText(path), src.stat(path)]);
+      files.push({ path, text, topicId: topicOf(path) });
+      stats.set(path, st);
+    };
+    const refs = g.backlinks.get(from.path) || [];
+    for (const b of refs) {
+      if (b.from.kind === 'note') await addFile(b.from.path);
+      else for (const p of await mdFilesUnder(src, b.from.path)) await addFile(p);
+    }
+    const plan = planLinkUpdates({ records: g.records, files, from, to });
+    // 升級來源:deck.yml 的 source 指到這篇
+    const ymls = [];
+    for (const d of g.decks.values()) {
+      if (!d.source) continue;
+      const path = `${d.path}/deck.yml`;
+      const text = await src.readText(path).catch(() => null);
+      const next = text != null && retargetSource(text, from.path, to.path);
+      if (next) { ymls.push({ path, text: next }); stats.set(path, await src.stat(path)); }
+    }
+    const noteText = rebaseLinks(title === r.note.title ? r.text : retitle(r.text, title, r.note.title), from0, dir);
+
+    const changed = [...plan.edits.map(e => e.path), ...ymls.map(y => y.path)];
+    const lines = [
+      t(mode === 'rename' ? 'move.summaryRename' : 'move.summaryMove', { from: rel, to: toRel, title }),
+      plan.count || ymls.length ? t('move.summaryLinks', { links: plan.count, files: changed.length }) : t('move.summaryNoLinks'),
+      ...changed.slice(0, 8).map(p => '· ' + p),
+      ...(changed.length > 8 ? [t('move.andMore', { n: changed.length - 8 })] : []),
+    ];
+    if (!(await confirmDialog(lines.join('\n'), t(mode === 'rename' ? 'move.doRename' : 'move.doMove')))) return;
+
+    // 先搬筆記本身(失敗就什麼都沒改),再改其他檔案
+    const done = await notes.move(rel, toRel, noteText, { expect: await notes.stat(rel) });
+    const failed = [];
+    for (const e of [...plan.edits, ...ymls]) {
+      try { await src.writeText(e.path, e.text, { expect: stats.get(e.path) }); } catch (err) { failed.push(`${e.path}(${err.message})`); }
+    }
+    invalidate(key);
+    if (failed.length) toast(t('move.partial', { n: failed.length, files: failed.join('、') }), { ms: 12000 });
+    else toast(t('move.done', { path: done, links: plan.count }), { ms: 5000 });
+    location.hash = hrefs(key).note(done);
+  } catch (e) { noteErr(e); }
+}
+
+/** 封存:搬到 _archive/notes/(不刪除)。連到它的連結不改,檢查工具會列出。 */
+async function archiveNote(key, rel) {
+  try {
+    const vault = await getVault(key);
+    if (!vault) return;
+    const notes = vault.notesSource;
+    if (!notes?.canWrite || !notes.archive) return toast(t('ne.readonly'));
+    const g = await getGraph(key);
+    const refs = (g.backlinks.get(vault.notePath(rel)) || []).map(b => b.from.title);
+    const msg = [t('move.archiveAsk', { path: rel }), ...(refs.length ? [t('move.archiveRefs', { n: refs.length }), ...refs.slice(0, 8).map(x => '· ' + x)] : [])];
+    if (!(await confirmDialog(msg.join('\n'), t('move.doArchive')))) return;
+    const to = await notes.archive(rel);
+    invalidate(key);
+    toast(t('move.archived', { path: to }), { ms: 6000 });
+    location.hash = hrefs(key).shelf;
+  } catch (e) { noteErr(e); }
+}
+
 async function distill(key, topicId, projectId) {
   try {
     const vault = await getVault(key);
@@ -655,6 +884,10 @@ async function distill(key, topicId, projectId) {
   } catch (e) { toast(e instanceof UserError ? e.message : e.message === 'denied' ? t('ne.denied') : t('ne.saveFailed', { error: e.message || e }), { ms: 5000 }); }
 }
 window.addEventListener('leafpile:promote', e => promote(state.current.key, e.detail));
+window.addEventListener('leafpile:note-action', e => {
+  const { action, rel } = e.detail, key = state.current.key;
+  if (action === 'archive') archiveNote(key, rel); else relocateNote(key, rel, action);
+});
 
 // ---------------- 指令面板(Ctrl+K / ⌘K) ----------------
 async function paletteItems() {
@@ -673,6 +906,10 @@ async function paletteItems() {
         if (vault.kind === 'leafpile' && state.sources.get(key)?.canWrite) act(t('promote.button'), () => promote(key, rel));
       }
       if (deck && vault.kind === 'leafpile' && state.sources.get(key)?.canWrite) act(t('distill.action'), () => distill(key, deck.topicId, deck.projectId));
+      if (vault.kind === 'leafpile') act(t('privacy.title'), () => runPrivacy(key));
+      for (const b of vault.boards || []) act(t('board.open', { name: b.name }), () => { location.hash = href.board(b.name); });
+      if (vault.kind === 'leafpile' && state.sources.get(key)?.canWrite) act(t('board.newTitle'), () => newBoard(key));
+      if (vault.kind === 'leafpile') act(t(state.visitor ? 'privacy.visitorOff' : 'privacy.visitorOn'), () => setVisitor(!state.visitor));
       const project = deck && g && vault.kind === 'leafpile' ? findDeck(vault, deck.topicId, deck.projectId) : null;
       let st = null;
       try { st = project ? await freshSourceStatus(key, vault, project) : null; } catch { /* 讀不到就不顯示這兩項 */ }

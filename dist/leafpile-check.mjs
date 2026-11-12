@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Leafpile 書庫檢查工具(單檔版 v0.2.0)
+// Leafpile 書庫檢查工具(單檔版 v0.3.0)
 // 由 scripts/bundle-check.mjs 自動產生,請不要手動修改。原始碼:https://github.com/ToruSmith/Leafpile
 //
 // 用法(需要 Node.js 18 以上):
@@ -248,7 +248,7 @@ const LOCALE_ZH_HANT = {
   'home.step1.title': '準備資料夾',
   'home.step1.text': '書庫裡放 notes/(筆記)與 slides/(簡報)。一個 .md 檔是一篇筆記,或一張投影片。',
   'home.step2.title': '開啟',
-  'home.step2.text': '開啟整個書庫就能看到書架;只開一份簡報資料夾(或 Mdslide Pile 書庫)也可以,會自動判斷。',
+  'home.step2.text': '開啟整個書庫就能看到所有筆記與簡報;只開一份簡報資料夾(或 Mdslide Pile 書庫)也可以,會自動判斷。',
   'home.step3.title': '讀、寫、上台',
   'home.step3.text': '筆記用 [[連結]] 串起來;按 ▶ 把筆記當簡報播,或開正式簡報:Enter 放大、S 講者視窗、P 存成 PDF。',
   'home.rules': '規則說明:',
@@ -553,7 +553,7 @@ const LOCALE_ZH_HANT = {
   // ---------- Leafpile:書架、筆記、互通 ----------
   'brand.zh': '頁堆',
   'home.engine': '簡報引擎:',
-  'nav.backShelf': '回到書架',
+  'nav.backShelf': '回到書庫',
   'loading.note': '讀取筆記…',
   'loading.link': '尋找連結的目標…',
   'err.noNotes': '這個書庫沒有 notes/ 資料夾。',
@@ -594,6 +594,9 @@ const LOCALE_ZH_HANT = {
   'link.tipDeck': '連到簡報「{title}」({path})',
   'link.tipMissing': '連結「{target}」找不到目標',
   'link.tipRaw': '連到 {target}',
+  'check.boardBroken': '畫布讀不懂:{error}',
+  'check.boardIssue': '畫布有一個項目略過了({issue})',
+  'check.boardMissing': '畫布上的卡片指到不存在的檔案 {file}',
   'check.sourceMissing': 'deck.yml 的 source「{source}」找不到對應的筆記',
   'check.report.notes': '📝 筆記:{topics} 個主題、{books} 本筆記本、{notes} 篇筆記、{links} 個連結',
   'check.report.warnings': '提醒 {n} 項(不影響檢查結果):',
@@ -611,6 +614,98 @@ const LOCALE_ZH_HANT = {
   'shelf.readonly': '唯讀',
   'shelf.readonlyTip': '這個書庫目前是唯讀的，不能新增或儲存筆記。請用 Chrome 或 Edge，在首頁按「開啟本機資料夾」並允許寫入。',
   'shelf.readonlyBrowserTip': '這個瀏覽器不能存檔，所以只能閱讀與播放。要新增筆記請改用 Chrome 或 Edge（Brave 預設關閉這項功能）。',
+  'move.more': '更多 ▾',
+  'move.moreTitle': '改名、搬移、封存',
+  'move.rename': '改名…',
+  'move.move': '搬到其他資料夾…',
+  'move.archive': '封存…',
+  'move.renameTitle': '改名',
+  'move.renameHint': '會同時改標題與檔名(保留日期或編號前綴),並更新連到這篇的 [[連結]]。下一步會先列出要改的檔案。',
+  'move.newTitle': '新標題',
+  'move.next': '下一步',
+  'move.moveTitle': '搬到其他資料夾',
+  'move.moveHint': '用標題寫的連結搬完仍然有效;用路徑寫的會自動更新。筆記裡相對路徑的圖片也會換算。',
+  'move.dest': '搬到',
+  'move.nothing': '沒有要改的地方。',
+  'move.summaryRename': '「{from}」改名為「{title}」\n新檔名:{to}',
+  'move.summaryMove': '「{from}」搬到\n{to}',
+  'move.summaryLinks': '會更新 {files} 個檔案裡的 {links} 個連結:',
+  'move.summaryNoLinks': '沒有其他檔案需要更新。',
+  'move.andMore': '…還有 {n} 個',
+  'move.doRename': '改名',
+  'move.doMove': '搬移',
+  'move.exists': '目的地已經有同名的檔案,沒有改任何東西。',
+  'move.done': '完成:{path}(更新了 {links} 個連結)',
+  'move.partial': '筆記已經搬好,但有 {n} 個檔案的連結沒改成功:{files}。請用「檢查」找出剩下的連結。',
+  'move.archiveAsk': '把「{path}」搬到 _archive/notes/?\n檔案不會刪除,之後可以自己搬回來。',
+  'move.archiveRefs': '有 {n} 篇筆記或簡報連到這篇,封存後這些連結會失效(「檢查」會列出):',
+  'move.doArchive': '封存',
+  'move.archived': '已封存到 {path}',
+  'privacy.button': '🔒 發布前檢查',
+  'privacy.buttonTitle': '哪些筆記會公開、哪裡可能有個資',
+  'privacy.title': '發布前檢查',
+  'privacy.scanning': '正在讀取每篇筆記與投影片…',
+  'privacy.ok': '會公開的內容裡沒有找到個資',
+  'privacy.bad': '{n} 個會公開的檔案可能有個資',
+  'privacy.counts': '公開 {public} 篇 · 私人 {private} 篇 · 只留本機 {localOnly} 篇',
+  'privacy.rule': '規則:筆記的 public → 筆記本 → 主題 → 都沒寫就是私人;只留本機(local_only)的主題一律不公開。簡報沒有 public 設定,放上 GitHub 就會公開。',
+  'privacy.visitorOn': '以訪客視角瀏覽',
+  'privacy.visitorOff': '結束訪客視角',
+  'privacy.visitorHint': '只顯示會公開的筆記與簡報,看看放上 GitHub Pages 後別人看得到什麼。',
+  'privacy.visitorBar': '訪客視角:只顯示會公開的內容',
+  'privacy.piiHeading': '可能是個資',
+  'privacy.piiNote': '只是提醒,不會擋下。自動比對 Email、台灣手機號碼、身分證字號;範例網域與程式碼區塊不算。畫面上已遮罩。',
+  'privacy.exposed': '會公開',
+  'privacy.hidden': '不會公開',
+  'privacy.line': '第 {n} 行',
+  'privacy.kind.email': 'Email',
+  'privacy.kind.phone': '手機',
+  'privacy.kind.tw-id': '身分證字號',
+  'privacy.noPII': '沒有找到疑似個資。',
+  'privacy.publicList': '會公開的筆記({n} 篇)',
+  'privacy.noPublic': '沒有會公開的筆記。',
+  'privacy.hiddenTitle': '訪客看不到這篇筆記',
+  'privacy.hiddenText': '這篇是私人的,或在只留本機的主題裡。結束訪客視角就能看到。',
+  'board.heading': '畫布',
+  'board.new': '+ 新畫布',
+  'board.newTitle': '新增畫布',
+  'board.newName': '名稱',
+  'board.newPlaceholder': '例如:讀書計畫',
+  'board.create': '建立',
+  'board.open': '開啟畫布:{name}',
+  'board.notFound': '找不到畫布「{name}」(應該在 boards/ 資料夾裡)。',
+  'board.aria': '畫布 {name}',
+  'board.readonly': '唯讀:可以看、不能改',
+  'board.addText': '+ 文字',
+  'board.addTextTitle': '新增一張文字卡(也可以雙擊空白處)',
+  'board.addCard': '+ 筆記或簡報',
+  'board.addCardTitle': '把一篇筆記或一份簡報放到畫布上',
+  'board.pick': '選擇',
+  'board.add': '放上去',
+  'board.noChoices': '書庫裡還沒有筆記或簡報。',
+  'board.undo': '復原(Ctrl+Z)',
+  'board.zoomIn': '放大',
+  'board.zoomOut': '縮小',
+  'board.zoomReset': '回到 100%(按 0)',
+  'board.fit': '適合畫面',
+  'board.fitTitle': '把所有卡片放進畫面(按 F)',
+  'board.empty': '這張畫布是空的。',
+  'board.emptyEdit': '這張畫布是空的。雙擊任何地方新增文字,或按上方「+ 筆記或簡報」。',
+  'board.hint': '拖曳平移 · Ctrl+滾輪縮放 · F 適合畫面',
+  'board.hintEdit': '拖曳卡片移動 · 拖曳卡片邊上的圓點連線 · 雙擊新增或編輯 · Delete 從畫布移除(不刪檔案) · Ctrl+Z 復原',
+  'board.kindNote': '筆記',
+  'board.kindDeck': '簡報',
+  'board.kindLink': '網址',
+  'board.kindMissing': '找不到檔案',
+  'board.editText': '編輯文字(Ctrl+Enter 或 Esc 完成)',
+  'board.edgeTitle': '連線文字',
+  'board.edgeLabel': '文字(留白就不顯示)',
+  'board.unsaved': '尚未儲存',
+  'board.saving': '儲存中…',
+  'board.saved': '已儲存',
+  'board.saveFailed': '沒有存成功',
+  'board.stale': '檔案被別的程式改過,已停止自動儲存',
+  'board.staleLong': '這張畫布在別的地方被改過了。為了不覆蓋那些修改,已停止自動儲存;請重新整理頁面再編輯。',
   'shelf.newNoteTitle': '新增一篇筆記',
   'shelf.emptyTopics': '還沒有內容的主題:{list}',
   'shelf.emptyLibrary': '這個書庫還是空的。在 notes/ 或 slides/ 的主題資料夾裡放進 .md 檔,再按「重新整理」。',
@@ -714,7 +809,7 @@ const LOCALE_ZH_HANT = {
   'palette.flashThis': '快閃播放這篇筆記',
   'palette.editThis': '編輯這篇筆記',
   'palette.newNote': '新增筆記',
-  'palette.shelf': '回到書架',
+  'palette.shelf': '回到書庫首頁',
   'palette.check': '檢查這個書庫',
   'palette.openFolder': '開啟本機資料夾',
   'palette.repo': '看內建範例',
@@ -892,7 +987,7 @@ const LOCALE_EN = {
   'home.step1.title': 'Prepare a folder',
   'home.step1.text': 'Put notes/ and slides/ in your library. One .md file is one note, or one slide.',
   'home.step2.title': 'Open it',
-  'home.step2.text': 'Open the whole library to see the shelf. A single deck folder (or a Mdslide Pile library) works too; it is detected automatically.',
+  'home.step2.text': 'Open the whole library to see all its notes and decks. A single deck folder (or a Mdslide Pile library) works too; it is detected automatically.',
   'home.step3.title': 'Read, write, present',
   'home.step3.text': 'Connect notes with [[links]]. Press ▶ to play a note as slides, or open a full deck: Enter to zoom, S for speaker view, P to save a PDF.',
   'home.rules': 'Rules: ',
@@ -1197,7 +1292,7 @@ const LOCALE_EN = {
   // ---------- Leafpile:書架、筆記、互通 ----------
   'brand.zh': 'notes × slides',
   'home.engine': 'Slide engine: ',
-  'nav.backShelf': 'Back to the shelf',
+  'nav.backShelf': 'Back to the library',
   'loading.note': 'Loading note…',
   'loading.link': 'Resolving link…',
   'err.noNotes': 'This library has no notes/ folder.',
@@ -1238,6 +1333,9 @@ const LOCALE_EN = {
   'link.tipDeck': 'Links to the deck “{title}” ({path})',
   'link.tipMissing': 'Link “{target}” has no matching target',
   'link.tipRaw': 'Links to {target}',
+  'check.boardBroken': 'Cannot read this board: {error}',
+  'check.boardIssue': 'An item on this board was skipped ({issue})',
+  'check.boardMissing': 'A card on this board points to a missing file: {file}',
   'check.sourceMissing': 'deck.yml source “{source}” does not match any note',
   'check.report.notes': '📝 Notes: {topics} topics, {books} notebooks, {notes} notes, {links} links',
   'check.report.warnings': '{n} reminders (these do not fail the check):',
@@ -1255,6 +1353,98 @@ const LOCALE_EN = {
   'shelf.readonly': 'Read-only',
   'shelf.readonlyTip': 'This library is read-only, so you cannot create or save notes. Use Chrome or Edge, click “Open a local folder” on the home page and allow write access.',
   'shelf.readonlyBrowserTip': 'This browser cannot save files, so you can only read and play. To create notes, use Chrome or Edge (Brave turns this feature off by default).',
+  'move.more': 'More ▾',
+  'move.moreTitle': 'Rename, move, archive',
+  'move.rename': 'Rename…',
+  'move.move': 'Move to another folder…',
+  'move.archive': 'Archive…',
+  'move.renameTitle': 'Rename',
+  'move.renameHint': 'Changes the title and the file name (keeping any date or number prefix) and updates [[links]] to this note. The next step lists the files that will change.',
+  'move.newTitle': 'New title',
+  'move.next': 'Next',
+  'move.moveTitle': 'Move to another folder',
+  'move.moveHint': 'Links written with the title keep working; links written with a path are updated. Relative image paths in the note are adjusted.',
+  'move.dest': 'Move to',
+  'move.nothing': 'Nothing to change.',
+  'move.summaryRename': 'Rename “{from}” to “{title}”\nNew file: {to}',
+  'move.summaryMove': 'Move “{from}” to\n{to}',
+  'move.summaryLinks': '{links} link(s) in {files} file(s) will be updated:',
+  'move.summaryNoLinks': 'No other files need updating.',
+  'move.andMore': '…and {n} more',
+  'move.doRename': 'Rename',
+  'move.doMove': 'Move',
+  'move.exists': 'A file with that name already exists at the destination. Nothing was changed.',
+  'move.done': 'Done: {path} ({links} link(s) updated)',
+  'move.partial': 'The note was moved, but links in {n} file(s) could not be updated: {files}. Use “Check” to find the remaining links.',
+  'move.archiveAsk': 'Move “{path}” to _archive/notes/?\nThe file is not deleted; you can move it back yourself.',
+  'move.archiveRefs': '{n} note(s) or deck(s) link here; those links will break (Check will list them):',
+  'move.doArchive': 'Archive',
+  'move.archived': 'Archived to {path}',
+  'privacy.button': '🔒 Pre-publish check',
+  'privacy.buttonTitle': 'Which notes will be public, and where personal data might be',
+  'privacy.title': 'Pre-publish check',
+  'privacy.scanning': 'Reading every note and slide…',
+  'privacy.ok': 'No personal data found in content that will be public',
+  'privacy.bad': '{n} public file(s) may contain personal data',
+  'privacy.counts': '{public} public · {private} private · {localOnly} local-only',
+  'privacy.rule': 'Rule: the note’s public → notebook → topic → otherwise private; local_only topics are never public. Decks have no public setting and become public once on GitHub.',
+  'privacy.visitorOn': 'Browse as a visitor',
+  'privacy.visitorOff': 'Exit visitor view',
+  'privacy.visitorHint': 'Shows only notes and decks that will be public: what others see on GitHub Pages.',
+  'privacy.visitorBar': 'Visitor view: showing only content that will be public',
+  'privacy.piiHeading': 'Possible personal data',
+  'privacy.piiNote': 'A reminder only, nothing is blocked. Matches email addresses, Taiwanese mobile numbers and national IDs; example domains and code blocks are ignored. Masked on screen.',
+  'privacy.exposed': 'public',
+  'privacy.hidden': 'not public',
+  'privacy.line': 'line {n}',
+  'privacy.kind.email': 'Email',
+  'privacy.kind.phone': 'Mobile',
+  'privacy.kind.tw-id': 'National ID',
+  'privacy.noPII': 'No possible personal data found.',
+  'privacy.publicList': 'Notes that will be public ({n})',
+  'privacy.noPublic': 'No notes will be public.',
+  'privacy.hiddenTitle': 'Visitors cannot see this note',
+  'privacy.hiddenText': 'It is private or in a local-only topic. Exit visitor view to see it.',
+  'board.heading': 'Boards',
+  'board.new': '+ New board',
+  'board.newTitle': 'New board',
+  'board.newName': 'Name',
+  'board.newPlaceholder': 'e.g. Reading plan',
+  'board.create': 'Create',
+  'board.open': 'Open board: {name}',
+  'board.notFound': 'Board “{name}” not found (it should be in the boards/ folder).',
+  'board.aria': 'Board {name}',
+  'board.readonly': 'Read-only: view only',
+  'board.addText': '+ Text',
+  'board.addTextTitle': 'Add a text card (or double-click empty space)',
+  'board.addCard': '+ Note or deck',
+  'board.addCardTitle': 'Put a note or a deck on the board',
+  'board.pick': 'Choose',
+  'board.add': 'Add',
+  'board.noChoices': 'This library has no notes or decks yet.',
+  'board.undo': 'Undo (Ctrl+Z)',
+  'board.zoomIn': 'Zoom in',
+  'board.zoomOut': 'Zoom out',
+  'board.zoomReset': 'Back to 100% (press 0)',
+  'board.fit': 'Fit',
+  'board.fitTitle': 'Fit all cards on screen (press F)',
+  'board.empty': 'This board is empty.',
+  'board.emptyEdit': 'This board is empty. Double-click anywhere to add text, or use “+ Note or deck” above.',
+  'board.hint': 'Drag to pan · Ctrl+wheel to zoom · F to fit',
+  'board.hintEdit': 'Drag cards to move · drag the dots on a card to connect · double-click to add or edit · Delete removes from the board (files untouched) · Ctrl+Z undo',
+  'board.kindNote': 'Note',
+  'board.kindDeck': 'Deck',
+  'board.kindLink': 'Link',
+  'board.kindMissing': 'File not found',
+  'board.editText': 'Edit text (Ctrl+Enter or Esc to finish)',
+  'board.edgeTitle': 'Connection label',
+  'board.edgeLabel': 'Text (leave empty to hide)',
+  'board.unsaved': 'Unsaved',
+  'board.saving': 'Saving…',
+  'board.saved': 'Saved',
+  'board.saveFailed': 'Save failed',
+  'board.stale': 'Changed elsewhere; autosave stopped',
+  'board.staleLong': 'This board was changed somewhere else. To avoid overwriting those changes, autosave has stopped; reload the page before editing.',
   'shelf.newNoteTitle': 'Create a note',
   'shelf.emptyTopics': 'Topics with nothing in them yet: {list}',
   'shelf.emptyLibrary': 'This library is empty. Put .md files in a topic folder under notes/ or slides/, then press Refresh.',
@@ -1358,7 +1548,7 @@ const LOCALE_EN = {
   'palette.flashThis': 'Flash play this note',
   'palette.editThis': 'Edit this note',
   'palette.newNote': 'New note',
-  'palette.shelf': 'Go to the shelf',
+  'palette.shelf': 'Go to the library page',
   'palette.check': 'Check this library',
   'palette.openFolder': 'Open a local folder',
   'palette.repo': 'Browse built-in examples',
@@ -2462,6 +2652,37 @@ function wikilinksOf(body) {
   return out;
 }
 
+/**
+ * 改寫文字裡的 [[連結]](程式碼區塊與行內程式碼裡的不動)。
+ * fn(link) 回傳新的整段連結文字;回傳 null 表示不改。
+ * @returns {{ text: string, count: number }}
+ */
+function replaceWikilinks(text, fn) {
+  let count = 0;
+  const out = [];
+  eachLine(String(text), (line, i, code) => {
+    if (code) { out.push(line); return; }
+    const masked = line.replace(/`[^`]*`/g, m => ' '.repeat(m.length));
+    let res = '', last = 0;
+    for (const m of masked.matchAll(WIKI)) {
+      const p = parseTarget(m[2]);
+      if (!p.target && !p.heading) continue;
+      const next = fn({ raw: line.slice(m.index, m.index + m[0].length), embed: m[1] === '!', ...p, label: (m[3] || '').trim() });
+      if (next == null || next === m[0]) continue;
+      res += line.slice(last, m.index) + next;
+      last = m.index + m[0].length;
+      count++;
+    }
+    out.push(res + line.slice(last));
+  });
+  return { text: out.join('\n'), count };
+}
+
+/** 把連結物件寫回文字:`![[slides:目標#標題|顯示]]`。 */
+function formatWikilink(link) {
+  return `${link.embed ? '!' : ''}[[${link.channel === 'slides' ? 'slides:' : ''}${link.target || ''}${link.heading ? '#' + link.heading : ''}${link.label ? '|' + link.label : ''}]]`;
+}
+
 /** 連結預設顯示的文字。 */
 function linkLabel(link) {
   if (link.label) return link.label;
@@ -2555,7 +2776,7 @@ function sourceFingerprint(notes) {
   }
   return h.toString(16).padStart(8, '0');
 }
-return { LAYOUT_KEYS, splitFrontMatter, slugify, plainInline, headingsOf, parseTarget, wikilinksOf, linkLabel, sectionOf, parseNote, sourceFingerprint };
+return { LAYOUT_KEYS, splitFrontMatter, slugify, plainInline, headingsOf, parseTarget, wikilinksOf, replaceWikilinks, formatWikilink, linkLabel, sectionOf, parseNote, sourceFingerprint };
 })();
 
 // ───────── app/core/markdown.js ─────────
@@ -2846,6 +3067,7 @@ function subSource(parent, prefix) {
     sub.ensureWritable = () => parent.ensureWritable();
     sub.stat = path => parent.stat(p(path));
     sub.writeText = (path, text, opts) => parent.writeText(p(path), text, opts);
+    if (parent.move) sub.move = async (from, to, text, opts) => (await parent.move(p(from), p(to), text, opts)).slice(prefix.length + 1);
     sub.archive = async path => {
       const full = p(path);
       const dir = full.split('/').slice(0, -1).join('/');
@@ -2930,7 +3152,7 @@ async function openVault(source) {
 
   if (!hasDir('notes') && !hasDir('slides')) {
     const slides = await scanLibrary(source);
-    return assemble({ kind: 'mdslide', title: slides.title, description: slides.description, theme: slides.theme, site: {}, issues: [], slides, slidesSource: source, slidesPrefix: '', notes: { topics: [], issues: [] }, notesSource: null });
+    return assemble({ kind: 'mdslide', title: slides.title, description: slides.description, theme: slides.theme, site: {}, issues: [], slides, slidesSource: source, slidesPrefix: '', notes: { topics: [], issues: [] }, notesSource: null, boards: [] });
   }
 
   const issues = [];
@@ -2938,11 +3160,15 @@ async function openVault(source) {
   if (site.leafpile && Number(site.leafpile) > LEAFPILE_SCHEMA) issues.push({ path: '_site.yml', message: t('issue.newerLeafpile', { version: site.leafpile }) });
   const slidesSource = hasDir('slides') ? subSource(source, 'slides') : null;
   const notesSource = hasDir('notes') ? subSource(source, 'notes') : null;
+  const boards = hasDir('boards')
+    ? (await source.list('boards').catch(() => [])).filter(e => e.kind === 'file' && /\.canvas$/i.test(e.name) && !e.name.startsWith('.'))
+      .map(e => ({ name: e.name.replace(/\.canvas$/i, ''), path: `boards/${e.name}` })).sort((a, b) => a.name.localeCompare(b.name))
+    : [];
   const [slides, notes] = await Promise.all([
     slidesSource ? scanLibrary(slidesSource, { kind: 'library' }) : { kind: 'library', topics: [], issues: [] },
     notesSource ? scanNotes(notesSource) : { topics: [], issues: [] },
   ]);
-  return assemble({ kind: 'leafpile', title: str(site.title) || label, description: str(site.description), theme: str(site.theme), site, issues, slides, slidesSource, slidesPrefix: 'slides', notes, notesSource });
+  return assemble({ kind: 'leafpile', title: str(site.title) || label, description: str(site.description), theme: str(site.theme), site, issues, slides, slidesSource, slidesPrefix: 'slides', notes, notesSource, boards });
 }
 
 function assemble(v) {
@@ -3149,7 +3375,92 @@ function scanPII(text) {
   }
   return out;
 }
-return { resolvePublic, isLocalOnly, publishable, PII, scanPII };
+
+// 範例網域與保留網域:文件裡常見,不算個資
+const EXAMPLE_MAIL = /@(?:[a-z0-9-]+\.)*(?:example\.(?:com|org|net)|example|test|invalid|localhost)$/i;
+
+/**
+ * 掃描個資,列出每一筆(含行號)。程式碼區塊裡的、範例網域的 Email 不算。
+ * @returns {{ key: string, match: string, line: number }[]}  line 從 1 開始
+ */
+function scanPIIAll(text) {
+  const out = [], seen = new Set();
+  let fence = null;
+  String(text).split('\n').forEach((line, i) => {
+    const f = line.match(/^\s*(```+|~~~+)/);
+    if (f) { if (!fence) fence = f[1]; else if (line.trim().startsWith(fence)) fence = null; return; }
+    if (fence) return;
+    const plain = line.replace(/`[^`]*`/g, m => ' '.repeat(m.length));
+    for (const { key, re } of PII) {
+      for (const m of plain.matchAll(new RegExp(re.source, 'g'))) {
+        if (key === 'email' && EXAMPLE_MAIL.test(m[0])) continue;
+        const id = key + '|' + m[0];
+        if (seen.has(id)) continue;
+        seen.add(id);
+        out.push({ key, match: m[0], line: i + 1 });
+      }
+    }
+  });
+  return out;
+}
+
+/** 螢幕上顯示用:遮掉中間,只留頭尾(截圖時不會整筆外流)。 */
+function maskPII(key, s) {
+  const str = String(s);
+  if (key === 'email') {
+    const [user, domain] = str.split('@');
+    return `${user.slice(0, 1)}${'*'.repeat(Math.max(2, user.length - 1))}@${domain}`;
+  }
+  const keep = Math.min(3, Math.floor(str.length / 4));
+  return str.slice(0, keep) + str.slice(keep, str.length - keep).replace(/[A-Za-z0-9]/g, '*') + str.slice(str.length - keep);
+}
+
+/**
+ * 發布前檢查:哪些筆記會公開、哪些有個資。
+ * @param {{ rel: string, title: string, text: string, public: boolean, localOnly: boolean, kind?: 'note'|'slide' }[]} items
+ */
+function auditPrivacy(items) {
+  const notes = items.filter(i => i.kind !== 'slide');
+  const counts = {
+    public: notes.filter(n => n.public && !n.localOnly).length,
+    private: notes.filter(n => !n.public && !n.localOnly).length,
+    localOnly: notes.filter(n => n.localOnly).length,
+  };
+  const exposed = i => i.kind === 'slide' ? !i.localOnly : i.public && !i.localOnly; // 簡報沒有 public 設定:會跟著書庫公開
+  const pii = items.map(i => ({ ...i, exposed: exposed(i), hits: scanPIIAll(i.text) })).filter(i => i.hits.length)
+    .map(({ text, ...rest }) => rest)
+    .sort((a, b) => Number(b.exposed) - Number(a.exposed) || a.rel.localeCompare(b.rel));
+  return { counts, publicNotes: notes.filter(n => n.public && !n.localOnly).map(n => ({ rel: n.rel, title: n.title })), pii };
+}
+
+/**
+ * 訪客視角:只留下會公開的筆記(書庫的其他結構不變,可以直接交給書架畫面)。
+ * 只留本機的主題裡的簡報也拿掉。
+ * @param {object} vault  core/vault.js 的書庫物件
+ * @param {(rel: string) => boolean} visible  這篇筆記訪客看不看得到
+ */
+function visitorVault(vault, visible) {
+  const keep = nt => nt && {
+    ...nt,
+    items: nt.items
+      .map(i => (i.kind === 'book' ? { ...i, notes: i.notes.filter(n => visible(n.path)) } : i))
+      .filter(i => (i.kind === 'book' ? i.notes.length : visible(i.path))),
+  };
+  const notesTopics = (vault.notes?.topics || []).map(keep);
+  const byId = new Map(notesTopics.map(x => [x.id, x]));
+  const topics = vault.topics.map(tp => {
+    const local = isLocalOnly(tp.conf) || isLocalOnly(tp.notes?.conf);
+    return { ...tp, notes: tp.notes ? byId.get(tp.notes.id) : tp.notes, decks: local ? [] : tp.decks };
+  });
+  const byTopic = new Map(topics.map(x => [x.id, x]));
+  return {
+    ...vault,
+    topics,
+    notes: vault.notes ? { ...vault.notes, topics: notesTopics } : vault.notes,
+    categories: (vault.categories || []).map(c => ({ ...c, topics: c.topics.map(tp => byTopic.get(tp.id) || tp) })),
+  };
+}
+return { resolvePublic, isLocalOnly, publishable, PII, scanPII, scanPIIAll, maskPII, auditPrivacy, visitorVault };
 })();
 
 // ───────── app/core/graph.js ─────────
@@ -3287,6 +3598,137 @@ function searchGraph(graph, query, { limit: max = 50 } = {}) {
 return { buildGraph, sourceNotesOf, sourceStatus, compareSource, searchGraph };
 })();
 
+// ───────── app/core/canvas.js ─────────
+__m["app/core/canvas.js"] = (() => {
+// 畫布:boards/*.canvas,JSON Canvas 1.0(https://jsoncanvas.org/)。純邏輯,不碰畫面。
+//
+// 原則(docs/SPEC.md 第 7 節、docs/INTEROP.md 第 6 節):
+//   - 畫布只存位置與連線,不複製筆記或簡報的內容;卡片顯示時才去讀標題。
+//   - 讀寫時保留所有不認得的欄位(包括 Obsidian 與其他工具加的),Leafpile 自訂的欄位一律 x- 開頭。
+//   - 從畫布移除卡片只改畫布,不會動到筆記或簡報檔案。
+
+const { norm } = __m["app/core/links.js"];
+const NODE_TYPES = ['text', 'file', 'link', 'group'];
+const SIDES = ['top', 'right', 'bottom', 'left'];
+/** JSON Canvas 的預設色 1–6(紅橙黃綠青紫),對應 Leafpile 的色票。 */
+const PRESET_COLORS = { 1: '#c0504d', 2: '#d9822b', 3: '#c9a227', 4: '#5a8f5a', 5: '#3f8c9a', 6: '#8a6bb0' };
+
+const num = (v, d) => (Number.isFinite(Number(v)) ? Number(v) : d);
+
+/** 顏色:"1"–"6" 或 #rrggbb;其他一律不用(避免把任意字串放進樣式)。 */
+function canvasColor(c) {
+  if (c == null || c === '') return '';
+  const s = String(c).trim();
+  if (PRESET_COLORS[s]) return PRESET_COLORS[s];
+  return /^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/i.test(s) ? s : '';
+}
+
+/**
+ * 解析畫布檔。壞掉的節點與連線略過並記在 issues,其餘照常顯示。
+ * @returns {{ nodes: object[], edges: object[], extra: object, issues: string[] }}
+ */
+function parseCanvas(text) {
+  let data;
+  try { data = JSON.parse(String(text || '').replace(/^﻿/, '') || '{}'); } catch (e) { throw new Error(`JSON: ${e.message}`); }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('JSON: not an object');
+  const { nodes = [], edges = [], ...extra } = data;
+  const issues = [], ids = new Set(), out = [];
+  for (const n of Array.isArray(nodes) ? nodes : []) {
+    if (!n || typeof n !== 'object' || !n.id || !NODE_TYPES.includes(n.type)) { issues.push(`node ${n?.id ?? '?'}: type`); continue; }
+    if (ids.has(n.id)) { issues.push(`node ${n.id}: duplicate id`); continue; }
+    ids.add(n.id);
+    out.push({ ...n, x: num(n.x, 0), y: num(n.y, 0), width: Math.max(40, num(n.width, 260)), height: Math.max(30, num(n.height, 120)) });
+  }
+  const outEdges = [];
+  for (const e of Array.isArray(edges) ? edges : []) {
+    if (!e || !e.id || !ids.has(e.fromNode) || !ids.has(e.toNode)) { issues.push(`edge ${e?.id ?? '?'}: node`); continue; }
+    outEdges.push({ ...e });
+  }
+  return { nodes: out, edges: outEdges, extra, issues };
+}
+
+/** 存檔用的文字:群組放最前面(畫在最底下),其他照原順序;2 格縮排,結尾換行。 */
+function serializeCanvas(board) {
+  const groups = board.nodes.filter(n => n.type === 'group'), rest = board.nodes.filter(n => n.type !== 'group');
+  const round = n => ({ ...n, x: Math.round(n.x), y: Math.round(n.y), width: Math.round(n.width), height: Math.round(n.height) });
+  return JSON.stringify({ ...board.extra, nodes: [...groups, ...rest].map(round), edges: board.edges }, null, 2) + '\n';
+}
+
+const emptyCanvas = () => '{\n  "nodes": [],\n  "edges": []\n}\n';
+
+/** 新的 id(不和現有的重複)。 */
+function newId(board, prefix = 'n') {
+  const used = new Set([...board.nodes.map(n => n.id), ...board.edges.map(e => e.id)]);
+  for (let i = 1; ; i++) {
+    const id = `${prefix}-${Date.now().toString(36)}${i > 1 ? '-' + i : ''}`;
+    if (!used.has(id)) return id;
+  }
+}
+
+/** 一條邊在節點上的端點;沒指定邊就挑面對另一個節點的那一側。 */
+function anchor(node, side, other) {
+  const cx = node.x + node.width / 2, cy = node.y + node.height / 2;
+  let s = SIDES.includes(side) ? side : null;
+  if (!s && other) {
+    const ox = other.x + other.width / 2, oy = other.y + other.height / 2;
+    const dx = (ox - cx) / node.width, dy = (oy - cy) / node.height;
+    s = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'bottom' : 'top');
+  }
+  switch (s) {
+    case 'top': return { x: cx, y: node.y, side: s };
+    case 'bottom': return { x: cx, y: node.y + node.height, side: s };
+    case 'left': return { x: node.x, y: cy, side: s };
+    default: return { x: node.x + node.width, y: cy, side: 'right' };
+  }
+}
+
+/** 連線的路徑(三次貝茲曲線)與標籤位置。 */
+function edgePath(from, to, fromSide, toSide) {
+  const a = anchor(from, fromSide, to), b = anchor(to, toSide, from);
+  const k = Math.max(40, Math.hypot(b.x - a.x, b.y - a.y) / 3);
+  const dir = { top: [0, -1], bottom: [0, 1], left: [-1, 0], right: [1, 0] };
+  const [ax, ay] = dir[a.side], [bx, by] = dir[b.side];
+  const c1 = { x: a.x + ax * k, y: a.y + ay * k }, c2 = { x: b.x + bx * k, y: b.y + by * k };
+  const mid = { x: (a.x + 3 * c1.x + 3 * c2.x + b.x) / 8, y: (a.y + 3 * c1.y + 3 * c2.y + b.y) / 8 };
+  return { d: `M ${a.x} ${a.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${b.x} ${b.y}`, a, b, mid, endDir: [bx, by] };
+}
+
+/** 所有節點的外框(沒有節點時回傳 null)。 */
+function bounds(nodes) {
+  if (!nodes.length) return null;
+  const xs = nodes.flatMap(n => [n.x, n.x + n.width]), ys = nodes.flatMap(n => [n.y, n.y + n.height]);
+  return { x: Math.min(...xs), y: Math.min(...ys), width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) };
+}
+
+/**
+ * file 節點指到什麼:
+ *   筆記 notes/…/x.md → { kind: 'note', rec }
+ *   簡報 slides/…/deck.yml(或簡報資料夾) → { kind: 'deck', rec }
+ *   其他檔案或找不到 → { kind: 'missing' }
+ * @param {{ notes: Map, decks: Map }} graph
+ */
+function resolveFile(file, graph) {
+  const p = norm(String(file || '').replace(/^\/+/, ''));
+  if (!p) return { kind: 'missing' };
+  for (const n of graph.notes.values()) if (norm(n.path) === p) return { kind: 'note', rec: n };
+  const deckDir = p.replace(/\/deck\.ya?ml$/, '');
+  for (const d of graph.decks.values()) if (norm(d.path) === deckDir) return { kind: 'deck', rec: d };
+  return { kind: 'missing' };
+}
+
+/** 畫布裡指不到檔案的卡片(給檢查工具)。 */
+function missingFiles(board, graph) {
+  return board.nodes.filter(n => n.type === 'file' && resolveFile(n.file, graph).kind === 'missing').map(n => n.file);
+}
+
+/** 畫布檔名:去掉不能用的字元,加上 .canvas。 */
+function boardFileName(name) {
+  const safe = String(name).trim().replace(/[\\/:*?"<>|#^[\]\u0000-\u001f]/g, '').replace(/\s+/g, '-').slice(0, 60) || 'board';
+  return `${safe}.canvas`;
+}
+return { NODE_TYPES, SIDES, PRESET_COLORS, canvasColor, parseCanvas, serializeCanvas, emptyCanvas, newId, anchor, edgePath, bounds, resolveFile, missingFiles, boardFileName };
+})();
+
 // ───────── app/core/check.js ─────────
 __m["app/core/check.js"] = (() => {
 // 檢查書庫或單份簡報是否符合規則。網站的「檢查」按鈕、scripts/check.mjs、
@@ -3301,6 +3743,7 @@ const { t } = __m["app/core/i18n.js"];
 const { isHidden, isMarkdown, RESERVED_DIRS, join } = __m["app/core/names.js"];
 const { openVault } = __m["app/core/vault.js"];
 const { buildGraph, sourceStatus } = __m["app/core/graph.js"];
+const { parseCanvas, missingFiles } = __m["app/core/canvas.js"];
 const { sectionOf } = __m["app/core/note.js"];
 const MAX_SLIDES = 45;
 
@@ -3498,6 +3941,12 @@ async function checkVault(source, onProgress, { today = new Date().toISOString()
     const st = sourceStatus(graph, d).status;
     if (st === 'missing') say('warn', join(d.path, 'deck.yml'), t('check.sourceMissing', { source: d.source }));
     if (st === 'changed') say('warn', join(d.path, 'deck.yml'), t('check.sourceChanged', { source: d.source }));
+  }
+  for (const b of vault.boards || []) {
+    let board;
+    try { board = parseCanvas(await source.readText(b.path)); } catch (e) { say('error', b.path, t('check.boardBroken', { error: e.message })); continue; }
+    for (const i of board.issues) say('warn', b.path, t('check.boardIssue', { issue: i }));
+    for (const f of missingFiles(board, graph)) say('warn', b.path, t('check.boardMissing', { file: f }));
   }
   return {
     kind: 'leafpile', title: vault.title, topics: slides.topics, problems, warnings,

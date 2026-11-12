@@ -136,6 +136,27 @@ export class HandleSource {
     return this.stat(path);
   }
 
+  /**
+   * 改名／搬移一個檔案:先把(可能改過的)內容寫到新位置、讀回來確認一致,才移除舊檔。
+   * 這是 Leafpile 唯一會移除檔案的地方,而且內容一定已經在新位置。
+   *   expect:舊檔打開時的狀態,不一致(被別的程式改過)就停下來。
+   *   新位置已經有檔案就拒絕('exists'),不覆蓋。
+   */
+  async move(from, to, text, { expect } = {}) {
+    checkPath(from); checkPath(to);
+    if (!(await this.ensureWritable())) throw new Error('denied');
+    if (expect !== undefined && (await this.stat(from)) !== expect) throw new Error('stale');
+    const sameFile = from.toLowerCase() === to.toLowerCase(); // 只改大小寫:不分大小寫的檔案系統上是同一個檔
+    if (!sameFile && (await this.stat(to)) != null) throw new Error('exists');
+    if (sameFile) { await this.writeText(from, text); return from; }
+    await this.writeText(to, text, { mkdir: true });
+    if ((await this.readText(to)) !== text) throw new Error('verify');
+    const i = from.lastIndexOf('/');
+    await (await this.dir(i < 0 ? '' : from.slice(0, i))).removeEntry(from.slice(i + 1));
+    this.refresh();
+    return to;
+  }
+
   /** 搬到同一個簡報資料夾下的 _封存/(不真的刪檔)。回傳新位置。 */
   async archive(path, archiveDir) {
     checkPath(path);
@@ -192,7 +213,7 @@ export class HandleSource {
 /** 只允許寫入書庫資料夾裡的 .md / .yml,路徑不能跳出去。 */
 function checkPath(path) {
   if (!/^[^/][^\0]*$/.test(path) || path.split('/').some(p => !p || p === '.' || p === '..')) throw new Error('bad path');
-  if (!/\.(md|ya?ml)$/i.test(path)) throw new Error('bad type');
+  if (!/\.(md|ya?ml|canvas)$/i.test(path)) throw new Error('bad type'); // 只寫文字檔:筆記、設定、畫布
 }
 
 async function exists(dir, name) {
