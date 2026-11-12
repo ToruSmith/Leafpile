@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Leafpile 書庫檢查工具(單檔版 v0.5.1)
+// Leafpile 書庫檢查工具(單檔版 v0.6.0)
 // 由 scripts/bundle-check.mjs 自動產生,請不要手動修改。原始碼:https://github.com/ToruSmith/Leafpile
 //
 // 用法(需要 Node.js 18 以上):
@@ -722,6 +722,10 @@ const LOCALE_ZH_HANT = {
   'board.present': '▶ 簡報',
   'board.presentTitle': '依群組一頁一頁放大(沒有群組就逐張卡片);←/→ 換頁,Esc 離開',
   'board.presentExit': '離開',
+  'board.full': '全螢幕',
+  'board.fullExit': '離開全螢幕',
+  'board.fullTitle': '畫布鋪滿整個畫面;工具列從右上角的 ☰ 叫出,Esc 離開',
+  'board.menu': '顯示／隱藏工具列',
   'board.prev': '上一頁',
   'board.next': '下一頁',
   'board.loadEmbed': '載入',
@@ -813,6 +817,14 @@ const LOCALE_ZH_HANT = {
   'note.editTitle': '編輯這篇筆記(E)',
   'note.smaller': '字小一點',
   'note.larger': '字大一點',
+  'note.scaleReset': '目前字級,點一下回到 100%',
+  'note.immersive': '沉浸閱讀',
+  'note.immersiveTitle': '隱藏選單,只留內文並進入全螢幕(F)',
+  'rd.chapters': '章節',
+  'rd.toolbar': '沉浸閱讀工具',
+  'rd.menu': '顯示／隱藏工具列',
+  'rd.fullscreen': '全螢幕',
+  'rd.exit': '離開沉浸',
   'note.toc': '目錄',
   'note.backlinks': '反向連結',
   'note.indexing': '建立索引中…',
@@ -1530,6 +1542,10 @@ const LOCALE_EN = {
   'board.present': '▶ Present',
   'board.presentTitle': 'Zoom into each group in turn (or each card if there are no groups); ←/→ to move, Esc to exit',
   'board.presentExit': 'Exit',
+  'board.full': 'Full screen',
+  'board.fullExit': 'Exit full screen',
+  'board.fullTitle': 'Fill the whole screen. Open the toolbar with the ☰ button at the top right; Esc leaves',
+  'board.menu': 'Show / hide toolbar',
   'board.prev': 'Previous',
   'board.next': 'Next',
   'board.loadEmbed': 'Load',
@@ -1621,6 +1637,14 @@ const LOCALE_EN = {
   'note.editTitle': 'Edit this note (E)',
   'note.smaller': 'Smaller text',
   'note.larger': 'Larger text',
+  'note.scaleReset': 'Text size. Click to reset to 100%',
+  'note.immersive': 'Focus reading',
+  'note.immersiveTitle': 'Hide menus, keep only the text, and go full screen (F)',
+  'rd.chapters': 'Chapters',
+  'rd.toolbar': 'Focus reading tools',
+  'rd.menu': 'Show / hide toolbar',
+  'rd.fullscreen': 'Full screen',
+  'rd.exit': 'Leave focus',
   'note.toc': 'Contents',
   'note.backlinks': 'Backlinks',
   'note.indexing': 'Indexing…',

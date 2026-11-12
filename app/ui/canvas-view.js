@@ -21,6 +21,7 @@ import { withMembers, alignNodes, distribute, snapLines, snapMove, copyFragment,
 import { hydrate, mountPage, openPageTab } from '../player/hydrate.js';
 import { prepareMedia } from './media-import.js';
 import { dialog, toast } from './dialog.js';
+import { enterFullscreen, exitFullscreen, autoHide } from './fullscreen.js';
 
 const MIN_Z = 0.1, MAX_Z = 2.5, MAX_LIVE = 3, DOUBLE_MS = 400, SNAP_PX = 6;
 const INKS = ['#2b2925', '#c0504d', '#3f6fb0', '#5a8f5a'];
@@ -59,6 +60,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
           <button class="btn ghost" data-b="search" title="${esc(t('board.searchTitle'))}" aria-label="${esc(t('board.searchTitle'))}">⌕</button>
           <button class="btn ghost" data-b="export" title="${esc(t('board.exportTitle'))}">${esc(t('board.export'))}</button>
           <button class="btn ghost" data-b="present" title="${esc(t('board.presentTitle'))}">${esc(t('board.present'))}</button>
+          <button class="btn ghost" data-b="full" title="${esc(t('board.fullTitle'))}">${esc(t('board.full'))}</button>
           <button class="btn ghost" data-b="out" aria-label="${esc(t('board.zoomOut'))}">−</button>
           <button class="btn ghost zoom" data-b="reset" title="${esc(t('board.zoomReset'))}">100%</button>
           <button class="btn ghost" data-b="in" aria-label="${esc(t('board.zoomIn'))}">+</button>
@@ -74,6 +76,8 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
         <div class="board-draw-bar" hidden><span>${esc(t('board.drawing'))}</span>${INKS.map((c, i) => `<button data-ink="${c}" class="${i ? '' : 'on'}" style="--sw:${c}" aria-label="${esc(t('board.color'))}"></button>`).join('')}<button data-d="undo">↶</button><button data-d="cancel">${esc(t('dialog.cancel'))}</button><button data-d="done" class="primary">${esc(t('board.drawDone'))}</button></div>
         <p class="board-empty" hidden>${esc(t(canEdit ? 'board.emptyEdit' : 'board.empty'))}</p>
         <p class="board-hint">${esc(t(canEdit ? 'board.hintEdit' : 'board.hint'))}</p>
+        <div class="board-hot" aria-hidden="true"></div>
+        <button class="board-fab" data-b="menu" aria-label="${esc(t('board.menu'))}" title="${esc(t('board.menu'))}">☰</button>
         <div class="board-present-bar" hidden><button data-p="prev" aria-label="${esc(t('board.prev'))}">‹</button><span class="n"></span><button data-p="next" aria-label="${esc(t('board.next'))}">›</button><button data-p="exit">${esc(t('board.presentExit'))}</button></div>
       </div>
     </div></div>`;
@@ -666,6 +670,19 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     fitTo({ x: n.x, y: n.y - top, width: n.width, height: n.height + top }, 40, 2.5);
     $('.board-present-bar .n').textContent = `${present.i + 1} / ${order.length}`;
   }
+  // 全螢幕(非簡報):畫布鋪滿畫面,工具列收起來,從右上角 ☰ 叫出。不支援全螢幕的瀏覽器(iPhone)只切版面
+  const barAuto = autoHide($('.board-bar'), { ms: 5000 });
+  let full = false;
+  function setFull(on) {
+    if (on === full) return;
+    full = on;
+    page.classList.toggle('full', on);
+    if (on) { barAuto.show(3500); enterFullscreen(page); }
+    else { barAuto.hide(); if (document.fullscreenElement === page && !present) exitFullscreen(); }
+    $('[data-b=full]').textContent = t(on ? 'board.fullExit' : 'board.full');
+  }
+  $('.board-fab').addEventListener('click', () => barAuto.toggle());
+  $('.board-hot').addEventListener('mouseenter', () => { if (full && !present) barAuto.show(); });
   function startPresent() {
     const order = slideOrder(board);
     if (!order.length) return toast(t('board.empty'));
@@ -681,7 +698,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     cam = present.cam; present = null;
     page.classList.remove('presenting');
     $('.board-present-bar').hidden = true;
-    if (document.fullscreenElement === page) document.exitFullscreen?.().catch(() => {});
+    if (document.fullscreenElement === page && !full) document.exitFullscreen?.().catch(() => {});
     applyCam(); setTimeout(() => world.classList.remove('glide'), 600);
   }
   $('.board-present-bar').addEventListener('click', e => {
@@ -690,7 +707,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     if (p === 'next') showSlide(present.i + 1);
     if (p === 'exit') stopPresent();
   });
-  const onFs = () => { if (present && !document.fullscreenElement) stopPresent(); };
+  const onFs = () => { if (document.fullscreenElement) return; if (present) stopPresent(); else if (full) setFull(false); };
   document.addEventListener('fullscreenchange', onFs);
 
   // ---------- 指標:平移、拖曳、框選、調整大小、連線、手繪、兩指縮放、雙擊 ----------
@@ -892,6 +909,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     if (b === 'search') openSearch();
     if (b === 'export') exportBoard();
     if (b === 'present') startPresent();
+    if (b === 'full') setFull(!full);
     if (b === 'text') { const c = center(); addTextAt(c.x, c.y); }
   });
 
@@ -920,7 +938,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     if (mod && k === 'd' && canEdit) { e.preventDefault(); return duplicate(); }
     if (mod) return;
     if (e.key === 'Delete' || e.key === 'Backspace') { if (sel && canEdit) { e.preventDefault(); removeSelected(); } return; }
-    if (e.key === 'Escape') { if (search) return closeSearch(); if (sel) return select(null); return; }
+    if (e.key === 'Escape') { if (search) return closeSearch(); if (sel) return select(null); if (full) setFull(false); return; }
     if (e.key === 'Enter' && sel) {
       e.preventDefault();
       if (sel.edge) return editEdge(sel.edge);
@@ -946,7 +964,8 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
       alive = false;
       window.removeEventListener('keydown', onKey); window.removeEventListener('paste', onPaste);
       window.removeEventListener('beforeunload', onUnload); document.removeEventListener('fullscreenchange', onFs);
-      if (present && document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+      barAuto.dispose();
+      if ((present || full) && document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
       if (dirty) flush();
     },
     isDirty: () => false, // 離開時 cleanup 會把還沒存的立刻存掉,不用問
