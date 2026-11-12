@@ -289,7 +289,9 @@ button.ro-chip { border: 0; font: inherit; font-size: 13px; }
 
 .board-shell { height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
 .board-page { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.board-bar { display: flex; align-items: center; gap: 12px; padding: 10px 20px; border-bottom: 1px solid var(--line); background: var(--bg); flex-wrap: wrap; }
+.board-page { position: relative; }
+/* 工具列浮在畫布上方,不佔一列;全螢幕時改成平常收起 */
+.board-bar { position: absolute; top: 10px; left: 10px; z-index: 21; width: max-content; max-width: calc(100% - 20px); display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(10px); box-shadow: 0 8px 26px rgb(var(--shadow) / .2); }
 .board-bar h1 { font-size: 18px; margin: 0; }
 .board-status { font-size: 12px; color: var(--muted); }
 .board-status[data-s="board.stale"], .board-status[data-s="board.saveFailed"] { color: #b0566e; }
@@ -382,7 +384,7 @@ button.ro-chip { border: 0; font: inherit; font-size: 13px; }
 .board-pop .aligns button { padding: 4px 7px; font-size: 15px; }
 .bnode.hit { box-shadow: 0 0 0 3px #e8c547, 0 2px 8px rgb(var(--shadow) / .08); }
 .bnode.hit-now { box-shadow: 0 0 0 4px #d9822b, 0 8px 24px rgb(var(--shadow) / .25); }
-.board-search { position: absolute; z-index: 22; top: 12px; right: 16px; display: flex; align-items: center; gap: 6px; padding: 6px 8px 6px 12px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 10px 26px rgb(var(--shadow) / .18); }
+.board-search { position: absolute; z-index: 22; top: 68px; right: 16px; display: flex; align-items: center; gap: 6px; padding: 6px 8px 6px 12px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 10px 26px rgb(var(--shadow) / .18); }
 .board-search[hidden] { display: none; }
 .board-search input { font: inherit; font-size: 14px; width: 240px; border: 0; outline: none; background: transparent; color: var(--ink); }
 .board-search .n { font-size: 12px; color: var(--muted); min-width: 40px; text-align: right; font-variant-numeric: tabular-nums; }
@@ -390,7 +392,7 @@ button.ro-chip { border: 0; font: inherit; font-size: 13px; }
 .board-edges .ink path { fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 .board-page.drawing .board-view { cursor: crosshair; }
 .board-page.drawing .bnode { pointer-events: none; opacity: .75; }
-.board-draw-bar { position: absolute; z-index: 25; top: 12px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 6px 8px 6px 14px; border-radius: 999px; background: var(--pop-bg); color: var(--pop-fg); font-size: 14px; box-shadow: 0 10px 26px rgb(var(--shadow) / .28); }
+.board-draw-bar { position: absolute; z-index: 25; top: 68px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 6px 8px 6px 14px; border-radius: 999px; background: var(--pop-bg); color: var(--pop-fg); font-size: 14px; box-shadow: 0 10px 26px rgb(var(--shadow) / .28); }
 .board-draw-bar[hidden] { display: none; }
 .board-draw-bar button { font: inherit; color: inherit; background: transparent; border: 0; padding: 4px 10px; border-radius: 999px; cursor: pointer; }
 .board-draw-bar button[data-ink] { width: 20px; height: 20px; padding: 0; background: var(--sw); border: 2px solid color-mix(in srgb, var(--pop-fg) 30%, transparent); }
@@ -415,28 +417,41 @@ details.toc > summary h3 { display: inline; }
   .palette-btn kbd { display: none; }
   .palette-btn::after { content: '⌕'; font-size: 18px; line-height: 1; }
 }
-/* 畫布:工具列只佔一行,可以左右滑 */
+/* 畫布:手機上工具列只留常用的,其餘收進「更多」 */
+.board-tools .icon { padding: 5px 9px; display: inline-flex; align-items: center; }
+.board-tools .icon[aria-pressed=true] { background: var(--accent-soft, color-mix(in srgb, var(--accent) 16%, transparent)); color: var(--accent); }
+.board-bar > .btn { padding: 5px 10px; white-space: nowrap; }
+.board-bar h1 { font-size: 16px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 24ch; }
+.board-more { position: relative; display: inline-flex; }
+.board-menu { position: absolute; top: calc(100% + 10px); right: 0; z-index: 40; min-width: 210px; padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: 0 14px 36px rgb(var(--shadow) / .28); display: flex; flex-direction: column; }
+.board-menu[hidden] { display: none; }
+.board-menu > button { font: inherit; font-size: 14px; color: var(--ink); background: none; border: 0; text-align: left; padding: 9px 12px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+.board-menu > button:hover, .board-menu > button:focus-visible { background: var(--accent-soft, color-mix(in srgb, var(--accent) 14%, transparent)); }
+.board-menu hr { border: 0; border-top: 1px solid var(--line); margin: 5px 4px; }
+.board-menu .mt, .board-menu .narrow-only { display: none; }
+.board-menu .zoomrow { display: flex; gap: 4px; padding: 2px; }
+.board-menu .zoomrow button { flex: 1; font: inherit; font-size: 14px; color: var(--ink); background: none; border: 1px solid var(--line); border-radius: 8px; padding: 7px 8px; cursor: pointer; white-space: nowrap; }
+.board-menu .zoomrow button:hover { background: var(--accent-soft, color-mix(in srgb, var(--accent) 14%, transparent)); }
+.board-menu .zoomrow .zoom { min-width: 64px; }
+.board-bar .board-tools { margin-left: 0; display: flex; gap: 6px; flex-wrap: nowrap; }
 @media (max-width: 720px) {
-  .board-bar { flex-wrap: nowrap; gap: 8px; padding: 8px 10px; }
-  .board-bar h1 { font-size: 15px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto; }
-  .board-bar > .btn { padding: 5px 10px; white-space: nowrap; }
-  .board-status { display: none; }
-  .board-tools { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-left: auto; min-width: 0; }
-  .board-tools::-webkit-scrollbar { display: none; }
-  .board-tools .btn { white-space: nowrap; flex: none; }
-  .board-tools [data-b=out], .board-tools [data-b=in], .board-tools .zoom { display: none; }
-  .board-pop { max-width: calc(100% - 16px); overflow-x: auto; scrollbar-width: none; }
+  .board-bar { gap: 6px; padding: 5px 6px; top: 8px; left: 8px; max-width: calc(100% - 16px); }
+  .board-bar h1, .board-status { display: none; }
+  .board-bar > .btn { padding: 5px 9px; font-size: 13px; }
+  .board-tools .btn { font-size: 13px; padding: 5px 9px; white-space: nowrap; flex: none; }
+  .board-tools .wide-only { display: none; }
+  .board-menu .mt { display: block; padding: 6px 12px 4px; font-weight: 600; font-size: 13px; color: var(--muted); max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .board-menu .narrow-only { display: block; }
+  .board-menu { right: -6px; }
   .board-search input { width: 150px; }
+  .board-search { top: 62px; } .board-draw-bar { top: 62px; }
   .bnode .dot, .bnode .resize { width: 18px; height: 18px; }
   .bnode .dot.top { top: -10px; left: calc(50% - 9px); } .bnode .dot.bottom { bottom: -10px; left: calc(50% - 9px); }
   .bnode .dot.left { left: -10px; top: calc(50% - 9px); } .bnode .dot.right { right: -10px; top: calc(50% - 9px); }
   .bnode .resize { right: -9px; bottom: -9px; }
+  .board-pop { max-width: calc(100% - 16px); overflow-x: auto; scrollbar-width: none; }
 }
 @media (max-width: 760px) { .hero-art { overflow: hidden; } .hero-art.leaf-art i { left: 50%; } }
-@media (max-width: 720px) {
-  .board-bar h1 { flex: 0 0 auto; max-width: 28vw; }
-  .board-bar > .btn { font-size: 13px; padding: 5px 8px; }
-}
 
 /* ---------- 字級 ---------- */
 .note-tools .scale .val { min-width: 48px; font-variant-numeric: tabular-nums; }
@@ -478,10 +493,13 @@ body.immersive .note-side .toc summary { list-style: none; pointer-events: none;
 .board-hot, .board-fab { display: none; }
 .board-page.full { position: fixed; inset: 0; z-index: 60; background: var(--bg); }
 .board-page.full .board-hint { display: none; }
-.board-page.full .board-hot { display: block; position: absolute; top: 0; left: 15%; right: 15%; height: 26px; z-index: 19; }
-.board-page.full .board-fab { display: grid; position: absolute; top: 12px; right: 14px; z-index: 22; width: 42px; height: 42px; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: var(--surface); color: var(--ink); font-size: 17px; cursor: pointer; opacity: .55; box-shadow: 0 4px 14px rgb(var(--shadow) / .18); transition: opacity .2s; }
-.board-page.full .board-fab:hover, .board-page.full .board-fab:focus-visible { opacity: 1; }
-.board-page.full .board-bar { position: absolute; top: 0; left: 0; right: 0; z-index: 21; padding-right: 66px; transform: translateY(-105%); opacity: 0; pointer-events: none; transition: transform .22s, opacity .22s; box-shadow: 0 8px 24px rgb(var(--shadow) / .18); }
-.board-page.full .board-bar.show { transform: none; opacity: 1; pointer-events: auto; }
+.board-page.hideable .board-hot { display: block; position: absolute; top: 0; left: 0; right: 70px; height: 14px; z-index: 19; }
+.board-page.hideable .board-fab { display: grid; position: absolute; top: 12px; right: 14px; z-index: 22; width: 42px; height: 42px; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: var(--surface); color: var(--ink); font-size: 17px; cursor: pointer; opacity: .55; box-shadow: 0 4px 14px rgb(var(--shadow) / .18); transition: opacity .2s; }
+.board-page.hideable .board-fab:hover, .board-page.hideable .board-fab:focus-visible { opacity: 1; }
+.board-page.hideable .board-bar { max-width: calc(100% - 76px); transform: translateY(-160%); opacity: 0; pointer-events: none; transition: transform .22s, opacity .22s; }
+.board-page.hideable .board-bar.show { transform: none; opacity: 1; pointer-events: auto; }
 .board-page.presenting .board-fab, .board-page.presenting .board-hot { display: none !important; }
-@media (prefers-reduced-motion: reduce) { .board-page.full .board-bar, .board-page.full .board-fab { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .board-page.hideable .board-bar, .board-page.hideable .board-fab { transition: none; } }
+
+.board-menu [aria-pressed=true]::before { content: '\2713  '; }
+.board-menu [aria-pressed=false]::before { content: '\00a0\00a0\00a0\00a0'; }

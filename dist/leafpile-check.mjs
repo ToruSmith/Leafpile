@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Leafpile 書庫檢查工具(單檔版 v0.6.0)
+// Leafpile 書庫檢查工具(單檔版 v0.6.1)
 // 由 scripts/bundle-check.mjs 自動產生,請不要手動修改。原始碼:https://github.com/ToruSmith/Leafpile
 //
 // 用法(需要 Node.js 18 以上):
@@ -726,6 +726,9 @@ const LOCALE_ZH_HANT = {
   'board.fullExit': '離開全螢幕',
   'board.fullTitle': '畫布鋪滿整個畫面;工具列從右上角的 ☰ 叫出,Esc 離開',
   'board.menu': '顯示／隱藏工具列',
+  'board.more': '更多 ▾',
+  'board.moreTitle': '網址、圖片、手繪、簡報、匯出與縮放',
+  'board.pin': '固定工具列(不自動收起)',
   'board.prev': '上一頁',
   'board.next': '下一頁',
   'board.loadEmbed': '載入',
@@ -1546,6 +1549,9 @@ const LOCALE_EN = {
   'board.fullExit': 'Exit full screen',
   'board.fullTitle': 'Fill the whole screen. Open the toolbar with the ☰ button at the top right; Esc leaves',
   'board.menu': 'Show / hide toolbar',
+  'board.more': 'More ▾',
+  'board.moreTitle': 'Links, images, drawing, present, export and zoom',
+  'board.pin': 'Keep toolbar visible',
   'board.prev': 'Previous',
   'board.next': 'Next',
   'board.loadEmbed': 'Load',

@@ -52,19 +52,26 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
         <span class="board-status" aria-live="polite">${esc(canEdit ? '' : t('board.readonly'))}</span>
         <span class="board-tools">
           ${canEdit ? `<button class="btn ghost" data-b="text" title="${esc(t('board.addTextTitle'))}">${esc(t('board.addText'))}</button>
-          <button class="btn ghost" data-b="card" title="${esc(t('board.addCardTitle'))}">${esc(t('board.addCard'))}</button>
-          <button class="btn ghost" data-b="link" title="${esc(t('board.addLinkTitle'))}">${esc(t('board.addLink'))}</button>
-          ${canMedia ? `<button class="btn ghost" data-b="file" title="${esc(t('board.addFileTitle'))}">${esc(t('board.addFile'))}</button>
-          <button class="btn ghost" data-b="draw" title="${esc(t('board.drawTitle'))}">${esc(t('board.draw'))}</button>` : ''}
+          <button class="btn ghost wide-only" data-b="card" title="${esc(t('board.addCardTitle'))}">${esc(t('board.addCard'))}</button>
           <button class="btn ghost" data-b="undo" title="${esc(t('board.undo'))}" aria-label="${esc(t('board.undo'))}">↶</button>` : ''}
           <button class="btn ghost" data-b="search" title="${esc(t('board.searchTitle'))}" aria-label="${esc(t('board.searchTitle'))}">⌕</button>
-          <button class="btn ghost" data-b="export" title="${esc(t('board.exportTitle'))}">${esc(t('board.export'))}</button>
-          <button class="btn ghost" data-b="present" title="${esc(t('board.presentTitle'))}">${esc(t('board.present'))}</button>
-          <button class="btn ghost" data-b="full" title="${esc(t('board.fullTitle'))}">${esc(t('board.full'))}</button>
-          <button class="btn ghost" data-b="out" aria-label="${esc(t('board.zoomOut'))}">−</button>
-          <button class="btn ghost zoom" data-b="reset" title="${esc(t('board.zoomReset'))}">100%</button>
-          <button class="btn ghost" data-b="in" aria-label="${esc(t('board.zoomIn'))}">+</button>
-          <button class="btn ghost" data-b="fit" title="${esc(t('board.fitTitle'))}">${esc(t('board.fit'))}</button>
+          <button class="btn ghost icon" data-b="full" aria-pressed="false" title="${esc(t('board.fullTitle'))}" aria-label="${esc(t('board.full'))}"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4"/></svg></button>
+          <span class="board-more">
+            <button class="btn ghost" data-b="more" aria-haspopup="true" aria-expanded="false" title="${esc(t('board.moreTitle'))}">${esc(t('board.more'))}</button>
+            <div class="board-menu" role="menu" hidden>
+              <div class="mt">${esc(name)}</div>
+              ${canEdit ? `<button role="menuitem" class="narrow-only" data-b="card">${esc(t('board.addCard'))}</button>
+              <button role="menuitem" data-b="link" title="${esc(t('board.addLinkTitle'))}">${esc(t('board.addLink'))}</button>
+              ${canMedia ? `<button role="menuitem" data-b="file" title="${esc(t('board.addFileTitle'))}">${esc(t('board.addFile'))}</button>
+              <button role="menuitem" data-b="draw" title="${esc(t('board.drawTitle'))}">${esc(t('board.draw'))}</button>` : ''}
+              <hr>` : ''}
+              <button role="menuitem" data-b="present" title="${esc(t('board.presentTitle'))}">${esc(t('board.present'))}</button>
+              <button role="menuitem" data-b="export" title="${esc(t('board.exportTitle'))}">${esc(t('board.export'))}</button>
+              <button role="menuitem" data-b="pin" data-keep aria-pressed="false">${esc(t('board.pin'))}</button>
+              <hr>
+              <div class="zoomrow"><button data-b="out" data-keep aria-label="${esc(t('board.zoomOut'))}">−</button><button class="zoom" data-b="reset" data-keep title="${esc(t('board.zoomReset'))}">100%</button><button data-b="in" data-keep aria-label="${esc(t('board.zoomIn'))}">+</button><button data-b="fit" title="${esc(t('board.fitTitle'))}">${esc(t('board.fit'))}</button></div>
+            </div>
+          </span>
         </span>
         <input type="file" class="board-file" accept="image/*,.html,.htm,.pdf" multiple hidden>
       </div>
@@ -121,8 +128,9 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   const fitTo = (b, pad = 60, maxZ = 1.2) => {
     const r = view.getBoundingClientRect();
     if (!b) { cam = { x: r.width / 2, y: r.height / 3, z: 1 }; return applyCam(); }
-    const z = Math.min(maxZ, Math.max(MIN_Z, Math.min((r.width - pad * 2) / b.width, (r.height - pad * 2) / b.height)));
-    cam = { z, x: (r.width - b.width * z) / 2 - b.x * z, y: (r.height - b.height * z) / 2 - b.y * z };
+    const pg = view.closest('.board-page'), top = pg.classList.contains('hideable') || pg.classList.contains('presenting') ? 0 : 64; // 浮動工具列佔掉的高度
+    const z = Math.min(maxZ, Math.max(MIN_Z, Math.min((r.width - pad * 2) / b.width, (r.height - top - pad * 2) / b.height)));
+    cam = { z, x: (r.width - b.width * z) / 2 - b.x * z, y: top + (r.height - top - b.height * z) / 2 - b.y * z };
     applyCam();
   };
   const fit = () => fitTo(bounds(board.nodes));
@@ -673,16 +681,27 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   // 全螢幕(非簡報):畫布鋪滿畫面,工具列收起來,從右上角 ☰ 叫出。不支援全螢幕的瀏覽器(iPhone)只切版面
   const barAuto = autoHide($('.board-bar'), { ms: 5000 });
   let full = false;
+  // 工具列平常幾秒沒動作就收起來(右上角 ☰ 或滑鼠移到上緣叫回);「固定工具列」可以讓它一直顯示。全螢幕時一律會收起
+  const PIN_KEY = 'leafpile-board-pin';
+  let pinned = false;
+  try { pinned = localStorage.getItem(PIN_KEY) === '1'; } catch { /* 隱私模式 */ }
+  const hideable = () => full || !pinned;
+  const syncHide = () => { page.classList.toggle('hideable', hideable()); $('[data-b=pin]').setAttribute('aria-pressed', pinned ? 'true' : 'false'); };
   function setFull(on) {
     if (on === full) return;
     full = on;
     page.classList.toggle('full', on);
+    syncHide();
     if (on) { barAuto.show(3500); enterFullscreen(page); }
-    else { barAuto.hide(); if (document.fullscreenElement === page && !present) exitFullscreen(); }
-    $('[data-b=full]').textContent = t(on ? 'board.fullExit' : 'board.full');
+    else { if (hideable()) barAuto.show(3000); else barAuto.hide(); if (document.fullscreenElement === page && !present) exitFullscreen(); }
+    const fb = $('[data-b=full]');
+    fb.setAttribute('aria-pressed', on ? 'true' : 'false');
+    fb.title = fb.ariaLabel = t(on ? 'board.fullExit' : 'board.full');
   }
   $('.board-fab').addEventListener('click', () => barAuto.toggle());
-  $('.board-hot').addEventListener('mouseenter', () => { if (full && !present) barAuto.show(); });
+  $('.board-hot').addEventListener('mouseenter', () => { if (hideable() && !present) barAuto.show(); });
+  syncHide();
+  if (hideable()) barAuto.show(6000);
   function startPresent() {
     const order = slideOrder(board);
     if (!order.length) return toast(t('board.empty'));
@@ -717,7 +736,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   const isDouble = id => { const now = Date.now(); const d = lastTap.id === id && now - lastTap.t < DOUBLE_MS; lastTap = d ? { id: '', t: 0 } : { id, t: now }; return d; };
 
   view.addEventListener('pointerdown', e => {
-    if (e.target.closest('.board-present-bar, .board-search, .board-draw-bar, a.open, textarea, .embed-tools, .embed-load, .interactive .embed-box')) return;
+    if (e.target.closest('.board-present-bar, .board-fab, .board-search, .board-draw-bar, a.open, textarea, .embed-tools, .embed-load, .interactive .embed-box')) return;
     if (present) { if (e.button === 0) act = { type: 'pan', sx: e.clientX, sy: e.clientY, cx: cam.x, cy: cam.y, still: true }; return; }
     if (editing || e.button > 0) return;
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -895,8 +914,16 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   window.addEventListener('paste', onPaste);
   fileInput.addEventListener('change', () => { const files = [...fileInput.files]; fileInput.value = ''; if (files.length) importFiles(files); });
 
+  const menu = $('.board-menu'), moreBtn = $('[data-b=more]');
+  const setMenu = on => { menu.hidden = !on; moreBtn.setAttribute('aria-expanded', on ? 'true' : 'false'); if (on) barAuto.show(60000); else if (hideable()) barAuto.show(2500); };
+  const onDown = e => { if (!menu.hidden && !e.target.closest('.board-more')) setMenu(false); };
+  document.addEventListener('pointerdown', onDown);
   $('.board-tools').addEventListener('click', e => {
-    const b = e.target.closest('[data-b]')?.dataset.b;
+    const el = e.target.closest('[data-b]');
+    const b = el?.dataset.b;
+    if (b === 'more') { setMenu(menu.hidden); return; }
+    if (b === 'pin') { pinned = !pinned; try { localStorage.setItem(PIN_KEY, pinned ? '1' : '0'); } catch { /* 略 */ } syncHide(); if (!pinned) barAuto.show(2500); }
+    if (el && !el.hasAttribute('data-keep') && el.closest('.board-menu')) setMenu(false);
     if (b === 'in') zoomAt(cam.z * 1.25);
     if (b === 'out') zoomAt(cam.z / 1.25);
     if (b === 'reset') zoomAt(1);
@@ -938,7 +965,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     if (mod && k === 'd' && canEdit) { e.preventDefault(); return duplicate(); }
     if (mod) return;
     if (e.key === 'Delete' || e.key === 'Backspace') { if (sel && canEdit) { e.preventDefault(); removeSelected(); } return; }
-    if (e.key === 'Escape') { if (search) return closeSearch(); if (sel) return select(null); if (full) setFull(false); return; }
+    if (e.key === 'Escape') { if (!menu.hidden) return setMenu(false); if (search) return closeSearch(); if (sel) return select(null); if (full) setFull(false); return; }
     if (e.key === 'Enter' && sel) {
       e.preventDefault();
       if (sel.edge) return editEdge(sel.edge);
@@ -964,7 +991,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
       alive = false;
       window.removeEventListener('keydown', onKey); window.removeEventListener('paste', onPaste);
       window.removeEventListener('beforeunload', onUnload); document.removeEventListener('fullscreenchange', onFs);
-      barAuto.dispose();
+      barAuto.dispose(); document.removeEventListener('pointerdown', onDown);
       if ((present || full) && document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
       if (dirty) flush();
     },
