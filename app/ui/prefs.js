@@ -7,6 +7,7 @@
 //   leafpile-note-scale        筆記字級(reader.js)
 //   leafpile-shelf-view        書庫顯示:全部／筆記／簡報／表格(shelf.js)
 //   leafpile-table-sort        表格排序(shelf.js)
+//   leafpile-table-mode        表格看筆記或主題(shelf.js、sidebar.js)
 //   leafpile-board-minimap     畫布小地圖開關(canvas-view.js)
 //   leafpile-board-pin         畫布工具列固定(canvas-view.js)
 //   leafpile-side              側邊欄收合狀態(sidebar.js)

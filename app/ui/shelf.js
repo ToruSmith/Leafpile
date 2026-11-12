@@ -16,6 +16,7 @@ import { tableColumns, cellText, sortRows, filterRows, valueOf } from '../core/t
 const VIEW_KEY = 'leafpile-shelf-view';
 const VIEWS = ['all', 'notes', 'slides', 'table'];
 const SORT_KEY = 'leafpile-table-sort';
+const MODE_KEY = 'leafpile-table-mode'; // 表格看的是「筆記」還是「主題」
 
 function savedView() {
   const v = readPref(VIEW_KEY); return VIEWS.includes(v) ? v : 'all';
@@ -27,7 +28,7 @@ function savedView() {
  *   href = { note(rel), deck(topicId, projectId) } 產生連結
  * @returns {Function} 清理函式
  */
-export function renderShelf(root, { vault, sourceKey, header, href, graph, onRefresh, onCheck, onNewNote, onPrivacy, onNewBoard }) {
+export function renderShelf(root, { vault, sourceKey, header, href, graph, onRefresh, onCheck, onNewNote, onPrivacy, onNewBoard, onTopicEdit, onTopicNew, onCategories }) {
   applyUITheme(vault.theme || 'paper');
   const noteCount = vault.notes.topics.reduce((n, tp) => n + notesOfTopic(tp).length, 0);
   const deckCount = vault.topics.reduce((n, tp) => n + tp.decks.length, 0);
@@ -133,10 +134,36 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
     const book = rec.bookPath ? (tp?.notes?.items || []).find(i => i.kind === 'book' && i.path === rec.bookPath) : null;
     return { rel: rec.rel, title: rec.title, topic: tp?.title || '', topicId: rec.topicId, category: catOf.get(rec.topicId) || '', book: book?.title || '', date: rec.date || '', tags: rec.tags || [], fields: rec.fields || {}, private: !rec.public };
   });
+  let mode = readPref(MODE_KEY) === 'topics' ? 'topics' : 'notes';
+  const modeBar = () => `<span class="seg-mini" role="group" aria-label="${esc(t('table.modeLabel'))}">${['notes', 'topics'].map(m => `<button data-mode="${m}" aria-pressed="${mode === m}">${esc(t('table.mode.' + m))}</button>`).join('')}</span>`;
+  // 主題清單:不用等圖譜,書庫目錄就有
+  const renderTopics = box => {
+    const cats = new Map(vault.categories.map(c => [c.id, c.name]));
+    const keep = filter === '*' ? () => true : tp => (filter.startsWith('c:') ? catOf.get(tp.id) === filter.slice(2) : tp.id === filter.slice(2));
+    const list = vault.topics.filter(tp => tp.id !== '_' && keep(tp) && (!words.length || words.every(w => `${tp.title} ${tp.id} ${tp.description}`.toLowerCase().includes(w))));
+    const pub = tp => (typeof tp.conf?.public === 'boolean' ? t(tp.conf.public ? 'tm.publicYes' : 'tm.publicNo') : '');
+    box.innerHTML = `<div class="table-head">${modeBar()}<span class="n">${esc(t('table.topicCount', { n: list.length }))}</span>
+        ${onTopicNew ? `<button class="btn ghost tm-new">${esc(t('tm.newBtn'))}</button>` : ''}
+        ${onCategories ? `<button class="btn ghost tm-cats-btn">${esc(t('tm.catsBtn'))}</button>` : ''}
+        <span class="hint">${esc(onTopicEdit ? t('table.topicsHint') : t('table.topicsReadonly'))}</span></div>
+      <div class="table-wrap"><table class="topic-table">
+        <thead><tr><th scope="col"><span>${esc(t('table.topic'))}</span></th><th scope="col"><span>${esc(t('tm.folder'))}</span></th><th scope="col"><span>${esc(t('tm.category'))}</span></th><th scope="col"><span>${esc(t('table.notes'))}</span></th><th scope="col"><span>${esc(t('table.decks'))}</span></th><th scope="col"><span>${esc(t('tm.public'))}</span></th>${onTopicEdit ? '<th scope="col"></th>' : ''}</tr></thead>
+        <tbody>${list.map(tp => `<tr>
+          <td class="c-title"><span class="tm-head"><i class="tm-dot" style="background:${esc(tp.color)}"></i>${esc(tp.title)}</span>${tp.description ? `<small>${esc(tp.description)}</small>` : ''}</td>
+          <td class="c-f"><code>${esc(tp.id)}</code></td>
+          <td class="c-f">${esc(cats.get(tp.category) || tp.category || '')}</td>
+          <td class="c-num">${tp.notes ? notesOfTopic(tp.notes).length : 0}</td>
+          <td class="c-num">${tp.decks.length}</td>
+          <td class="c-f">${esc(pub(tp))}</td>
+          ${onTopicEdit ? `<td class="c-act"><button class="btn ghost tm-edit" data-topic="${esc(tp.id)}">${esc(t('tm.editBtn'))}</button></td>` : ''}
+        </tr>`).join('')}</tbody>
+      </table></div>`;
+  };
   const renderTable = () => {
     const box = $('.note-table');
     if (view !== 'table') { box.hidden = true; return; }
     box.hidden = false;
+    if (mode === 'topics') return renderTopics(box);
     if (!g) { box.innerHTML = `<p class="table-wait">${esc(t('table.loading'))}</p>`; return; }
     tableRows ||= rowsOf(g);
     const extra = tableColumns(tableRows);
@@ -149,7 +176,7 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
       if (k === 'tags') return r.tags.map(x => `<button class="tag" data-tag="${esc(x)}">#${esc(x)}</button>`).join(' ');
       return esc(cellText(valueOf(r, k)));
     };
-    box.innerHTML = `<div class="table-head"><span class="n">${esc(t('table.count', { n: list.length, total: tableRows.length }))}</span>
+    box.innerHTML = `<div class="table-head">${modeBar()}<span class="n">${esc(t('table.count', { n: list.length, total: tableRows.length }))}</span>
         ${tagFilter ? `<button class="tag on clear-tag" title="${esc(t('table.clearTag'))}">#${esc(tagFilter)} \u2715</button>` : ''}
         <span class="hint">${esc(t('table.readonly'))}</span></div>
       <div class="table-wrap"><table>
@@ -159,6 +186,12 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
       ${list.length ? '' : `<p class="table-empty">${esc(t('table.empty'))}</p>`}`;
   };
   $('.note-table').addEventListener('click', e => {
+    const m = e.target.closest('[data-mode]');
+    if (m) { mode = m.dataset.mode; writePref(MODE_KEY, mode); return renderTable(); }
+    const ed = e.target.closest('.tm-edit');
+    if (ed) return onTopicEdit?.(ed.dataset.topic);
+    if (e.target.closest('.tm-new')) return onTopicNew?.();
+    if (e.target.closest('.tm-cats-btn')) return onCategories?.();
     const s = e.target.closest('[data-sort]');
     if (s) {
       const k = s.dataset.sort;
@@ -235,7 +268,15 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
     apply();
   }, () => {});
 
-  return () => { alive = false; stopCards(); window.removeEventListener('keydown', onKey); };
+  // 側邊欄的「書庫總覽／表格／管理主題」:已經在書庫頁時直接切換,不換網址
+  const onShelfNav = e => {
+    const d = e.detail || {};
+    if (d.mode === 'notes' || d.mode === 'topics') { mode = d.mode; writePref(MODE_KEY, mode); }
+    const seg = d.view && root.querySelector(`.segmented [data-view="${d.view}"]`);
+    if (seg && view !== d.view) seg.click(); else renderTable();
+  };
+  window.addEventListener('leafpile-shelf', onShelfNav);
+  return () => { alive = false; stopCards(); window.removeEventListener('keydown', onKey); window.removeEventListener('leafpile-shelf', onShelfNav); };
 }
 
 function topicHTML(tp, vault, href) {

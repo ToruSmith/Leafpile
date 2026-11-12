@@ -629,7 +629,8 @@ body.immersive .side-nav, body.immersive .side-btn, body.immersive .sn-backdrop 
   /* 畫布頁整頁不捲動(board-shell 會裁切超出的部分),所以改成只讓畫布本身往右讓 */
   body.side-board.has-side:not(.side-collapsed) .board-shell > .board-page:not(.full):not(.presenting) { margin-left: var(--side-w); }
   /* 筆記頁原本的章節左欄由側邊欄取代 */
-  body.has-side:not(.side-collapsed):not(.immersive) .note-left { display: none; }
+  /* 沒有章節清單的筆記,左欄是一個空的佔位 div;兩種都要拿掉,否則內文會被擠到窄的右欄 */
+  body.has-side:not(.side-collapsed):not(.immersive) .note-layout > :first-child:not(.note-article) { display: none; }
   body.has-side:not(.side-collapsed):not(.immersive) .note-layout { grid-template-columns: minmax(0, calc(720px * max(1, var(--note-scale, 1)))) 250px; max-width: calc(1040px * max(1, var(--note-scale, 1))); }
 }
 /* 窄螢幕:抽屜 */
@@ -641,3 +642,42 @@ body.immersive .side-nav, body.immersive .side-btn, body.immersive .sn-backdrop 
   .sn-act { display: grid; }
 }
 @media (prefers-reduced-motion: reduce) { .side-nav { transition: none; } }
+
+/* ---------- 主題管理 ---------- */
+.seg-mini { display: inline-flex; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.seg-mini button { font: inherit; font-size: 12px; border: 0; background: none; color: var(--muted); padding: 4px 10px; border-radius: 6px; cursor: pointer; }
+.seg-mini button[aria-pressed=true] { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-weight: 600; }
+.table-head .btn { padding: 5px 12px; font-size: 13px; }
+.topic-table th span { display: block; padding: 10px 12px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.topic-table .tm-head { display: inline-flex; align-items: center; gap: 8px; }
+.topic-table .c-title small { display: block; margin-top: 3px; padding-left: 18px; font-weight: 400; font-size: 12px; line-height: 1.5; color: var(--muted); }
+.tm-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; transform: translateY(1px); }
+.topic-table code { font-size: 12px; color: var(--muted); }
+.topic-table .c-num { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.topic-table .c-act { text-align: right; white-space: nowrap; }
+.topic-table .c-act .btn { padding: 4px 12px; font-size: 13px; }
+.lp-dialog-list { margin: 0; padding: 10px 14px 10px 30px; border-radius: 10px; background: color-mix(in srgb, var(--line) 30%, transparent); font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
+.lp-dialog-card .lp-dialog-note { font-size: 13px; }
+.lp-dialog-card .lp-dialog-error { color: #b3261e; font-size: 14px; }
+.tm-cats { width: min(620px, 100%); max-height: calc(100vh - 40px); overflow: auto; }
+.tm-cat-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.tm-cat-list li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+.tm-swatch { flex: none; width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--line); }
+.tm-cat-fields { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tm-cat-fields input { font: inherit; font-size: 14px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--ink); min-width: 0; width: 140px; }
+.tm-cat-fields .tm-color { width: 92px; font-family: ui-monospace, monospace; font-size: 13px; }
+.tm-cat-fields .tm-id { width: 110px; font-family: ui-monospace, monospace; font-size: 13px; }
+.tm-cat-fields code { font-size: 12px; color: var(--muted); }
+.tm-cat-fields small { font-size: 12px; color: var(--muted); }
+.tm-cat-acts { flex: none; display: flex; gap: 2px; }
+.tm-cat-acts button { width: 30px; height: 30px; border: 0; border-radius: 7px; background: none; color: var(--muted); cursor: pointer; font-size: 14px; }
+.tm-cat-acts button:hover:not(:disabled) { background: color-mix(in srgb, var(--line) 50%, transparent); color: var(--ink); }
+.tm-cat-acts button:disabled { opacity: .35; cursor: default; }
+.tm-add { justify-self: start; }
+.sn-manage { margin-left: auto; font-size: 11px; font-weight: 500; letter-spacing: 0; color: var(--muted); text-decoration: none; padding: 1px 6px; border-radius: 6px; }
+.sn-manage:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+@media (max-width: 720px) {
+  .tm-cat-list li { align-items: flex-start; }
+  .tm-cat-fields input { width: 100%; }
+  .tm-cat-fields .tm-color, .tm-cat-fields .tm-id { width: calc(50% - 4px); }
+}
