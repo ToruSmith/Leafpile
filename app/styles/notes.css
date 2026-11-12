@@ -326,3 +326,43 @@ button.ro-chip { border: 0; font: inherit; font-size: 13px; }
 .bnode .md h1, .bnode .md h2, .bnode .md h3, .bnode .md h4 { font-size: 18px; line-height: 1.35; margin: 0 0 6px; letter-spacing: 0; }
 .bnode .md h1 { font-size: 21px; }
 .bnode .md img { max-width: 100%; height: auto; }
+
+/* ---------- 畫布:選取工具列、嵌入、圖片、簡報模式 ---------- */
+.board-view { --pop-bg: var(--ink); --pop-fg: var(--bg); }
+.board-world.glide { transition: transform .55s cubic-bezier(.3, .7, .2, 1); }
+.board-pop { position: absolute; z-index: 20; transform: translate(-50%, -100%); display: flex; align-items: center; gap: 4px; padding: 5px 6px; border-radius: 12px; background: var(--pop-bg); color: var(--pop-fg); box-shadow: 0 10px 26px rgb(var(--shadow) / .28); font-size: 13px; white-space: nowrap; }
+.board-pop[hidden] { display: none; }
+.board-pop button, .board-pop label { font: inherit; color: inherit; background: transparent; border: 0; padding: 4px 9px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+.board-pop button:hover, .board-pop label:hover { background: color-mix(in srgb, var(--pop-fg) 16%, transparent); }
+.board-pop .danger { color: #f3a5b6; }
+.board-pop .swatches { display: inline-flex; gap: 3px; padding: 0 4px; border-left: 1px solid color-mix(in srgb, var(--pop-fg) 25%, transparent); border-right: 1px solid color-mix(in srgb, var(--pop-fg) 25%, transparent); }
+.board-pop .swatches button { width: 18px; height: 18px; padding: 0; border-radius: 50%; background: var(--sw); border: 2px solid color-mix(in srgb, var(--pop-fg) 30%, transparent); }
+.board-pop .swatches button.none { background: linear-gradient(135deg, transparent 45%, #f3a5b6 45% 55%, transparent 55%); }
+.board-view.drop { outline: 3px dashed var(--accent, #c0504d); outline-offset: -8px; }
+.bnode .hdl { position: absolute; inset: 0; pointer-events: none; }
+.bnode .hdl i { pointer-events: auto; }
+.bnode.k-image { padding: 0; background: transparent; border: 0; box-shadow: 0 4px 14px rgb(var(--shadow) / .18); }
+.bnode.k-image img { width: 100%; height: 100%; object-fit: contain; display: block; border-radius: 10px; pointer-events: none; }
+.bnode.k-html, .bnode.k-pdf, .bnode.t-link:has(.embed-box) { display: flex; flex-direction: column; gap: 4px; }
+.bnode.t-link a.open { font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.embed-box { position: relative; flex: 1; min-height: 60px; margin-top: 6px; border-radius: 8px; overflow: hidden; background: var(--bg-deep); display: grid; place-items: center; }
+.embed-box iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #fff; pointer-events: none; }
+.bnode.interactive .embed-box iframe { pointer-events: auto; }
+.bnode.interactive { outline: 2px solid #5a8f5a; outline-offset: 2px; }
+.embed-box:fullscreen iframe { pointer-events: auto; }
+.embed-load { font: inherit; font-size: 14px; padding: 8px 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.embed-fail { margin: 0; padding: 0 14px; text-align: center; font-size: 13px; color: var(--muted); }
+.embed-tools { display: flex; gap: 4px; justify-content: flex-end; }
+.embed-tools button { font: inherit; font-size: 12px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.bnode.interactive .embed-tools [data-x=interact] { background: #5a8f5a; color: #fff; border-color: #5a8f5a; }
+.board-page.presenting .board-bar, .board-page.presenting .board-hint { display: none; }
+.board-page.presenting .board-view { cursor: pointer; background-image: none; }
+.board-page:fullscreen { background: var(--bg-deep); }
+.board-present-bar { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 25; display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 999px; background: var(--pop-bg); color: var(--pop-fg); font-size: 14px; opacity: .25; transition: opacity .2s; }
+.board-present-bar:hover, .board-present-bar:focus-within { opacity: 1; }
+.board-present-bar[hidden] { display: none; }
+.board-present-bar button { font: inherit; color: inherit; background: transparent; border: 0; padding: 4px 12px; border-radius: 999px; cursor: pointer; }
+.board-present-bar button:hover { background: color-mix(in srgb, var(--pop-fg) 16%, transparent); }
+.board-present-bar .n { min-width: 56px; text-align: center; font-variant-numeric: tabular-nums; }
+.note-side .on-boards ul { list-style: none; margin: 0; padding: 0; line-height: 2; }
+.bnode .kind { align-self: flex-start; }

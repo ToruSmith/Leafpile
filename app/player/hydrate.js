@@ -87,7 +87,7 @@ async function readPage(path, source) {
   return source.readText(path);
 }
 
-async function mountPage(fig, source) {
+export async function mountPage(fig, source) {
   const path = fig.dataset.page;
   const f = document.createElement('iframe');
   f.allow = 'fullscreen';
@@ -116,7 +116,7 @@ async function mountPage(fig, source) {
 }
 
 /** 在新分頁開啟(本機資料夾也能用)。 */
-async function openPageTab(path, source) {
+export async function openPageTab(path, source) {
   if (source.kind === 'repo') return window.open(await source.mediaURL(path), '_blank', 'noopener');
   const html = await readPage(path, source).catch(() => null);
   if (html == null) return;

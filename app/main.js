@@ -16,7 +16,7 @@ import { parseNote, slugify, splitFrontMatter, wikilinksOf } from './core/note.j
 import { expandEmbeds, promoteNote, promoteBook, distillDeck, withSourceHash } from './core/bridge.js';
 import { openPrivacyPanel } from './ui/privacy-view.js';
 import { renderBoard } from './ui/canvas-view.js';
-import { parseCanvas, emptyCanvas, boardFileName } from './core/canvas.js';
+import { parseCanvas, emptyCanvas, boardFileName, textToNote, boardsWith } from './core/canvas.js';
 import { auditPrivacy, visitorVault, isLocalOnly } from './core/privacy.js';
 import { planLinkUpdates, retitle, renamedFile, rebaseLinks, retargetSource, dirOf } from './core/move.js';
 import { checkVault } from './core/check.js';
@@ -37,7 +37,7 @@ import { loadQA, saveQA } from './player/qa-store.js';
 import { applyUITheme } from './player/themes.js';
 import { t, setLang, getLang, normalizeLang } from './core/i18n.js';
 
-export const VERSION = '0.3.0';
+export const VERSION = '0.4.0';
 const REPO_URL = 'https://github.com/ToruSmith/Leafpile';
 const MDSLIDE_URL = 'https://github.com/ToruSmith/Mdslide-Pile';
 
@@ -372,12 +372,48 @@ async function showBoard(key, name) {
       ...[...g.decks.values()].map(d => ({ value: 'd:' + d.path, file: `${d.path}/deck.yml`, deck: true, label: `${t('board.kindDeck')} · ${vault.topics.find(tp => tp.id === d.topicId)?.title || ''} › ${d.title}` })),
     ] : [];
     state.view = renderBoard(app, {
-      board, name, header: header(key === 'repo' ? 'repo' : 'home'), href: hrefs(key), graph, choices,
+      board, name, header: header(key === 'repo' ? 'repo' : 'home'), href: hrefs(key), graph, choices, source: src,
       colorOf: id => vault.topics.find(tp => tp.id === id)?.color || '',
       save: src.canWrite ? async text => { expect = await src.writeText(info.path, text, { expect }); } : null,
+      toNote: src.canWrite && vault.notesSource?.canWrite ? text => boardTextToNote(key, text) : null,
+      reloadGraph: async () => { await getVault(key); return getGraph(key); },
     });
     document.title = `${name} · Leafpile`;
   } catch (e) { showError(e, keyBase(key)); }
+}
+
+/** 畫布的文字卡轉成筆記:選主題,建立新筆記,回傳路徑(notes/…)讓卡片換成筆記卡。 */
+async function boardTextToNote(key, text) {
+  try {
+    const vault = await getVault(key);
+    const { title, body } = textToNote(text);
+    const topics = vault.notes.topics.filter(tp => tp.id !== '_');
+    const def = (topics.find(tp => /inbox/i.test(tp.id)) || topics[0])?.id || '';
+    const r = await dialog({
+      title: t('board.toNote'), message: t('board.toNoteHint'),
+      fields: [{ name: 'title', label: t('newNote.name'), value: title }, { name: 'topic', label: t('newNote.topic'), type: 'select', value: def, options: [...topics.map(tp => ({ value: tp.id, label: tp.title })), { value: '', label: t('notes.unfiled') }] }],
+      buttons: [{ label: t('dialog.cancel'), value: false }, { label: t('newNote.create'), value: true, primary: true }],
+    });
+    if (!r?.value) return null;
+    const name = String(r.fields.title || '').trim();
+    if (!name) { toast(t('newNote.needTitle')); return null; }
+    const rel = [r.fields.topic, newNoteFileName(name)].filter(Boolean).join('/');
+    if ((await vault.notesSource.stat(rel)) != null) { toast(t('move.exists')); return null; }
+    await vault.notesSource.writeText(rel, newNoteText(name) + (body ? body + '\n' : ''), { mkdir: true });
+    invalidate(key); // 書庫目錄也要重讀,新筆記才找得到
+    toast(t('board.toNoteDone', { path: rel }), { ms: 5000 });
+    return vault.notePath(rel);
+  } catch (e) { noteErr(e); return null; }
+}
+
+/** 這篇筆記出現在哪些畫布(筆記頁右側欄用)。 */
+async function boardsOfNote(key, rel) {
+  const vault = await getVault(key);
+  const src = state.sources.get(key);
+  const boards = await Promise.all((vault.boards || []).map(async b => {
+    try { return { name: b.name, board: parseCanvas(await src.readText(b.path)) }; } catch { return null; }
+  }));
+  return boardsWith(boards.filter(Boolean), vault.notePath(rel));
 }
 
 async function newBoard(key) {
@@ -470,6 +506,7 @@ async function showNote(key, rel, heading) {
         href: hrefs(key), graph: getGraph(key),
         canEdit: !!r.vault.notesSource.canWrite || r.vault.notesSource.kind === 'repo',
         canPromote: !!state.sources.get(key)?.canWrite,
+        boards: r.vault.boards?.length ? boardsOfNote(key, rel) : null,
       }),
     };
     document.title = `${r.note.title} · Leafpile`;

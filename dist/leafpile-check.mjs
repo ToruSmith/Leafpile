@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Leafpile 書庫檢查工具(單檔版 v0.3.0)
+// Leafpile 書庫檢查工具(單檔版 v0.4.0)
 // 由 scripts/bundle-check.mjs 自動產生,請不要手動修改。原始碼:https://github.com/ToruSmith/Leafpile
 //
 // 用法(需要 Node.js 18 以上):
@@ -692,7 +692,7 @@ const LOCALE_ZH_HANT = {
   'board.empty': '這張畫布是空的。',
   'board.emptyEdit': '這張畫布是空的。雙擊任何地方新增文字,或按上方「+ 筆記或簡報」。',
   'board.hint': '拖曳平移 · Ctrl+滾輪縮放 · F 適合畫面',
-  'board.hintEdit': '拖曳卡片移動 · 拖曳卡片邊上的圓點連線 · 雙擊新增或編輯 · Delete 從畫布移除(不刪檔案) · Ctrl+Z 復原',
+  'board.hintEdit': '拖曳卡片移動 · 拖曳卡片邊上的圓點連線 · 雙擊新增或編輯 · 選取後上方有工具列 · 圖片可以直接拖進來或貼上 · Ctrl+Z 復原',
   'board.kindNote': '筆記',
   'board.kindDeck': '簡報',
   'board.kindLink': '網址',
@@ -706,6 +706,44 @@ const LOCALE_ZH_HANT = {
   'board.saveFailed': '沒有存成功',
   'board.stale': '檔案被別的程式改過,已停止自動儲存',
   'board.staleLong': '這張畫布在別的地方被改過了。為了不覆蓋那些修改,已停止自動儲存;請重新整理頁面再編輯。',
+  'note.onBoards': '出現在這些畫布',
+  'board.addLink': '+ 網址',
+  'board.addLinkTitle': '放一個網址:連結卡,或直接嵌入網頁、影片、Google 簡報',
+  'board.addFile': '+ 圖片或檔案',
+  'board.addFileTitle': '圖片、HTML、PDF(也可以直接拖進畫布,或 Ctrl+V 貼上截圖)',
+  'board.linkHint': '可以直接貼 Google 簡報「發布到網路」的整段嵌入碼。YouTube、Google 簡報會自動嵌入。',
+  'board.urlLabel': '網址',
+  'board.linkMode': '顯示方式',
+  'board.linkCard': '連結卡',
+  'board.embedWeb': '嵌入網頁',
+  'board.urlBad': '請輸入 http:// 或 https:// 開頭的網址。',
+  'board.httpsOnly': '只有 https 的網頁可以嵌入;先以連結卡顯示。',
+  'board.editUrl': '網址',
+  'board.present': '▶ 簡報',
+  'board.presentTitle': '依群組一頁一頁放大(沒有群組就逐張卡片);←/→ 換頁,Esc 離開',
+  'board.presentExit': '離開',
+  'board.prev': '上一頁',
+  'board.next': '下一頁',
+  'board.loadEmbed': '載入',
+  'board.interact': '互動',
+  'board.interactTitle': '讓滑鼠操作卡片裡的內容(再按一次恢復拖曳畫布)',
+  'board.fullscreen': '這張卡片全螢幕',
+  'board.openTab': '在新分頁開啟',
+  'board.embedFailed': '載入失敗。可以按 ↗ 在新分頁開啟。',
+  'board.scripts': '允許執行腳本',
+  'board.scriptsTitle': 'HTML 裡的程式會在隔離的環境執行,碰不到你的書庫;只在信任這份檔案時打開',
+  'board.scriptsOn': '執行腳本',
+  'board.edgeText': '連線文字',
+  'board.editShort': '編輯',
+  'board.groupLabel': '群組名稱',
+  'board.color': '顏色',
+  'board.remove': '移除',
+  'board.removeTitle': '從畫布移除(不刪除檔案)',
+  'board.toNote': '轉成筆記',
+  'board.toNoteHint': '會建立一篇新筆記,卡片原地換成筆記卡,連線不變。',
+  'board.toNoteDone': '已建立筆記 {path}',
+  'board.fileType': '「{name}」不能放進畫布:只收圖片、HTML、PDF。',
+  'board.fileTooLarge': '「{name}」太大了:HTML 上限 500 KB,其他 5 MB。',
   'shelf.newNoteTitle': '新增一篇筆記',
   'shelf.emptyTopics': '還沒有內容的主題:{list}',
   'shelf.emptyLibrary': '這個書庫還是空的。在 notes/ 或 slides/ 的主題資料夾裡放進 .md 檔,再按「重新整理」。',
@@ -1431,7 +1469,7 @@ const LOCALE_EN = {
   'board.empty': 'This board is empty.',
   'board.emptyEdit': 'This board is empty. Double-click anywhere to add text, or use “+ Note or deck” above.',
   'board.hint': 'Drag to pan · Ctrl+wheel to zoom · F to fit',
-  'board.hintEdit': 'Drag cards to move · drag the dots on a card to connect · double-click to add or edit · Delete removes from the board (files untouched) · Ctrl+Z undo',
+  'board.hintEdit': 'Drag to move · drag a card’s dots to connect · double-click to add or edit · select for a toolbar · drop or paste images · Ctrl+Z undo',
   'board.kindNote': 'Note',
   'board.kindDeck': 'Deck',
   'board.kindLink': 'Link',
@@ -1445,6 +1483,44 @@ const LOCALE_EN = {
   'board.saveFailed': 'Save failed',
   'board.stale': 'Changed elsewhere; autosave stopped',
   'board.staleLong': 'This board was changed somewhere else. To avoid overwriting those changes, autosave has stopped; reload the page before editing.',
+  'note.onBoards': 'On these boards',
+  'board.addLink': '+ URL',
+  'board.addLinkTitle': 'Add a URL: a link card, or embed a web page, a video or Google Slides',
+  'board.addFile': '+ Image or file',
+  'board.addFileTitle': 'Images, HTML, PDF (you can also drop files on the board or paste a screenshot)',
+  'board.linkHint': 'You can paste the whole embed code from Google Slides “Publish to the web”. YouTube and Google Slides embed automatically.',
+  'board.urlLabel': 'URL',
+  'board.linkMode': 'Show as',
+  'board.linkCard': 'Link card',
+  'board.embedWeb': 'Embed web page',
+  'board.urlBad': 'Enter a URL starting with http:// or https://.',
+  'board.httpsOnly': 'Only https pages can be embedded; showing a link card for now.',
+  'board.editUrl': 'URL',
+  'board.present': '▶ Present',
+  'board.presentTitle': 'Zoom into each group in turn (or each card if there are no groups); ←/→ to move, Esc to exit',
+  'board.presentExit': 'Exit',
+  'board.prev': 'Previous',
+  'board.next': 'Next',
+  'board.loadEmbed': 'Load',
+  'board.interact': 'Interact',
+  'board.interactTitle': 'Let the mouse operate inside the card (press again to drag the board)',
+  'board.fullscreen': 'Show this card full screen',
+  'board.openTab': 'Open in a new tab',
+  'board.embedFailed': 'Could not load. Use ↗ to open it in a new tab.',
+  'board.scripts': 'Allow scripts',
+  'board.scriptsTitle': 'Code in the HTML runs in an isolated frame and cannot reach your library; enable only for files you trust',
+  'board.scriptsOn': 'scripts on',
+  'board.edgeText': 'Label',
+  'board.editShort': 'Edit',
+  'board.groupLabel': 'Group name',
+  'board.color': 'Colour',
+  'board.remove': 'Remove',
+  'board.removeTitle': 'Remove from the board (the file is kept)',
+  'board.toNote': 'Turn into a note',
+  'board.toNoteHint': 'Creates a new note and replaces the card with a note card; connections stay.',
+  'board.toNoteDone': 'Created note {path}',
+  'board.fileType': '“{name}” cannot go on a board: only images, HTML and PDF.',
+  'board.fileTooLarge': '“{name}” is too large: HTML up to 500 KB, others up to 5 MB.',
   'shelf.newNoteTitle': 'Create a note',
   'shelf.emptyTopics': 'Topics with nothing in them yet: {list}',
   'shelf.emptyLibrary': 'This library is empty. Put .md files in a topic folder under notes/ or slides/, then press Refresh.',
@@ -3726,7 +3802,82 @@ function boardFileName(name) {
   const safe = String(name).trim().replace(/[\\/:*?"<>|#^[\]\u0000-\u001f]/g, '').replace(/\s+/g, '-').slice(0, 60) || 'board';
   return `${safe}.canvas`;
 }
-return { NODE_TYPES, SIDES, PRESET_COLORS, canvasColor, parseCanvas, serializeCanvas, emptyCanvas, newId, anchor, edgePath, bounds, resolveFile, missingFiles, boardFileName };
+
+// ---------- 檔案卡的種類與嵌入 ----------
+
+const EXT = p => (String(p).split(/[?#]/)[0].match(/\.([a-z0-9]+)$/i)?.[1] || '').toLowerCase();
+const IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg', 'avif']);
+
+/** file 卡片指的是哪一種檔案:note / deck(由 resolveFile 判斷)、image、html、pdf、other。 */
+function fileKind(file) {
+  const e = EXT(file);
+  if (IMAGE_EXT.has(e)) return 'image';
+  if (e === 'html' || e === 'htm') return 'html';
+  if (e === 'pdf') return 'pdf';
+  if (e === 'md') return 'note';
+  if (/(^|\/)deck\.ya?ml$/i.test(String(file))) return 'deck';
+  return 'other';
+}
+
+/** 使用者貼上的可能是整段 <iframe ...>(Google 簡報的嵌入碼):取出 src。 */
+function extractURL(input) {
+  const s = String(input || '').trim();
+  const m = s.match(/<iframe[^>]*\ssrc\s*=\s*["']([^"']+)["']/i);
+  return (m ? m[1] : s).replace(/&amp;/g, '&').trim();
+}
+
+/**
+ * 連結卡能不能嵌入、嵌入哪個網址:
+ *   YouTube、Vimeo、Bilibili、Google 雲端硬碟 → 播放器(一定嵌入)
+ *   Google 簡報 → /embed(一定嵌入)
+ *   其他 https 網頁 → 卡片設了 x-embed 才嵌入
+ * 只接受 https。
+ * @param {(url: string) => object} classify  core/media.js 的 classifyMedia
+ * @returns {{ url: string, provider: string, auto: boolean } | null}
+ */
+function embedFor(node, classify) {
+  const url = String(node?.url || '');
+  if (!/^https:\/\//i.test(url)) return null;
+  const c = classify(url);
+  if (c.kind === 'embed' && c.embed && !c.interactive) return { url: c.embed, provider: c.provider, auto: true };
+  let m;
+  if ((m = url.match(/^https:\/\/docs\.google\.com\/presentation\/d\/(e\/[\w-]+|[\w-]+)/))) {
+    return { url: `https://docs.google.com/presentation/d/${m[1]}/embed?start=false&loop=false`, provider: 'Google Slides', auto: true };
+  }
+  if (node['x-embed'] === true) return { url: c.kind === 'embed' && c.embed ? c.embed : url, provider: c.provider || new URL(url).hostname, auto: false };
+  return null;
+}
+
+/**
+ * 簡報模式的順序:有群組就一個群組一頁,沒有就一張卡片一頁。
+ * 由上到下、同一列由左到右(上緣差不到一半高度算同一列)。
+ */
+function slideOrder(board) {
+  const groups = board.nodes.filter(n => n.type === 'group');
+  const items = groups.length ? groups : board.nodes;
+  return [...items].sort((a, b) => {
+    const row = Math.abs(a.y - b.y) < Math.min(a.height, b.height) / 2;
+    return row ? a.x - b.x : a.y - b.y;
+  });
+}
+
+/** 文字卡轉成筆記:標題取第一個標題或第一行;內文保留(標題那一行拿掉)。 */
+function textToNote(text) {
+  const lines = String(text || '').replace(/\r/g, '').split('\n');
+  const i = lines.findIndex(l => l.trim());
+  if (i < 0) return { title: '', body: '' };
+  const first = lines[i].trim();
+  const title = first.replace(/^#{1,6}\s+/, '').replace(/[*_`[\]]/g, '').trim().slice(0, 80);
+  const body = (/^#{1,6}\s/.test(first) ? [...lines.slice(0, i), ...lines.slice(i + 1)] : lines).join('\n').trim();
+  return { title, body };
+}
+
+/** 筆記出現在哪些畫布的哪些卡片(只比對 file 欄位)。 */
+function boardsWith(boards, path) {
+  const p = norm(path);
+  return boards.filter(b => b.board.nodes.some(n => n.type === 'file' && norm(String(n.file || '').replace(/^\/+/, '')) === p)).map(b => b.name);
+}
+return { NODE_TYPES, SIDES, PRESET_COLORS, canvasColor, parseCanvas, serializeCanvas, emptyCanvas, newId, anchor, edgePath, bounds, resolveFile, missingFiles, boardFileName, IMAGE_EXT, fileKind, extractURL, embedFor, slideOrder, textToNote, boardsWith };
 })();
 
 // ───────── app/core/check.js ─────────
@@ -3743,7 +3894,7 @@ const { t } = __m["app/core/i18n.js"];
 const { isHidden, isMarkdown, RESERVED_DIRS, join } = __m["app/core/names.js"];
 const { openVault } = __m["app/core/vault.js"];
 const { buildGraph, sourceStatus } = __m["app/core/graph.js"];
-const { parseCanvas, missingFiles } = __m["app/core/canvas.js"];
+const { parseCanvas, missingFiles, fileKind } = __m["app/core/canvas.js"];
 const { sectionOf } = __m["app/core/note.js"];
 const MAX_SLIDES = 45;
 
@@ -3946,7 +4097,15 @@ async function checkVault(source, onProgress, { today = new Date().toISOString()
     let board;
     try { board = parseCanvas(await source.readText(b.path)); } catch (e) { say('error', b.path, t('check.boardBroken', { error: e.message })); continue; }
     for (const i of board.issues) say('warn', b.path, t('check.boardIssue', { issue: i }));
-    for (const f of missingFiles(board, graph)) say('warn', b.path, t('check.boardMissing', { file: f }));
+    for (const f of missingFiles(board, graph)) {
+      // 圖片、HTML、PDF 不在圖譜裡:看檔案在不在
+      if (['image', 'html', 'pdf'].includes(fileKind(f))) {
+        const i = f.lastIndexOf('/');
+        const names = await source.list(i < 0 ? '' : f.slice(0, i)).then(l => l.map(e => e.name), () => []);
+        if (names.includes(f.slice(i + 1))) continue;
+      }
+      say('warn', b.path, t('check.boardMissing', { file: f }));
+    }
   }
   return {
     kind: 'leafpile', title: vault.title, topics: slides.topics, problems, warnings,

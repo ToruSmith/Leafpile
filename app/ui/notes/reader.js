@@ -30,7 +30,7 @@ export function noteMediaPath(src, notePath) {
  * @param {{ vault, rel: string, note: object, topic: object, book: object|null, header: string, href: object, graph: Promise, heading?: string, canEdit: boolean }} opts
  *   note = core/note.js 的 parseNote 結果;href = { shelf, note(rel, heading?), go(raw, fromRel), deck(topicId, projectId), flash(rel), edit(rel), deckByPath(path) }
  */
-export function renderReader(root, { vault, rel, note, topic, book, header, href, graph, heading, canEdit, canPromote }) {
+export function renderReader(root, { vault, rel, note, topic, book, header, href, graph, heading, canEdit, canPromote, boards = null }) {
   applyUITheme(vault.theme || 'paper');
   const siblings = book ? book.notes : notesOfTopic(topic).filter(n => !n.bookPath);
   const idx = siblings.findIndex(n => n.path === rel);
@@ -87,6 +87,7 @@ export function renderReader(root, { vault, rel, note, topic, book, header, href
           ${toc.length ? `<section class="toc"><h3>${esc(t('note.toc'))}</h3><ol>${toc.map(h => `<li class="l${h.level}"><a href="#" data-slug="${esc(h.slug)}">${esc(h.text)}</a></li>`).join('')}</ol></section>` : ''}
           <section class="backlinks"><h3>${esc(t('note.backlinks'))}</h3><p class="muted">${esc(t('note.indexing'))}</p></section>
           <section class="used-by" hidden><h3>${esc(t('note.usedByDecks'))}</h3><ul></ul></section>
+          <section class="on-boards" hidden><h3>${esc(t('note.onBoards'))}</h3><ul></ul></section>
         </aside>
       </div>
     </div>`;
@@ -104,6 +105,12 @@ export function renderReader(root, { vault, rel, note, topic, book, header, href
   if (heading) requestAnimationFrame(() => scrollTo(heading));
   else window.scrollTo(0, 0);
 
+  boards?.then(names => {
+    const sec = root.querySelector('.on-boards');
+    if (!sec || !names.length) return;
+    sec.querySelector('ul').innerHTML = names.map(n => `<li><a href="${href.board(n)}">▢ ${esc(n)}</a></li>`).join('');
+    sec.hidden = false;
+  }, () => {});
   root.querySelector('.promote')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('leafpile:promote', { detail: rel })));
   root.querySelectorAll('.note-more [data-act]').forEach(b => b.addEventListener('click', () => {
     b.closest('details').open = false;
