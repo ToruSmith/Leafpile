@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Leafpile 書庫檢查工具(單檔版 v0.6.1)
+// Leafpile 書庫檢查工具(單檔版 v0.7.0)
 // 由 scripts/bundle-check.mjs 自動產生,請不要手動修改。原始碼:https://github.com/ToruSmith/Leafpile
 //
 // 用法(需要 Node.js 18 以上):
@@ -609,6 +609,18 @@ const LOCALE_ZH_HANT = {
   'shelf.view.all': '全部',
   'shelf.view.notes': '筆記',
   'shelf.view.slides': '簡報',
+  'shelf.view.table': '表格',
+  'table.loading': '正在整理筆記的欄位⋯',
+  'table.title': '標題',
+  'table.topic': '主題',
+  'table.book': '筆記本',
+  'table.date': '日期',
+  'table.tags': '標籤',
+  'table.count': '{n} / {total} 篇',
+  'table.clearTag': '取消標籤篩選',
+  'table.readonly': '唯讀:欄位來自每篇筆記開頭的 front matter,要改請開筆記編輯',
+  'table.empty': '沒有符合的筆記',
+  'table.private': '不公開',
   'shelf.otherCategory': '其他',
   'shelf.newNote': '+ 筆記',
   'shelf.readonly': '唯讀',
@@ -728,6 +740,21 @@ const LOCALE_ZH_HANT = {
   'board.menu': '顯示／隱藏工具列',
   'board.more': '更多 ▾',
   'board.moreTitle': '網址、圖片、手繪、簡報、匯出與縮放',
+  'board.minimap': '小地圖',
+  'board.minimapTitle': '小地圖:點或拖曳就移過去(M)',
+  'board.ctxTitle': '更多動作',
+  'board.ctxOpen': '開啟',
+  'board.ctxFocus': '放大到這裡',
+  'board.ctxCopy': '複製',
+  'board.ctxCut': '剪下',
+  'board.ctxDup': '再製一份',
+  'board.ctxFront': '移到最上層',
+  'board.ctxBack': '移到最下層',
+  'board.paste': '貼上',
+  'board.ctxGroup': '用群組框起來',
+  'board.ctxUrl': '編輯網址',
+  'board.ctxGroupLabel': '改群組名稱',
+  'board.ctxEdgeText': '編輯連線文字',
   'board.pin': '固定工具列(不自動收起)',
   'board.prev': '上一頁',
   'board.next': '下一頁',
@@ -1432,6 +1459,18 @@ const LOCALE_EN = {
   'shelf.view.all': 'All',
   'shelf.view.notes': 'Notes',
   'shelf.view.slides': 'Slides',
+  'shelf.view.table': 'Table',
+  'table.loading': 'Collecting note fields…',
+  'table.title': 'Title',
+  'table.topic': 'Topic',
+  'table.book': 'Notebook',
+  'table.date': 'Date',
+  'table.tags': 'Tags',
+  'table.count': '{n} / {total} notes',
+  'table.clearTag': 'Clear tag filter',
+  'table.readonly': 'Read-only: columns come from each note’s front matter; edit the note to change them',
+  'table.empty': 'No matching notes',
+  'table.private': 'Not public',
   'shelf.otherCategory': 'Other',
   'shelf.newNote': '+ Note',
   'shelf.readonly': 'Read-only',
@@ -1551,6 +1590,21 @@ const LOCALE_EN = {
   'board.menu': 'Show / hide toolbar',
   'board.more': 'More ▾',
   'board.moreTitle': 'Links, images, drawing, present, export and zoom',
+  'board.minimap': 'Minimap',
+  'board.minimapTitle': 'Minimap: click or drag to move there (M)',
+  'board.ctxTitle': 'More actions',
+  'board.ctxOpen': 'Open',
+  'board.ctxFocus': 'Zoom to this',
+  'board.ctxCopy': 'Copy',
+  'board.ctxCut': 'Cut',
+  'board.ctxDup': 'Duplicate',
+  'board.ctxFront': 'Bring to front',
+  'board.ctxBack': 'Send to back',
+  'board.paste': 'Paste',
+  'board.ctxGroup': 'Wrap in a group',
+  'board.ctxUrl': 'Edit link',
+  'board.ctxGroupLabel': 'Rename group',
+  'board.ctxEdgeText': 'Edit connection text',
   'board.pin': 'Keep toolbar visible',
   'board.prev': 'Previous',
   'board.next': 'Next',
@@ -3631,6 +3685,82 @@ function visitorVault(vault, visible) {
 return { resolvePublic, isLocalOnly, publishable, PII, scanPII, scanPIIAll, maskPII, auditPrivacy, visitorVault };
 })();
 
+// ───────── app/core/table.js ─────────
+__m["app/core/table.js"] = (() => {
+// 筆記的表格檢視(唯讀):把每篇筆記的 front matter 排成一列,可以排序、篩選。
+// 純邏輯,瀏覽器與測試共用。只讀不寫,不會改到任何檔案。
+
+const { LAYOUT_KEYS } = __m["app/core/note.js"];
+// 已經有固定欄位或屬於系統用途的鍵,不再當成自訂欄位
+const RESERVED = new Set(['title', 'date', 'tags', 'aliases', 'public', 'private', 'local_only', 'lang', 'source', 'source_hash',
+  'pinned', 'expires', 'from_deck', 'cssclasses', ...LAYOUT_KEYS]);
+
+/** front matter 裡可以當成欄位的鍵值(只收文字、數字、是非、與由這些組成的清單)。 */
+function noteFields(data) {
+  const out = {};
+  for (const [k, v] of Object.entries(data || {})) {
+    if (RESERVED.has(k) || k.startsWith('x-') || v == null || v === '') continue;
+    const ok = x => ['string', 'number', 'boolean'].includes(typeof x) || x instanceof Date;
+    if (ok(v)) out[k] = v instanceof Date ? v.toISOString().slice(0, 10) : v;
+    else if (Array.isArray(v) && v.length && v.every(ok)) out[k] = v.map(x => (x instanceof Date ? x.toISOString().slice(0, 10) : x));
+  }
+  return out;
+}
+
+/** 至少一篇筆記有的自訂欄位,依出現次數(多的在前)、再依名稱排序,最多 max 個。 */
+function tableColumns(rows, max = 6) {
+  const count = new Map();
+  for (const r of rows) for (const k of Object.keys(r.fields || {})) count.set(k, (count.get(k) || 0) + 1);
+  return [...count].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, max).map(([k]) => k);
+}
+
+/** 儲存格顯示的文字。 */
+function cellText(v) {
+  if (v == null || v === '') return '';
+  if (Array.isArray(v)) return v.map(cellText).join(', ');
+  if (typeof v === 'boolean') return v ? '✓' : '✗';
+  return String(v);
+}
+
+/** 一列在某欄的值:固定欄位直接取,其餘從 fields 取。 */
+const valueOf = (row, key) => (key in row && key !== 'fields' ? row[key] : row.fields?.[key]);
+
+/** 比大小:數字照數字、其餘照文字(日期 YYYY-MM-DD 照文字比就對)。空的一律排最後。 */
+const isEmpty = v => v == null || v === '' || (Array.isArray(v) && !v.length);
+
+function compareCells(a, b) {
+  const ea = isEmpty(a), eb = isEmpty(b);
+  if (ea || eb) return ea === eb ? 0 : ea ? 1 : -1;
+  if (typeof a === 'number' && typeof b === 'number') return a - b;
+  return cellText(a).localeCompare(cellText(b), undefined, { numeric: true, sensitivity: 'base' });
+}
+
+/** 依某欄排序(不改原陣列)。空值不管升冪降冪都排最後;同值依標題。 */
+function sortRows(rows, key, dir = 'asc') {
+  const s = dir === 'desc' ? -1 : 1;
+  return [...rows].sort((x, y) => {
+    const a = valueOf(x, key), b = valueOf(y, key);
+    if (isEmpty(a) !== isEmpty(b)) return isEmpty(a) ? 1 : -1;
+    return (compareCells(a, b) * s) || compareCells(x.title, y.title);
+  });
+}
+
+/**
+ * 篩選:words 每個字都要出現在這列的某處(標題、路徑、標籤、欄位值);
+ * tag 指定時只留有這個標籤的;keep(row) 是額外條件(例如分類)。
+ */
+function filterRows(rows, { words = [], tag = '', keep = null } = {}) {
+  return rows.filter(r => {
+    if (tag && !(r.tags || []).includes(tag)) return false;
+    if (keep && !keep(r)) return false;
+    if (!words.length) return true;
+    const hay = [r.title, r.rel, r.topic, r.book, r.date, ...(r.tags || []), ...Object.values(r.fields || {}).map(cellText)].join(' ').toLowerCase();
+    return words.every(w => hay.includes(w));
+  });
+}
+return { noteFields, tableColumns, cellText, valueOf, compareCells, sortRows, filterRows };
+})();
+
 // ───────── app/core/graph.js ─────────
 __m["app/core/graph.js"] = (() => {
 // 書庫圖譜:在背景讀完所有筆記(與投影片裡的 [[連結]]),建立標題、連結、反向連結與搜尋索引。
@@ -3642,6 +3772,7 @@ const { parseNote, wikilinksOf, sourceFingerprint } = __m["app/core/note.js"];
 const { createResolver, computeBacklinks, norm } = __m["app/core/links.js"];
 const { resolvePublic, isLocalOnly } = __m["app/core/privacy.js"];
 const { notesOfTopic } = __m["app/core/vault.js"];
+const { noteFields } = __m["app/core/table.js"];
 const limit = limiter(6);
 
 /** 簡報資料夾裡所有投影片檔(第一層與章節資料夾)。 */
@@ -3679,7 +3810,7 @@ async function buildGraph(vault, { onProgress, slides = true } = {}) {
           title: n.title, aliases: n.aliases, date: n.date, tags: n.tags, excerpt: n.excerpt,
           pinned: n.pinned, expires: n.expires, fromDeck: n.fromDeck, links: n.links, headings: n.headings,
           public: resolvePublic({ note: n, book: book?.conf, topic: tp.conf }), localOnly: isLocalOnly(tp.conf),
-          layoutKeys: n.layoutKeys, issues: n.issues, body: n.body,
+          layoutKeys: n.layoutKeys, issues: n.issues, body: n.body, fields: noteFields(n.data),
           search: norm([n.title, ...n.aliases, ...n.tags, n.body].join(' ')),
           stub,
         });

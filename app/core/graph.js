@@ -7,6 +7,7 @@ import { parseNote, wikilinksOf, sourceFingerprint } from './note.js';
 import { createResolver, computeBacklinks, norm } from './links.js';
 import { resolvePublic, isLocalOnly } from './privacy.js';
 import { notesOfTopic } from './vault.js';
+import { noteFields } from './table.js';
 
 const limit = limiter(6);
 
@@ -45,7 +46,7 @@ export async function buildGraph(vault, { onProgress, slides = true } = {}) {
           title: n.title, aliases: n.aliases, date: n.date, tags: n.tags, excerpt: n.excerpt,
           pinned: n.pinned, expires: n.expires, fromDeck: n.fromDeck, links: n.links, headings: n.headings,
           public: resolvePublic({ note: n, book: book?.conf, topic: tp.conf }), localOnly: isLocalOnly(tp.conf),
-          layoutKeys: n.layoutKeys, issues: n.issues, body: n.body,
+          layoutKeys: n.layoutKeys, issues: n.issues, body: n.body, fields: noteFields(n.data),
           search: norm([n.title, ...n.aliases, ...n.tags, n.body].join(' ')),
           stub,
         });

@@ -252,3 +252,38 @@ export function strokesToSvg(strokes, { color = '#2b2925', width = 3 } = {}) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w.toFixed(1)} ${h.toFixed(1)}" width="${Math.round(w)}" height="${Math.round(h)}"><g fill="none" stroke="${xml(color)}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round">${paths}</g></svg>`;
   return { svg, x: Math.round(x0), y: Math.round(y0), width: Math.max(20, Math.round(w)), height: Math.max(20, Math.round(h)) };
 }
+
+/**
+ * 調整前後順序(JSON Canvas 的 nodes 順序就是上下疊放的順序)。
+ * 群組永遠排在一般卡片前面(畫在底下),所以只在「群組」與「一般卡片」各自的範圍裡移動,
+ * 不會把卡片移到群組底下而被蓋住。被移動的卡片保持原本的相對順序。
+ * @param {'front'|'back'} dir
+ */
+export function reorderNodes(nodes, ids, dir) {
+  const pick = new Set(ids);
+  const part = list => {
+    const moved = list.filter(n => pick.has(n.id)), rest = list.filter(n => !pick.has(n.id));
+    return dir === 'front' ? [...rest, ...moved] : [...moved, ...rest];
+  };
+  return [...part(nodes.filter(n => n.type === 'group')), ...part(nodes.filter(n => n.type !== 'group'))];
+}
+
+/**
+ * 小地圖要畫的範圍:所有卡片加上目前看得到的區域,再留一點邊,並撐成小地圖框的長寬比,
+ * 讓卡片和「目前位置」的框都在裡面、不變形。
+ * @param {{x,y,width,height}|null} content 卡片的範圍(bounds 的結果)
+ * @param {{x,y,width,height}} viewport 目前看得到的區域(世界座標)
+ * @param {number} aspect 小地圖框的寬／高
+ * @returns {{x,y,width,height}}
+ */
+export function minimapFrame(content, viewport, aspect, pad = 0.06) {
+  const a = content ? [content, viewport] : [viewport];
+  const x0 = Math.min(...a.map(b => b.x)), y0 = Math.min(...a.map(b => b.y));
+  const x1 = Math.max(...a.map(b => b.x + b.width)), y1 = Math.max(...a.map(b => b.y + b.height));
+  let w = Math.max(1, x1 - x0), h = Math.max(1, y1 - y0);
+  const px = w * pad, py = h * pad;
+  w += px * 2; h += py * 2;
+  let x = x0 - px, y = y0 - py;
+  if (w / h > aspect) { const nh = w / aspect; y -= (nh - h) / 2; h = nh; } else { const nw = h * aspect; x -= (nw - w) / 2; w = nw; }
+  return { x, y, width: w, height: h };
+}

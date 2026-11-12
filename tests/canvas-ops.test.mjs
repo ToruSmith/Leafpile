@@ -92,3 +92,24 @@ test('strokesToSvg:筆畫變成一張圖,位置是筆畫的外框', () => {
   assert.match(r.svg, /<path d="M 4\.0 4\.0 L 44\.0 24\.0"\/>/);
   assert.equal(strokesToSvg([]), null);
 });
+
+test('reorderNodes:群組永遠在卡片底下,各自範圍內移到最上／最下', async () => {
+  const { reorderNodes } = await import('../app/core/canvas-ops.js');
+  const G = id => ({ id, type: 'group', x: 0, y: 0, width: 10, height: 10 });
+  const list = [G('g1'), G('g2'), N('a', 0, 0), N('b', 0, 0), N('c', 0, 0)];
+  const ids = l => l.map(n => n.id).join(',');
+  assert.equal(ids(reorderNodes(list, ['a'], 'front')), 'g1,g2,b,c,a');
+  assert.equal(ids(reorderNodes(list, ['c'], 'back')), 'g1,g2,c,a,b', '卡片移到最下也不會跑到群組底下');
+  assert.equal(ids(reorderNodes(list, ['g1'], 'front')), 'g2,g1,a,b,c', '群組移到最上也還在卡片底下');
+  assert.equal(ids(reorderNodes(list, ['c', 'a'], 'front')), 'g1,g2,b,a,c', '多張一起移,保持原本相對順序');
+  assert.equal(list.length, 5, '不改動原陣列');
+});
+
+test('minimapFrame:包住卡片與目前位置,撐成小地圖的長寬比', async () => {
+  const { minimapFrame } = await import('../app/core/canvas-ops.js');
+  const f = minimapFrame({ x: 0, y: 0, width: 1000, height: 500 }, { x: 800, y: 400, width: 400, height: 300 }, 2, 0);
+  assert.ok(f.x <= 0 && f.y <= 0 && f.x + f.width >= 1200 && f.y + f.height >= 700, '兩個範圍都要在裡面');
+  assert.ok(Math.abs(f.width / f.height - 2) < 1e-9, '長寬比要符合小地圖框');
+  const e = minimapFrame(null, { x: 10, y: 10, width: 300, height: 200 }, 1.5);
+  assert.ok(Math.abs(e.width / e.height - 1.5) < 1e-9 && e.x < 10 && e.y < 10, '空畫布只看目前位置,也要留邊');
+});

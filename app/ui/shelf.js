@@ -10,9 +10,11 @@ import { deckCardHTML, wireDeckCards } from './library-view.js';
 import { hydrate } from '../player/hydrate.js';
 import { resolveMediaPath } from '../core/media.js';
 import { canPickDirectory } from '../sources/sources.js';
+import { tableColumns, cellText, sortRows, filterRows, valueOf } from '../core/table.js';
 
 const VIEW_KEY = 'leafpile-shelf-view';
-const VIEWS = ['all', 'notes', 'slides'];
+const VIEWS = ['all', 'notes', 'slides', 'table'];
+const SORT_KEY = 'leafpile-table-sort';
 
 function savedView() {
   try { const v = localStorage.getItem(VIEW_KEY); return VIEWS.includes(v) ? v : 'all'; } catch { return 'all'; }
@@ -57,10 +59,11 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
       </div>
       <p class="ro-note" role="status" hidden></p>
       <div class="shelf-bar">
-        ${hasNotes ? `<div class="segmented" role="tablist" aria-label="${esc(t('shelf.viewLabel'))}">${VIEWS.map(v => `<button role="tab" data-view="${v}" aria-selected="${v === view}">${esc(t('shelf.view.' + v))}<small>${v === 'notes' ? noteCount : v === 'slides' ? deckCount : noteCount + deckCount}</small></button>`).join('')}</div>` : ''}
+        ${hasNotes ? `<div class="segmented" role="tablist" aria-label="${esc(t('shelf.viewLabel'))}">${VIEWS.map(v => `<button role="tab" data-view="${v}" aria-selected="${v === view}">${esc(t('shelf.view.' + v))}<small>${v === 'notes' || v === 'table' ? noteCount : v === 'slides' ? deckCount : noteCount + deckCount}</small></button>`).join('')}</div>` : ''}
         ${chipsOf.length ? `<nav class="chips"><button class="chip on" data-filter="*">${esc(t('lib.all'))}</button>${chipsOf.map(c => `<button class="chip${c.n ? '' : ' zero'}" data-filter="${esc(c.id)}" style="--c:${esc(c.color || 'var(--ink)')}">${esc(c.name)}<small>${c.n}</small></button>`).join('')}</nav>` : ''}
       </div>
       ${vault.issues.length ? `<details class="lib-issues"><summary>${esc(t('lib.issues', { n: vault.issues.length }))}</summary><ul>${vault.issues.map(i => `<li><code>${esc(i.path)}</code>${esc(i.message)}</li>`).join('')}</ul></details>` : ''}
+      <section class="note-table" hidden aria-live="polite"></section>
       <section class="urgent" hidden></section>
       <section class="results" hidden></section>
       <p class="found" hidden></p>
@@ -95,6 +98,8 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
   };
   const apply = () => {
     shelf.dataset.view = view;
+    renderTable();
+    if (view === 'table') { $('.found').hidden = true; $('.search-empty').hidden = true; $('.results').hidden = true; return; }
     const items = [...root.querySelectorAll('.topics [data-search]')];
     let shown = 0;
     for (const el of items) {
@@ -117,6 +122,53 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
     empty.textContent = empty.hidden ? '' : t('lib.noResults', { q: raw });
     renderResults();
   };
+
+  // ---------- 表格檢視(唯讀):每篇筆記一列,front matter 的欄位當成欄 ----------
+  let sort = { key: 'date', dir: 'desc' }, tagFilter = '', tableRows = null;
+  try { const v = JSON.parse(localStorage.getItem(SORT_KEY) || 'null'); if (v?.key) sort = { key: String(v.key), dir: v.dir === 'asc' ? 'asc' : 'desc' }; } catch { /* 壞資料就用預設 */ }
+  const catOf = new Map(vault.categories.flatMap(c => c.topics.map(tp => [tp.id, c.id])));
+  const rowsOf = graphResult => [...graphResult.notes.values()].map(rec => {
+    const tp = vault.topics.find(x => x.id === rec.topicId);
+    const book = rec.bookPath ? (tp?.notes?.items || []).find(i => i.kind === 'book' && i.path === rec.bookPath) : null;
+    return { rel: rec.rel, title: rec.title, topic: tp?.title || '', topicId: rec.topicId, category: catOf.get(rec.topicId) || '', book: book?.title || '', date: rec.date || '', tags: rec.tags || [], fields: rec.fields || {}, private: !rec.public };
+  });
+  const renderTable = () => {
+    const box = $('.note-table');
+    if (view !== 'table') { box.hidden = true; return; }
+    box.hidden = false;
+    if (!g) { box.innerHTML = `<p class="table-wait">${esc(t('table.loading'))}</p>`; return; }
+    tableRows ||= rowsOf(g);
+    const extra = tableColumns(tableRows);
+    const cols = [['title', t('table.title')], ['topic', t('table.topic')], ...(tableRows.some(r => r.book) ? [['book', t('table.book')]] : []), ['date', t('table.date')], ['tags', t('table.tags')], ...extra.map(k => [k, k])];
+    if (!cols.some(([k]) => k === sort.key)) sort = { key: 'date', dir: 'desc' };
+    const keep = filter === '*' ? null : r => (filter.startsWith('c:') ? r.category === filter.slice(2) : r.topicId === filter.slice(2));
+    const list = sortRows(filterRows(tableRows, { words, tag: tagFilter, keep }), sort.key, sort.dir);
+    const cell = (r, k) => {
+      if (k === 'title') return `<a href="${href.note(r.rel)}">${esc(r.title)}</a>${r.private ? `<span class="lock" title="${esc(t('table.private'))}" aria-label="${esc(t('table.private'))}">\u{1F512}</span>` : ''}`;
+      if (k === 'tags') return r.tags.map(x => `<button class="tag" data-tag="${esc(x)}">#${esc(x)}</button>`).join(' ');
+      return esc(cellText(valueOf(r, k)));
+    };
+    box.innerHTML = `<div class="table-head"><span class="n">${esc(t('table.count', { n: list.length, total: tableRows.length }))}</span>
+        ${tagFilter ? `<button class="tag on clear-tag" title="${esc(t('table.clearTag'))}">#${esc(tagFilter)} \u2715</button>` : ''}
+        <span class="hint">${esc(t('table.readonly'))}</span></div>
+      <div class="table-wrap"><table>
+        <thead><tr>${cols.map(([k, label]) => `<th scope="col" aria-sort="${sort.key === k ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}"><button data-sort="${esc(k)}">${esc(label)}<i>${sort.key === k ? (sort.dir === 'asc' ? '\u25B2' : '\u25BC') : ''}</i></button></th>`).join('')}</tr></thead>
+        <tbody>${list.map(r => `<tr>${cols.map(([k]) => `<td class="c-${k === 'title' || k === 'tags' || k === 'date' ? k : 'f'}">${cell(r, k)}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table></div>
+      ${list.length ? '' : `<p class="table-empty">${esc(t('table.empty'))}</p>`}`;
+  };
+  $('.note-table').addEventListener('click', e => {
+    const s = e.target.closest('[data-sort]');
+    if (s) {
+      const k = s.dataset.sort;
+      sort = sort.key === k ? { key: k, dir: sort.dir === 'asc' ? 'desc' : 'asc' } : { key: k, dir: k === 'date' ? 'desc' : 'asc' };
+      try { localStorage.setItem(SORT_KEY, JSON.stringify(sort)); } catch { /* 隱私模式 */ }
+      return renderTable();
+    }
+    const tg = e.target.closest('[data-tag]');
+    if (tg) { tagFilter = tg.dataset.tag; return renderTable(); }
+    if (e.target.closest('.clear-tag')) { tagFilter = ''; renderTable(); }
+  });
 
   // 全文搜尋(圖譜建好之後):搜尋框有字時,在最上面列出內文也符合的筆記
   const renderResults = () => {
@@ -163,6 +215,7 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
   graph?.then(graphResult => {
     if (!alive) return;
     g = graphResult;
+    tableRows = null;
     for (const row of root.querySelectorAll('.note-row[data-path]')) {
       const rec = g.notes.get(vault.notePath(row.dataset.path));
       if (!rec) continue;

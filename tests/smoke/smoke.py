@@ -46,6 +46,11 @@ def main():
         page.click('.segmented [data-view=notes]'); page.wait_for_timeout(200)
         assert page.locator('.deck-card:not([hidden])').count() == 0, '切到「筆記」後不應顯示簡報'
         page.click('.segmented [data-view=all]'); page.wait_for_timeout(200)
+        page.click('.segmented [data-view=table]'); page.wait_for_timeout(800)  # 表格檢視(唯讀)
+        assert page.locator('.note-table tbody tr').count() >= 5 and not page.locator('.topics').is_visible(), '表格檢視沒有列出筆記'
+        page.click('.note-table [data-sort=title]'); page.wait_for_timeout(200)
+        assert page.locator('.note-table th[aria-sort=ascending]').count() == 1, '表格沒有依標題排序'
+        page.click('.segmented [data-view=all]'); page.wait_for_timeout(200)
         page.fill('.search', '雙向同步'); page.wait_for_timeout(300)  # 只出現在內文裡
         assert page.locator('.results li').count() >= 1, '全文搜尋沒有結果'
         page.fill('.search', ''); page.wait_for_timeout(200)
