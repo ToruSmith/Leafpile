@@ -218,6 +218,7 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
     writePref(VIEW_KEY, view);
     root.querySelectorAll('.segmented button').forEach(x => x.setAttribute('aria-selected', String(x === b)));
     apply();
+    window.dispatchEvent(new CustomEvent('leafpile-shelf-state')); // 側邊欄跟著標示「書庫總覽／表格」
   }));
   root.querySelectorAll('.chip').forEach(b => b.addEventListener('click', () => {
     filter = b.dataset.filter;

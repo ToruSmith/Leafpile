@@ -6,13 +6,19 @@
 
 Leafpile 把兩件常被分開做的事接起來：用 Markdown 累積筆記，要分享時升級成 3D 牌堆簡報，講完再把問答存回筆記。檔案留在你的電腦或隨身碟，網站只負責讀取，不用安裝、不用上傳。
 
-**線上版：<https://torusmith.github.io/Leafpile/>**　·　目前版本 v0.9.1　·　[參加公開 Beta](docs/BETA.md)
+**線上版：<https://torusmith.github.io/Leafpile/>**　·　目前版本 v0.9.2　·　[參加公開 Beta](docs/BETA.md)
 
 ![書架：筆記與簡報放在同一個主題底下](docs/images/shelf.webp)
 
 | 筆記閱讀：目錄、反向連結、被哪些簡報引用 | 快閃播放：筆記直接變成 3D 牌堆 |
 |---|---|
 | ![筆記閱讀頁](docs/images/note.webp) | ![快閃播放](docs/images/flash.webp) |
+
+| 沉浸閱讀：只留內文，浮動按鈕列 | 畫布：小地圖與浮動工具列 |
+|---|---|
+| ![沉浸閱讀](docs/images/immersive.webp) | ![畫布](docs/images/board.webp) |
+
+![表格：全部筆記一次排序與篩選](docs/images/table.webp)
 
 ## 為什麼
 
@@ -60,6 +66,8 @@ Leafpile 的答案是：**同一個書庫、兩個渠道、中間一座橋。**
 完整規則：[`docs/INTEROP.md`](docs/INTEROP.md)。
 
 ## 開始使用
+
+> 忘了有什麼功能？看[功能手冊](docs/FEATURES.md)。
 
 1. 下載[最新版的範例書庫](https://github.com/ToruSmith/Leafpile/releases/latest)（`Leafpile-library-*.zip`），解壓到你的電腦或隨身碟。也可以自己建一個資料夾，裡面放 `notes/` 與 `slides/`。
 2. 用 Chrome 或 Edge 打開 <https://torusmith.github.io/Leafpile/>，按「開啟本機資料夾」選那個資料夾。其他瀏覽器可以閱讀與播放，但不能存檔。
@@ -126,6 +134,7 @@ node --test tests/*.test.mjs                           # 單元測試
 
 | 文件 | 給誰 |
 |---|---|
+| [`docs/FEATURES.md`](docs/FEATURES.md) | **功能手冊**：所有功能、快捷鍵、常見工作流程，忘了怎麼用先看這份（[English](docs/FEATURES.en.md)） |
 | [`docs/SPEC.md`](docs/SPEC.md) | 存檔規格：資料夾、設定檔、front matter、連結語法（人與 AI 都照這份） |
 | [`docs/slides/GUIDE.zh-Hant.md`](docs/slides/GUIDE.zh-Hant.md) | 簡報的完整規則：版型、媒體、圖表、外觀（[English](docs/slides/GUIDE.en.md)） |
 | [`docs/slides/MANUAL.zh-Hant.md`](docs/slides/MANUAL.zh-Hant.md) | 簡報播放器的使用手冊：快捷鍵、編輯模式、匯出（[English](docs/slides/MANUAL.en.md)） |

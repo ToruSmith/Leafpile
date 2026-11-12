@@ -6,13 +6,19 @@ English · [繁體中文](README.md)
 
 Leafpile connects two things that are usually done twice: you collect notes in Markdown, promote them into a 3D card-pile slide deck when it is time to share, and save the Q&A back into your notes afterwards. Files stay on your computer or USB drive; the website only reads them. Nothing to install, nothing uploaded.
 
-**Live site: <https://torusmith.github.io/Leafpile/>** · current version v0.9.1 · [Join the public beta](docs/BETA.en.md)
+**Live site: <https://torusmith.github.io/Leafpile/>** · current version v0.9.2 · [Join the public beta](docs/BETA.en.md)
 
 ![Shelf: notes and decks under the same topic](docs/images/shelf.en.webp)
 
 | Reading a note: contents, backlinks, decks that use it | Flash play: a note as a 3D pile of slides |
 |---|---|
 | ![Note reader](docs/images/note.en.webp) | ![Flash play](docs/images/flash.en.webp) |
+
+| Focus reading: just the text and a floating bar | Boards: minimap and floating toolbar |
+|---|---|
+| ![Focus reading](docs/images/immersive.en.webp) | ![Board](docs/images/board.en.webp) |
+
+![Table: sort and filter every note at once](docs/images/table.en.webp)
 
 ## The idea
 
@@ -40,6 +46,8 @@ my-library/
 Full rules: [`docs/INTEROP.md`](docs/INTEROP.md) (Traditional Chinese). Deck format: [`docs/slides/GUIDE.en.md`](docs/slides/GUIDE.en.md); player manual: [`docs/slides/MANUAL.en.md`](docs/slides/MANUAL.en.md).
 
 ## Getting started
+
+> Forgot what Leafpile can do? See the [feature guide](docs/FEATURES.en.md).
 
 1. Download the [starter library](https://github.com/ToruSmith/Leafpile/releases/latest) (`Leafpile-library-*.zip`) and unzip it, or make a folder containing `notes/` and `slides/`.
 2. Open <https://torusmith.github.io/Leafpile/> in Chrome or Edge and choose **Open a local folder**. Other browsers can read and present but cannot save.
