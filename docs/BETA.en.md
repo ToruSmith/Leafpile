@@ -21,7 +21,7 @@ If you're stuck for more than 3 minutes, move on and note where you got stuck. *
 3. **Make it a deck**: on the note, click **Make a deck**. A new deck is created under `slides/` and opened. Press E, change the text of one slide, save.
 4. **Rehearse**: in the deck, press S to open the presenter view (allow the pop-up if the browser blocks it). In the presenter view press **Q** and record two pretend audience questions; answer one of them.
 5. **After-talk note**: back in the deck, press Ctrl+K (⌘K on Mac) and choose **Save this deck as an after-talk note**. Open the new note and check that your Q&A is in it.
-6. **(Optional) Source reminder**: add a sentence to the note from step 1, save, and open the deck again. You should see a "source note changed" reminder; then Ctrl+K → **Mark the deck as caught up with its source note**.
+6. **(Optional) Source reminder**: add a sentence to the note from step 1, save, and open the deck again. A "source note changed" reminder appears at the bottom right with **Open source note** and **Caught up, stop reminding** buttons (missed it? Ctrl+K → **Mark the deck as caught up with its source note**).
 7. **Report**: fill in the [beta feedback form](https://github.com/ToruSmith/Leafpile/issues/new?template=beta-feedback.yml) (needs a GitHub account). No account? Answer the form's questions in a message to whoever invited you.
 
 ## Please don't paste

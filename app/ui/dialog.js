@@ -45,12 +45,38 @@ export async function confirmDialog(message, okLabel = t('dialog.ok')) {
 }
 
 /** 右下角的短暫提示。 */
-export function toast(message, { ms = 2600 } = {}) {
+/**
+ * 右下角的短暫提示。actions = [{ label, run }]:提示上直接放按鈕(按了就執行並關閉),
+ * 有按鈕時會多一個「×」,並且停留比較久,滑鼠移上去時不會消失。
+ */
+export function toast(message, { ms = 2600, actions = [] } = {}) {
   const el = document.createElement('div');
-  el.className = 'lp-toast';
+  el.className = 'lp-toast' + (actions.length ? ' has-actions' : '');
   el.setAttribute('role', 'status');
-  el.textContent = message;
+  const text = document.createElement('span');
+  text.textContent = message;
+  el.append(text);
+  let timer;
+  const close = () => { clearTimeout(timer); el.classList.remove('on'); setTimeout(() => el.remove(), 300); };
+  if (actions.length) {
+    const row = document.createElement('div');
+    row.className = 'lp-toast-actions';
+    for (const a of actions) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = a.label;
+      b.addEventListener('click', e => { e.stopPropagation(); close(); a.run(); });
+      row.append(b);
+    }
+    const x = document.createElement('button');
+    x.type = 'button'; x.className = 'lp-toast-close'; x.textContent = '\u00d7'; x.setAttribute('aria-label', t('dialog.close'));
+    x.addEventListener('click', e => { e.stopPropagation(); close(); });
+    row.append(x);
+    el.append(row);
+    el.addEventListener('mouseenter', () => clearTimeout(timer));
+    el.addEventListener('mouseleave', () => { timer = setTimeout(close, 4000); });
+  }
   document.body.append(el);
   requestAnimationFrame(() => el.classList.add('on'));
-  setTimeout(() => { el.classList.remove('on'); setTimeout(() => el.remove(), 300); }, ms);
+  timer = setTimeout(close, ms);
 }

@@ -40,7 +40,9 @@
 - [x] 提醒「來源筆記在升級後改過」（內容指紋 `source_hash`；`scripts/source-sync.mjs`）
 - [x] 匯出單一 HTML 時，保留投影片裡的 `[[連結]]` 目標說明
 
-**閘門：公開 Beta**：三位以上外部使用者完成「筆記 → 簡報 → 講後筆記」一輪並回饋。試用指南：[`docs/BETA.md`](BETA.md)；回饋表：Issue 範本「公開 Beta 試用回饋」（標籤 `beta`）。
+**閘門：公開 Beta**：三位以上外部使用者完成「筆記 → 簡報 → 講後筆記」一輪並回饋。
+
+> 2026-11-12：維護者決定測試階段不公開招募，先以自己的完整試用（[#8](https://github.com/ToruSmith/Leafpile/issues/8)：六步全部完成、少於 20 分鐘）通過閘門；公開 Beta 與回饋表留到最終版前再做。試用指南：[`docs/BETA.md`](BETA.md)；回饋表：Issue 範本「公開 Beta 試用回饋」（標籤 `beta`）。
 
 ## P3 擴充
 
