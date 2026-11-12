@@ -54,6 +54,7 @@ export function subSource(parent, prefix) {
     sub.ensureWritable = () => parent.ensureWritable();
     sub.stat = path => parent.stat(p(path));
     sub.writeText = (path, text, opts) => parent.writeText(p(path), text, opts);
+    if (parent.move) sub.move = async (from, to, text, opts) => (await parent.move(p(from), p(to), text, opts)).slice(prefix.length + 1);
     sub.archive = async path => {
       const full = p(path);
       const dir = full.split('/').slice(0, -1).join('/');

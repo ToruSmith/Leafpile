@@ -14,6 +14,7 @@ import { openVault, findNote, findDeck, notesOfTopic } from './core/vault.js';
 import { buildGraph, sourceStatus, compareSource } from './core/graph.js';
 import { parseNote, slugify, splitFrontMatter, wikilinksOf } from './core/note.js';
 import { expandEmbeds, promoteNote, promoteBook, distillDeck, withSourceHash } from './core/bridge.js';
+import { planLinkUpdates, retitle, renamedFile, rebaseLinks, retargetSource, dirOf } from './core/move.js';
 import { checkVault } from './core/check.js';
 import { escapeHTML as esc, linkKey } from './core/markdown.js';
 import { HttpSource, HandleSource, FileListSource, sourceFromDrop, canPickDirectory } from './sources/sources.js';
@@ -631,6 +632,127 @@ async function promote(key, rel) {
   } catch (e) { toast(e instanceof UserError ? e.message : e.message === 'denied' ? t('ne.denied') : t('ne.saveFailed', { error: e.message || e }), { ms: 5000 }); }
 }
 
+// ---------------- 筆記的改名、搬移、封存(docs/INTEROP.md 第 7 節) ----------------
+
+const noteErr = e => toast(e instanceof UserError ? e.message
+  : e.message === 'denied' ? t('ne.denied') : e.message === 'stale' ? t('ne.staleTitle') : e.message === 'exists' ? t('move.exists')
+  : t('ne.saveFailed', { error: e.message || e }), { ms: 6000 });
+
+/** 所有 .md(遞迴),給簡報資料夾用:找出哪幾張投影片連到這篇。 */
+async function mdFilesUnder(src, dir) {
+  const out = [];
+  for (const e of await src.list(dir).catch(() => [])) {
+    const p = dir ? `${dir}/${e.name}` : e.name;
+    if (e.kind === 'dir' && !e.name.startsWith('_') && !e.name.startsWith('.')) out.push(...(await mdFilesUnder(src, p)));
+    else if (e.kind === 'file' && /\.md$/i.test(e.name)) out.push(p);
+  }
+  return out;
+}
+
+/** 搬移的目的地:主題資料夾與筆記本資料夾。 */
+function noteFolders(vault) {
+  const out = [];
+  for (const tp of vault.notes.topics) {
+    out.push({ value: tp.path, label: tp.id === '_' ? t('notes.unfiled') : tp.title });
+    for (const b of tp.items.filter(i => i.kind === 'book')) out.push({ value: b.path, label: `${tp.id === '_' ? '' : tp.title} › ${b.title}` });
+  }
+  return out;
+}
+
+/** 改名(mode = 'rename')或搬到別的資料夾(mode = 'move'),並更新連到這篇的 [[連結]]。 */
+async function relocateNote(key, rel, mode) {
+  try {
+    const vault = await getVault(key);
+    if (!vault) return;
+    const src = state.sources.get(key), notes = vault.notesSource;
+    if (!src?.canWrite || !notes?.move) return toast(t('ne.readonly'));
+    const r = await loadNote(key, rel);
+    const name = rel.split('/').pop(), from0 = dirOf(rel);
+    const ask = mode === 'rename'
+      ? await dialog({ title: t('move.renameTitle'), message: t('move.renameHint'), fields: [{ name: 'title', label: t('move.newTitle'), value: r.note.title }], buttons: [{ label: t('dialog.cancel'), value: false }, { label: t('move.next'), value: true, primary: true }] })
+      : await dialog({ title: t('move.moveTitle'), message: t('move.moveHint'), fields: [{ name: 'dir', label: t('move.dest'), type: 'select', value: from0, options: noteFolders(vault) }], buttons: [{ label: t('dialog.cancel'), value: false }, { label: t('move.next'), value: true, primary: true }] });
+    if (!ask?.value) return;
+    const title = mode === 'rename' ? String(ask.fields.title || '').trim() : r.note.title;
+    const dir = mode === 'move' ? ask.fields.dir : from0;
+    if (!title) return toast(t('newNote.needTitle'));
+    const toRel = [dir, title === r.note.title ? name : renamedFile(name, title)].filter(Boolean).join('/');
+    if (toRel === rel && title === r.note.title) return toast(t('move.nothing'));
+
+    // 用最新的檔案建圖譜:改名前看到的連結一定要是現在的
+    state.graphs.delete(key);
+    const g = await getGraph(key);
+    const from = g.notes.get(vault.notePath(rel));
+    if (!from) throw new UserError(t('err.noNote', { path: rel }));
+    const topicOf = p => p.split('/')[1] || '_';
+    const toTopic = dir.split('/')[0] || '_';
+    const to = { path: vault.notePath(toRel), rel: toRel, topicId: toTopic, title };
+
+    // 可能連到這篇的檔案:反向連結裡的筆記,與簡報資料夾裡的每一張投影片
+    const files = [], stats = new Map(), seen = new Set();
+    const addFile = async path => {
+      if (seen.has(path) || path === from.path) return;
+      seen.add(path);
+      const [text, st] = await Promise.all([src.readText(path), src.stat(path)]);
+      files.push({ path, text, topicId: topicOf(path) });
+      stats.set(path, st);
+    };
+    const refs = g.backlinks.get(from.path) || [];
+    for (const b of refs) {
+      if (b.from.kind === 'note') await addFile(b.from.path);
+      else for (const p of await mdFilesUnder(src, b.from.path)) await addFile(p);
+    }
+    const plan = planLinkUpdates({ records: g.records, files, from, to });
+    // 升級來源:deck.yml 的 source 指到這篇
+    const ymls = [];
+    for (const d of g.decks.values()) {
+      if (!d.source) continue;
+      const path = `${d.path}/deck.yml`;
+      const text = await src.readText(path).catch(() => null);
+      const next = text != null && retargetSource(text, from.path, to.path);
+      if (next) { ymls.push({ path, text: next }); stats.set(path, await src.stat(path)); }
+    }
+    const noteText = rebaseLinks(title === r.note.title ? r.text : retitle(r.text, title, r.note.title), from0, dir);
+
+    const changed = [...plan.edits.map(e => e.path), ...ymls.map(y => y.path)];
+    const lines = [
+      t(mode === 'rename' ? 'move.summaryRename' : 'move.summaryMove', { from: rel, to: toRel, title }),
+      plan.count || ymls.length ? t('move.summaryLinks', { links: plan.count, files: changed.length }) : t('move.summaryNoLinks'),
+      ...changed.slice(0, 8).map(p => '· ' + p),
+      ...(changed.length > 8 ? [t('move.andMore', { n: changed.length - 8 })] : []),
+    ];
+    if (!(await confirmDialog(lines.join('\n'), t(mode === 'rename' ? 'move.doRename' : 'move.doMove')))) return;
+
+    // 先搬筆記本身(失敗就什麼都沒改),再改其他檔案
+    const done = await notes.move(rel, toRel, noteText, { expect: await notes.stat(rel) });
+    const failed = [];
+    for (const e of [...plan.edits, ...ymls]) {
+      try { await src.writeText(e.path, e.text, { expect: stats.get(e.path) }); } catch (err) { failed.push(`${e.path}(${err.message})`); }
+    }
+    invalidate(key);
+    if (failed.length) toast(t('move.partial', { n: failed.length, files: failed.join('、') }), { ms: 12000 });
+    else toast(t('move.done', { path: done, links: plan.count }), { ms: 5000 });
+    location.hash = hrefs(key).note(done);
+  } catch (e) { noteErr(e); }
+}
+
+/** 封存:搬到 _archive/notes/(不刪除)。連到它的連結不改,檢查工具會列出。 */
+async function archiveNote(key, rel) {
+  try {
+    const vault = await getVault(key);
+    if (!vault) return;
+    const notes = vault.notesSource;
+    if (!notes?.canWrite || !notes.archive) return toast(t('ne.readonly'));
+    const g = await getGraph(key);
+    const refs = (g.backlinks.get(vault.notePath(rel)) || []).map(b => b.from.title);
+    const msg = [t('move.archiveAsk', { path: rel }), ...(refs.length ? [t('move.archiveRefs', { n: refs.length }), ...refs.slice(0, 8).map(x => '· ' + x)] : [])];
+    if (!(await confirmDialog(msg.join('\n'), t('move.doArchive')))) return;
+    const to = await notes.archive(rel);
+    invalidate(key);
+    toast(t('move.archived', { path: to }), { ms: 6000 });
+    location.hash = hrefs(key).shelf;
+  } catch (e) { noteErr(e); }
+}
+
 async function distill(key, topicId, projectId) {
   try {
     const vault = await getVault(key);
@@ -655,6 +777,10 @@ async function distill(key, topicId, projectId) {
   } catch (e) { toast(e instanceof UserError ? e.message : e.message === 'denied' ? t('ne.denied') : t('ne.saveFailed', { error: e.message || e }), { ms: 5000 }); }
 }
 window.addEventListener('leafpile:promote', e => promote(state.current.key, e.detail));
+window.addEventListener('leafpile:note-action', e => {
+  const { action, rel } = e.detail, key = state.current.key;
+  if (action === 'archive') archiveNote(key, rel); else relocateNote(key, rel, action);
+});
 
 // ---------------- 指令面板(Ctrl+K / ⌘K) ----------------
 async function paletteItems() {

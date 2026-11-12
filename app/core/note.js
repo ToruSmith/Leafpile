@@ -103,6 +103,37 @@ export function wikilinksOf(body) {
   return out;
 }
 
+/**
+ * 改寫文字裡的 [[連結]](程式碼區塊與行內程式碼裡的不動)。
+ * fn(link) 回傳新的整段連結文字;回傳 null 表示不改。
+ * @returns {{ text: string, count: number }}
+ */
+export function replaceWikilinks(text, fn) {
+  let count = 0;
+  const out = [];
+  eachLine(String(text), (line, i, code) => {
+    if (code) { out.push(line); return; }
+    const masked = line.replace(/`[^`]*`/g, m => ' '.repeat(m.length));
+    let res = '', last = 0;
+    for (const m of masked.matchAll(WIKI)) {
+      const p = parseTarget(m[2]);
+      if (!p.target && !p.heading) continue;
+      const next = fn({ raw: line.slice(m.index, m.index + m[0].length), embed: m[1] === '!', ...p, label: (m[3] || '').trim() });
+      if (next == null || next === m[0]) continue;
+      res += line.slice(last, m.index) + next;
+      last = m.index + m[0].length;
+      count++;
+    }
+    out.push(res + line.slice(last));
+  });
+  return { text: out.join('\n'), count };
+}
+
+/** 把連結物件寫回文字:`![[slides:目標#標題|顯示]]`。 */
+export function formatWikilink(link) {
+  return `${link.embed ? '!' : ''}[[${link.channel === 'slides' ? 'slides:' : ''}${link.target || ''}${link.heading ? '#' + link.heading : ''}${link.label ? '|' + link.label : ''}]]`;
+}
+
 /** 連結預設顯示的文字。 */
 export function linkLabel(link) {
   if (link.label) return link.label;

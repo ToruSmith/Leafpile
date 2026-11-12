@@ -80,6 +80,8 @@ export function renderReader(root, { vault, rel, note, topic, book, header, href
             <a class="btn primary flash" href="${href.flash(rel)}" title="${esc(t('note.flashTitle'))}">▶ ${esc(t('note.flash'))}</a>
             ${canEdit ? `<a class="btn ghost" href="${href.edit(rel)}" title="${esc(t('note.editTitle'))}">${esc(t('note.edit'))}</a>` : ''}
             ${canPromote ? `<button class="btn ghost promote" title="${esc(t('promote.buttonTitle'))}">${esc(t('promote.button'))}</button>` : ''}
+            ${canPromote ? `<details class="note-more"><summary class="btn ghost" title="${esc(t('move.moreTitle'))}">${esc(t('move.more'))}</summary><div class="note-more-menu">
+              <button data-act="rename">${esc(t('move.rename'))}</button><button data-act="move">${esc(t('move.move'))}</button><button data-act="archive">${esc(t('move.archive'))}</button></div></details>` : ''}
             <span class="scale"><button data-scale="-1" title="${esc(t('note.smaller'))}" aria-label="${esc(t('note.smaller'))}">A−</button><button data-scale="1" title="${esc(t('note.larger'))}" aria-label="${esc(t('note.larger'))}">A+</button></span>
           </div>
           ${toc.length ? `<section class="toc"><h3>${esc(t('note.toc'))}</h3><ol>${toc.map(h => `<li class="l${h.level}"><a href="#" data-slug="${esc(h.slug)}">${esc(h.text)}</a></li>`).join('')}</ol></section>` : ''}
@@ -103,6 +105,10 @@ export function renderReader(root, { vault, rel, note, topic, book, header, href
   else window.scrollTo(0, 0);
 
   root.querySelector('.promote')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('leafpile:promote', { detail: rel })));
+  root.querySelectorAll('.note-more [data-act]').forEach(b => b.addEventListener('click', () => {
+    b.closest('details').open = false;
+    window.dispatchEvent(new CustomEvent('leafpile:note-action', { detail: { action: b.dataset.act, rel } }));
+  }));
   const page = root.querySelector('.note-page');
   root.querySelectorAll('[data-scale]').forEach(b => b.addEventListener('click', () => {
     const cur = SCALES.indexOf(Number(page.style.getPropertyValue('--note-scale')) || 1);

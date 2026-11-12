@@ -611,6 +611,33 @@ const LOCALE_ZH_HANT = {
   'shelf.readonly': '唯讀',
   'shelf.readonlyTip': '這個書庫目前是唯讀的，不能新增或儲存筆記。請用 Chrome 或 Edge，在首頁按「開啟本機資料夾」並允許寫入。',
   'shelf.readonlyBrowserTip': '這個瀏覽器不能存檔，所以只能閱讀與播放。要新增筆記請改用 Chrome 或 Edge（Brave 預設關閉這項功能）。',
+  'move.more': '更多 ▾',
+  'move.moreTitle': '改名、搬移、封存',
+  'move.rename': '改名…',
+  'move.move': '搬到其他資料夾…',
+  'move.archive': '封存…',
+  'move.renameTitle': '改名',
+  'move.renameHint': '會同時改標題與檔名(保留日期或編號前綴),並更新連到這篇的 [[連結]]。下一步會先列出要改的檔案。',
+  'move.newTitle': '新標題',
+  'move.next': '下一步',
+  'move.moveTitle': '搬到其他資料夾',
+  'move.moveHint': '用標題寫的連結搬完仍然有效;用路徑寫的會自動更新。筆記裡相對路徑的圖片也會換算。',
+  'move.dest': '搬到',
+  'move.nothing': '沒有要改的地方。',
+  'move.summaryRename': '「{from}」改名為「{title}」\n新檔名:{to}',
+  'move.summaryMove': '「{from}」搬到\n{to}',
+  'move.summaryLinks': '會更新 {files} 個檔案裡的 {links} 個連結:',
+  'move.summaryNoLinks': '沒有其他檔案需要更新。',
+  'move.andMore': '…還有 {n} 個',
+  'move.doRename': '改名',
+  'move.doMove': '搬移',
+  'move.exists': '目的地已經有同名的檔案,沒有改任何東西。',
+  'move.done': '完成:{path}(更新了 {links} 個連結)',
+  'move.partial': '筆記已經搬好,但有 {n} 個檔案的連結沒改成功:{files}。請用「檢查」找出剩下的連結。',
+  'move.archiveAsk': '把「{path}」搬到 _archive/notes/?\n檔案不會刪除,之後可以自己搬回來。',
+  'move.archiveRefs': '有 {n} 篇筆記或簡報連到這篇,封存後這些連結會失效(「檢查」會列出):',
+  'move.doArchive': '封存',
+  'move.archived': '已封存到 {path}',
   'shelf.newNoteTitle': '新增一篇筆記',
   'shelf.emptyTopics': '還沒有內容的主題:{list}',
   'shelf.emptyLibrary': '這個書庫還是空的。在 notes/ 或 slides/ 的主題資料夾裡放進 .md 檔,再按「重新整理」。',
@@ -1255,6 +1282,33 @@ const LOCALE_EN = {
   'shelf.readonly': 'Read-only',
   'shelf.readonlyTip': 'This library is read-only, so you cannot create or save notes. Use Chrome or Edge, click “Open a local folder” on the home page and allow write access.',
   'shelf.readonlyBrowserTip': 'This browser cannot save files, so you can only read and play. To create notes, use Chrome or Edge (Brave turns this feature off by default).',
+  'move.more': 'More ▾',
+  'move.moreTitle': 'Rename, move, archive',
+  'move.rename': 'Rename…',
+  'move.move': 'Move to another folder…',
+  'move.archive': 'Archive…',
+  'move.renameTitle': 'Rename',
+  'move.renameHint': 'Changes the title and the file name (keeping any date or number prefix) and updates [[links]] to this note. The next step lists the files that will change.',
+  'move.newTitle': 'New title',
+  'move.next': 'Next',
+  'move.moveTitle': 'Move to another folder',
+  'move.moveHint': 'Links written with the title keep working; links written with a path are updated. Relative image paths in the note are adjusted.',
+  'move.dest': 'Move to',
+  'move.nothing': 'Nothing to change.',
+  'move.summaryRename': 'Rename “{from}” to “{title}”\nNew file: {to}',
+  'move.summaryMove': 'Move “{from}” to\n{to}',
+  'move.summaryLinks': '{links} link(s) in {files} file(s) will be updated:',
+  'move.summaryNoLinks': 'No other files need updating.',
+  'move.andMore': '…and {n} more',
+  'move.doRename': 'Rename',
+  'move.doMove': 'Move',
+  'move.exists': 'A file with that name already exists at the destination. Nothing was changed.',
+  'move.done': 'Done: {path} ({links} link(s) updated)',
+  'move.partial': 'The note was moved, but links in {n} file(s) could not be updated: {files}. Use “Check” to find the remaining links.',
+  'move.archiveAsk': 'Move “{path}” to _archive/notes/?\nThe file is not deleted; you can move it back yourself.',
+  'move.archiveRefs': '{n} note(s) or deck(s) link here; those links will break (Check will list them):',
+  'move.doArchive': 'Archive',
+  'move.archived': 'Archived to {path}',
   'shelf.newNoteTitle': 'Create a note',
   'shelf.emptyTopics': 'Topics with nothing in them yet: {list}',
   'shelf.emptyLibrary': 'This library is empty. Put .md files in a topic folder under notes/ or slides/, then press Refresh.',
@@ -2462,6 +2516,37 @@ function wikilinksOf(body) {
   return out;
 }
 
+/**
+ * 改寫文字裡的 [[連結]](程式碼區塊與行內程式碼裡的不動)。
+ * fn(link) 回傳新的整段連結文字;回傳 null 表示不改。
+ * @returns {{ text: string, count: number }}
+ */
+function replaceWikilinks(text, fn) {
+  let count = 0;
+  const out = [];
+  eachLine(String(text), (line, i, code) => {
+    if (code) { out.push(line); return; }
+    const masked = line.replace(/`[^`]*`/g, m => ' '.repeat(m.length));
+    let res = '', last = 0;
+    for (const m of masked.matchAll(WIKI)) {
+      const p = parseTarget(m[2]);
+      if (!p.target && !p.heading) continue;
+      const next = fn({ raw: line.slice(m.index, m.index + m[0].length), embed: m[1] === '!', ...p, label: (m[3] || '').trim() });
+      if (next == null || next === m[0]) continue;
+      res += line.slice(last, m.index) + next;
+      last = m.index + m[0].length;
+      count++;
+    }
+    out.push(res + line.slice(last));
+  });
+  return { text: out.join('\n'), count };
+}
+
+/** 把連結物件寫回文字:`![[slides:目標#標題|顯示]]`。 */
+function formatWikilink(link) {
+  return `${link.embed ? '!' : ''}[[${link.channel === 'slides' ? 'slides:' : ''}${link.target || ''}${link.heading ? '#' + link.heading : ''}${link.label ? '|' + link.label : ''}]]`;
+}
+
 /** 連結預設顯示的文字。 */
 function linkLabel(link) {
   if (link.label) return link.label;
@@ -2555,7 +2640,7 @@ function sourceFingerprint(notes) {
   }
   return h.toString(16).padStart(8, '0');
 }
-return { LAYOUT_KEYS, splitFrontMatter, slugify, plainInline, headingsOf, parseTarget, wikilinksOf, linkLabel, sectionOf, parseNote, sourceFingerprint };
+return { LAYOUT_KEYS, splitFrontMatter, slugify, plainInline, headingsOf, parseTarget, wikilinksOf, replaceWikilinks, formatWikilink, linkLabel, sectionOf, parseNote, sourceFingerprint };
 })();
 
 // ───────── app/core/markdown.js ─────────
@@ -2846,6 +2931,7 @@ function subSource(parent, prefix) {
     sub.ensureWritable = () => parent.ensureWritable();
     sub.stat = path => parent.stat(p(path));
     sub.writeText = (path, text, opts) => parent.writeText(p(path), text, opts);
+    if (parent.move) sub.move = async (from, to, text, opts) => (await parent.move(p(from), p(to), text, opts)).slice(prefix.length + 1);
     sub.archive = async path => {
       const full = p(path);
       const dir = full.split('/').slice(0, -1).join('/');
