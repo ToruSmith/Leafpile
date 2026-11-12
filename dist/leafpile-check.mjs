@@ -638,6 +638,31 @@ const LOCALE_ZH_HANT = {
   'move.archiveRefs': '有 {n} 篇筆記或簡報連到這篇,封存後這些連結會失效(「檢查」會列出):',
   'move.doArchive': '封存',
   'move.archived': '已封存到 {path}',
+  'privacy.button': '🔒 發布前檢查',
+  'privacy.buttonTitle': '哪些筆記會公開、哪裡可能有個資',
+  'privacy.title': '發布前檢查',
+  'privacy.scanning': '正在讀取每篇筆記與投影片…',
+  'privacy.ok': '會公開的內容裡沒有找到個資',
+  'privacy.bad': '{n} 個會公開的檔案可能有個資',
+  'privacy.counts': '公開 {public} 篇 · 私人 {private} 篇 · 只留本機 {localOnly} 篇',
+  'privacy.rule': '規則:筆記的 public → 筆記本 → 主題 → 都沒寫就是私人;只留本機(local_only)的主題一律不公開。簡報沒有 public 設定,放上 GitHub 就會公開。',
+  'privacy.visitorOn': '以訪客視角瀏覽',
+  'privacy.visitorOff': '結束訪客視角',
+  'privacy.visitorHint': '只顯示會公開的筆記與簡報,看看放上 GitHub Pages 後別人看得到什麼。',
+  'privacy.visitorBar': '訪客視角:只顯示會公開的內容',
+  'privacy.piiHeading': '可能是個資',
+  'privacy.piiNote': '只是提醒,不會擋下。自動比對 Email、台灣手機號碼、身分證字號;範例網域與程式碼區塊不算。畫面上已遮罩。',
+  'privacy.exposed': '會公開',
+  'privacy.hidden': '不會公開',
+  'privacy.line': '第 {n} 行',
+  'privacy.kind.email': 'Email',
+  'privacy.kind.phone': '手機',
+  'privacy.kind.tw-id': '身分證字號',
+  'privacy.noPII': '沒有找到疑似個資。',
+  'privacy.publicList': '會公開的筆記({n} 篇)',
+  'privacy.noPublic': '沒有會公開的筆記。',
+  'privacy.hiddenTitle': '訪客看不到這篇筆記',
+  'privacy.hiddenText': '這篇是私人的,或在只留本機的主題裡。結束訪客視角就能看到。',
   'shelf.newNoteTitle': '新增一篇筆記',
   'shelf.emptyTopics': '還沒有內容的主題:{list}',
   'shelf.emptyLibrary': '這個書庫還是空的。在 notes/ 或 slides/ 的主題資料夾裡放進 .md 檔,再按「重新整理」。',
@@ -1309,6 +1334,31 @@ const LOCALE_EN = {
   'move.archiveRefs': '{n} note(s) or deck(s) link here; those links will break (Check will list them):',
   'move.doArchive': 'Archive',
   'move.archived': 'Archived to {path}',
+  'privacy.button': '🔒 Pre-publish check',
+  'privacy.buttonTitle': 'Which notes will be public, and where personal data might be',
+  'privacy.title': 'Pre-publish check',
+  'privacy.scanning': 'Reading every note and slide…',
+  'privacy.ok': 'No personal data found in content that will be public',
+  'privacy.bad': '{n} public file(s) may contain personal data',
+  'privacy.counts': '{public} public · {private} private · {localOnly} local-only',
+  'privacy.rule': 'Rule: the note’s public → notebook → topic → otherwise private; local_only topics are never public. Decks have no public setting and become public once on GitHub.',
+  'privacy.visitorOn': 'Browse as a visitor',
+  'privacy.visitorOff': 'Exit visitor view',
+  'privacy.visitorHint': 'Shows only notes and decks that will be public: what others see on GitHub Pages.',
+  'privacy.visitorBar': 'Visitor view: showing only content that will be public',
+  'privacy.piiHeading': 'Possible personal data',
+  'privacy.piiNote': 'A reminder only, nothing is blocked. Matches email addresses, Taiwanese mobile numbers and national IDs; example domains and code blocks are ignored. Masked on screen.',
+  'privacy.exposed': 'public',
+  'privacy.hidden': 'not public',
+  'privacy.line': 'line {n}',
+  'privacy.kind.email': 'Email',
+  'privacy.kind.phone': 'Mobile',
+  'privacy.kind.tw-id': 'National ID',
+  'privacy.noPII': 'No possible personal data found.',
+  'privacy.publicList': 'Notes that will be public ({n})',
+  'privacy.noPublic': 'No notes will be public.',
+  'privacy.hiddenTitle': 'Visitors cannot see this note',
+  'privacy.hiddenText': 'It is private or in a local-only topic. Exit visitor view to see it.',
   'shelf.newNoteTitle': 'Create a note',
   'shelf.emptyTopics': 'Topics with nothing in them yet: {list}',
   'shelf.emptyLibrary': 'This library is empty. Put .md files in a topic folder under notes/ or slides/, then press Refresh.',
@@ -3235,7 +3285,92 @@ function scanPII(text) {
   }
   return out;
 }
-return { resolvePublic, isLocalOnly, publishable, PII, scanPII };
+
+// 範例網域與保留網域:文件裡常見,不算個資
+const EXAMPLE_MAIL = /@(?:[a-z0-9-]+\.)*(?:example\.(?:com|org|net)|example|test|invalid|localhost)$/i;
+
+/**
+ * 掃描個資,列出每一筆(含行號)。程式碼區塊裡的、範例網域的 Email 不算。
+ * @returns {{ key: string, match: string, line: number }[]}  line 從 1 開始
+ */
+function scanPIIAll(text) {
+  const out = [], seen = new Set();
+  let fence = null;
+  String(text).split('\n').forEach((line, i) => {
+    const f = line.match(/^\s*(```+|~~~+)/);
+    if (f) { if (!fence) fence = f[1]; else if (line.trim().startsWith(fence)) fence = null; return; }
+    if (fence) return;
+    const plain = line.replace(/`[^`]*`/g, m => ' '.repeat(m.length));
+    for (const { key, re } of PII) {
+      for (const m of plain.matchAll(new RegExp(re.source, 'g'))) {
+        if (key === 'email' && EXAMPLE_MAIL.test(m[0])) continue;
+        const id = key + '|' + m[0];
+        if (seen.has(id)) continue;
+        seen.add(id);
+        out.push({ key, match: m[0], line: i + 1 });
+      }
+    }
+  });
+  return out;
+}
+
+/** 螢幕上顯示用:遮掉中間,只留頭尾(截圖時不會整筆外流)。 */
+function maskPII(key, s) {
+  const str = String(s);
+  if (key === 'email') {
+    const [user, domain] = str.split('@');
+    return `${user.slice(0, 1)}${'*'.repeat(Math.max(2, user.length - 1))}@${domain}`;
+  }
+  const keep = Math.min(3, Math.floor(str.length / 4));
+  return str.slice(0, keep) + str.slice(keep, str.length - keep).replace(/[A-Za-z0-9]/g, '*') + str.slice(str.length - keep);
+}
+
+/**
+ * 發布前檢查:哪些筆記會公開、哪些有個資。
+ * @param {{ rel: string, title: string, text: string, public: boolean, localOnly: boolean, kind?: 'note'|'slide' }[]} items
+ */
+function auditPrivacy(items) {
+  const notes = items.filter(i => i.kind !== 'slide');
+  const counts = {
+    public: notes.filter(n => n.public && !n.localOnly).length,
+    private: notes.filter(n => !n.public && !n.localOnly).length,
+    localOnly: notes.filter(n => n.localOnly).length,
+  };
+  const exposed = i => i.kind === 'slide' ? !i.localOnly : i.public && !i.localOnly; // 簡報沒有 public 設定:會跟著書庫公開
+  const pii = items.map(i => ({ ...i, exposed: exposed(i), hits: scanPIIAll(i.text) })).filter(i => i.hits.length)
+    .map(({ text, ...rest }) => rest)
+    .sort((a, b) => Number(b.exposed) - Number(a.exposed) || a.rel.localeCompare(b.rel));
+  return { counts, publicNotes: notes.filter(n => n.public && !n.localOnly).map(n => ({ rel: n.rel, title: n.title })), pii };
+}
+
+/**
+ * 訪客視角:只留下會公開的筆記(書庫的其他結構不變,可以直接交給書架畫面)。
+ * 只留本機的主題裡的簡報也拿掉。
+ * @param {object} vault  core/vault.js 的書庫物件
+ * @param {(rel: string) => boolean} visible  這篇筆記訪客看不看得到
+ */
+function visitorVault(vault, visible) {
+  const keep = nt => nt && {
+    ...nt,
+    items: nt.items
+      .map(i => (i.kind === 'book' ? { ...i, notes: i.notes.filter(n => visible(n.path)) } : i))
+      .filter(i => (i.kind === 'book' ? i.notes.length : visible(i.path))),
+  };
+  const notesTopics = (vault.notes?.topics || []).map(keep);
+  const byId = new Map(notesTopics.map(x => [x.id, x]));
+  const topics = vault.topics.map(tp => {
+    const local = isLocalOnly(tp.conf) || isLocalOnly(tp.notes?.conf);
+    return { ...tp, notes: tp.notes ? byId.get(tp.notes.id) : tp.notes, decks: local ? [] : tp.decks };
+  });
+  const byTopic = new Map(topics.map(x => [x.id, x]));
+  return {
+    ...vault,
+    topics,
+    notes: vault.notes ? { ...vault.notes, topics: notesTopics } : vault.notes,
+    categories: (vault.categories || []).map(c => ({ ...c, topics: c.topics.map(tp => byTopic.get(tp.id) || tp) })),
+  };
+}
+return { resolvePublic, isLocalOnly, publishable, PII, scanPII, scanPIIAll, maskPII, auditPrivacy, visitorVault };
 })();
 
 // ───────── app/core/graph.js ─────────

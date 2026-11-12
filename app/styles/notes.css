@@ -249,3 +249,23 @@ button.ro-chip { border: 0; font: inherit; font-size: 13px; }
 .note-more-menu button { font: inherit; font-size: 14px; text-align: left; padding: 8px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--ink); cursor: pointer; }
 .note-more-menu button:hover, .note-more-menu button:focus-visible { background: var(--bg-deep); }
 .note-more-menu button[data-act=archive] { color: #b0566e; }
+
+/* ---------- 發布前檢查、訪客視角 ---------- */
+.privacy-rule, .privacy-note { font-size: 13px; color: var(--muted); line-height: 1.6; }
+.privacy-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 12px 0 4px; }
+.privacy-actions small { color: var(--muted); font-size: 12px; }
+.check-problems.pii > li { display: block; }
+.check-problems.pii a { font-weight: 600; color: var(--ink); }
+.pii-badge { display: inline-block; margin-left: 8px; padding: 0 8px; border-radius: 999px; font-size: 11px; vertical-align: 1px; }
+.pii-badge.out { color: #fff; background: #b0566e; }
+.pii-badge.in { color: var(--muted); border: 1px solid var(--line); }
+.pii-hits { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; }
+.pii-hits em { font-style: normal; color: var(--muted); margin-right: 6px; }
+.pii-hits small { margin-left: 6px; color: var(--muted); }
+.privacy-public { margin-top: 16px; }
+.privacy-public summary { cursor: pointer; font-weight: 600; }
+.privacy-public ul { margin: 8px 0 0; padding-left: 20px; line-height: 1.9; }
+.visitor-bar { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 210; display: flex; align-items: center; gap: 12px; padding: 8px 10px 8px 16px; border-radius: 999px; background: var(--ink); color: var(--bg); font-size: 14px; box-shadow: 0 12px 30px rgb(var(--shadow) / .3); }
+.visitor-bar .btn { color: var(--bg); border-color: color-mix(in srgb, var(--bg) 45%, transparent); background: transparent; padding: 4px 12px; }
+.hidden-note { max-width: 640px; margin: 12vh auto; padding: 0 24px; text-align: center; }
+.hidden-note p { color: var(--muted); line-height: 1.7; }

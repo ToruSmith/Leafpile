@@ -14,6 +14,8 @@ import { openVault, findNote, findDeck, notesOfTopic } from './core/vault.js';
 import { buildGraph, sourceStatus, compareSource } from './core/graph.js';
 import { parseNote, slugify, splitFrontMatter, wikilinksOf } from './core/note.js';
 import { expandEmbeds, promoteNote, promoteBook, distillDeck, withSourceHash } from './core/bridge.js';
+import { openPrivacyPanel } from './ui/privacy-view.js';
+import { auditPrivacy, visitorVault, isLocalOnly } from './core/privacy.js';
 import { planLinkUpdates, retitle, renamedFile, rebaseLinks, retargetSource, dirOf } from './core/move.js';
 import { checkVault } from './core/check.js';
 import { escapeHTML as esc, linkKey } from './core/markdown.js';
@@ -58,7 +60,7 @@ function applyLang(lang) {
 applyLang(pickLang());
 
 const state = {
-  sources: new Map(), vaults: new Map(), graphs: new Map(), sourceWarned: new Set(),
+  sources: new Map(), vaults: new Map(), graphs: new Map(), sourceWarned: new Set(), visitor: false,
   session: null,
   player: null, playerKey: '',
   view: null,            // { cleanup?, isDirty? } 目前畫面
@@ -302,11 +304,21 @@ async function showShelf(key) {
       return;
     }
     const source = state.sources.get(key);
+    let shown = vault, graph = vault.kind === 'leafpile' ? getGraph(key) : null;
+    if (state.visitor && graph) {
+      // 訪客視角:只留會公開的筆記;搜尋也只搜得到它們
+      const g = await graph;
+      const ok = visibleTo(g, vault);
+      shown = visitorVault(vault, ok);
+      const notes = new Map([...g.notes].filter(([, n]) => ok(n.rel)));
+      graph = Promise.resolve({ ...g, notes, records: g.records.filter(r => r.kind !== 'note' || notes.has(r.path)) });
+    }
     state.view = {
       cleanup: renderShelf(app, {
-        vault, sourceKey: key, href,
+        vault: shown, sourceKey: key, href,
         header: header(key === 'repo' ? 'repo' : 'home'),
-        graph: vault.kind === 'leafpile' ? getGraph(key) : null,
+        graph,
+        onPrivacy: vault.kind === 'leafpile' ? () => runPrivacy(key) : null,
         onRefresh: key === 'repo' ? null : () => { invalidate(key); showShelf(key); },
         onCheck: () => runCheck(key),
         onNewNote: vault.notesSource?.canWrite ? () => newNote(key) : null,
@@ -334,6 +346,46 @@ function watchVault(key, vault) {
   state.view.cleanup = () => { stop(); prev?.(); };
 }
 
+/** 訪客看不看得到這篇:公開、而且不在只留本機的主題。 */
+const visibleTo = (g, vault) => rel => { const r = g.notes.get(vault.notePath(rel)); return !!r && r.public && !r.localOnly; };
+
+/** 發布前檢查:重新讀每篇筆記與每張投影片(不用圖譜裡可能過時的內容)。 */
+function runPrivacy(key) {
+  openPrivacyPanel(document.body, async () => {
+    const vault = await getVault(key);
+    state.sources.get(key)?.refresh?.();
+    state.graphs.delete(key);
+    const g = await getGraph(key);
+    const src = state.sources.get(key);
+    const items = await Promise.all([...g.notes.values()].map(async n => ({
+      rel: n.rel, title: n.title, public: n.public, localOnly: n.localOnly, text: await vault.notesSource.readText(n.rel).catch(() => ''),
+    })));
+    const localTopics = new Set(vault.topics.filter(tp => isLocalOnly(tp.conf) || isLocalOnly(tp.notes?.conf)).map(tp => tp.id));
+    for (const d of g.decks.values()) {
+      for (const path of await mdFilesUnder(src, d.path)) {
+        items.push({ kind: 'slide', rel: path, title: d.title, public: false, localOnly: localTopics.has(d.topicId), text: await src.readText(path).catch(() => '') });
+      }
+    }
+    return auditPrivacy(items);
+  }, { href: hrefs(key), visitor: state.visitor, onVisitor: on => setVisitor(on) });
+}
+
+/** 訪客視角開關:畫面下方一直有提示條,可以隨時結束。 */
+function setVisitor(on) {
+  state.visitor = on;
+  document.querySelector('.visitor-bar')?.remove();
+  document.body.classList.toggle('visitor', on);
+  if (on) {
+    const bar = document.createElement('div');
+    bar.className = 'visitor-bar';
+    bar.setAttribute('role', 'status');
+    bar.innerHTML = `<span>👁 ${esc(t('privacy.visitorBar'))}</span><button class="btn ghost">${esc(t('privacy.visitorOff'))}</button>`;
+    bar.querySelector('button').onclick = () => setVisitor(false);
+    document.body.append(bar);
+  }
+  route();
+}
+
 function runCheck(key) {
   const source = state.sources.get(key);
   source.refresh?.(); // 讀最新的檔案(使用者可能剛改過)
@@ -356,6 +408,11 @@ async function showNote(key, rel, heading) {
   try {
     const r = await loadNote(key, rel);
     if (!r) return;
+    if (state.visitor && r.vault.kind === 'leafpile' && !visibleTo(await getGraph(key), r.vault)(rel)) {
+      app.innerHTML = `${header(key === 'repo' ? 'repo' : 'home')}<main class="hidden-note"><h1>${esc(t('privacy.hiddenTitle'))}</h1><p>${esc(t('privacy.hiddenText'))}</p><p><a class="btn ghost" href="${hrefs(key).shelf}">${esc(t('nav.backShelf'))}</a></p></main>`;
+      state.view = null;
+      return;
+    }
     state.view = {
       cleanup: renderReader(app, {
         vault: r.vault, rel, note: r.note, topic: r.topic, book: r.book, heading,
@@ -799,6 +856,8 @@ async function paletteItems() {
         if (vault.kind === 'leafpile' && state.sources.get(key)?.canWrite) act(t('promote.button'), () => promote(key, rel));
       }
       if (deck && vault.kind === 'leafpile' && state.sources.get(key)?.canWrite) act(t('distill.action'), () => distill(key, deck.topicId, deck.projectId));
+      if (vault.kind === 'leafpile') act(t('privacy.title'), () => runPrivacy(key));
+      if (vault.kind === 'leafpile') act(t(state.visitor ? 'privacy.visitorOff' : 'privacy.visitorOn'), () => setVisitor(!state.visitor));
       const project = deck && g && vault.kind === 'leafpile' ? findDeck(vault, deck.topicId, deck.projectId) : null;
       let st = null;
       try { st = project ? await freshSourceStatus(key, vault, project) : null; } catch { /* 讀不到就不顯示這兩項 */ }
