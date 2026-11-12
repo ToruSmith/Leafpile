@@ -32,13 +32,13 @@ export function onFullscreenExit(el, fn) {
  */
 export function autoHide(bar, { ms = 4000 } = {}) {
   let timer = 0, hover = false;
-  const arm = d => { clearTimeout(timer); timer = setTimeout(() => { if (!hover && !bar.contains(document.activeElement)) bar.classList.remove('show'); }, d ?? ms); };
+  // 只有真的滑鼠停在上面、或鍵盤焦點在列上才不收;手指點過之後模擬出來的 hover／focus 不算,否則手機上永遠收不起來
+  const keep = () => hover || (bar.contains(document.activeElement) && document.activeElement.matches(':focus-visible'));
+  const arm = d => { clearTimeout(timer); timer = setTimeout(() => { if (!keep()) bar.classList.remove('show'); else arm(1500); }, d ?? ms); };
   const show = d => { bar.classList.add('show'); arm(d); };
   const hide = () => { clearTimeout(timer); bar.classList.remove('show'); };
-  bar.addEventListener('mouseenter', () => { hover = true; clearTimeout(timer); });
-  bar.addEventListener('mouseleave', () => { hover = false; arm(900); });
-  bar.addEventListener('focusin', () => { clearTimeout(timer); });
-  bar.addEventListener('focusout', () => arm(1400));
+  bar.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') { hover = true; clearTimeout(timer); } });
+  bar.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') { hover = false; arm(900); } });
   bar.addEventListener('click', () => arm(3500));
   return { show, hide, toggle: () => (bar.classList.contains('show') ? hide() : show()), dispose: () => clearTimeout(timer) };
 }
