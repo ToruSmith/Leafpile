@@ -41,7 +41,7 @@ import { loadQA, saveQA } from './player/qa-store.js';
 import { applyUITheme } from './player/themes.js';
 import { t, setLang, getLang, normalizeLang } from './core/i18n.js';
 
-export const VERSION = '0.9.0';
+export const VERSION = '0.9.1';
 const REPO_URL = 'https://github.com/ToruSmith/Leafpile';
 const MDSLIDE_URL = 'https://github.com/ToruSmith/Mdslide-Pile';
 
@@ -532,7 +532,7 @@ async function boardTextToNote(key, text) {
     if (!name) { toast(t('newNote.needTitle')); return null; }
     const rel = [r.fields.topic, newNoteFileName(name)].filter(Boolean).join('/');
     if ((await vault.notesSource.stat(rel)) != null) { toast(t('move.exists')); return null; }
-    await vault.notesSource.writeText(rel, newNoteText(name) + (body ? body + '\n' : ''), { mkdir: true });
+    await vault.notesSource.writeText(rel, newNoteText(name) + (body ? body + '\n' : ''), { mkdir: true, expect: null });
     invalidate(key); // 書庫目錄也要重讀,新筆記才找得到
     toast(t('board.toNoteDone', { path: rel }), { ms: 5000 });
     return vault.notePath(rel);
@@ -559,7 +559,7 @@ async function newBoard(key) {
     const file = boardFileName(r.fields.name || '');
     const name = file.replace(/\.canvas$/, '');
     if ((vault.boards || []).some(b => b.name === name) || (await src.stat(`boards/${file}`)) != null) return toast(t('move.exists'));
-    await src.writeText(`boards/${file}`, emptyCanvas(), { mkdir: true });
+    await src.writeText(`boards/${file}`, emptyCanvas(), { mkdir: true, expect: null });
     invalidate(key);
     location.hash = hrefs(key).board(name);
   } catch (e) { noteErr(e); }
@@ -682,7 +682,7 @@ async function newNote(key, topicId) {
   const rel = [r.fields.topic, newNoteFileName(title)].filter(Boolean).join('/');
   try {
     if ((await vault.notesSource.stat(rel)) !== null) return toast(t('newNote.exists'));
-    await vault.notesSource.writeText(rel, newNoteText(title));
+    await vault.notesSource.writeText(rel, newNoteText(title), { expect: null });
     invalidate(key);
     location.hash = hrefs(key).edit(rel);
   } catch (e) { toast(e.message === 'denied' ? t('ne.denied') : t('ne.saveFailed', { error: e.message || e })); }
@@ -879,7 +879,7 @@ async function withEmbeds(key, vault, deck) {
 /** 一次寫入多個新檔案(已存在就停下來,絕不覆蓋)。 */
 async function writeNew(src, files) {
   for (const path of Object.keys(files)) if ((await src.stat(path)) !== null) throw new UserError(t('promote.exists', { path }));
-  for (const [path, text] of Object.entries(files)) await src.writeText(path, text, { mkdir: true });
+  for (const [path, text] of Object.entries(files)) await src.writeText(path, text, { mkdir: true, expect: null });
 }
 
 async function promote(key, rel) {

@@ -45,6 +45,7 @@ jobs:
           v="${TAG#v}"
           awk -v v="$v" '$0 ~ "^## "v" " {on=1; next} /^## / {on=0} on' CHANGELOG.md > build/notes.md
           test -s build/notes.md
+          printf '\n---\n\n之前各版的變更：[CHANGELOG.md](https://github.com/%s/blob/%s/CHANGELOG.md)\n' "$GITHUB_REPOSITORY" "$TAG" >> build/notes.md
       - name: 建立 Release
         env:
           GH_TOKEN: ${{ github.token }}

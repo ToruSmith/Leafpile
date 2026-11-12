@@ -111,6 +111,7 @@ export class HandleSource {
 
   /**
    * 寫入文字檔。expect = 打開時的 stat();不符就丟出 'stale'(檔案被別的程式改過)。
+   * 新建檔案時傳 expect: null,表示「必須還不存在」,已經有同名檔就丟出 'stale',不覆蓋。
    * 瀏覽器會先寫暫存檔,關閉時才取代原檔,所以寫到一半中斷不會弄壞原檔。
    */
   async writeText(path, text, { expect = undefined, mkdir = false } = {}) {
@@ -190,6 +191,8 @@ export class HandleSource {
     for (let n = 2; await exists(d, target); n++) target = name.replace(/(\.[^.]*)?$/, `-${n}$&`); // 同名就加編號
     const w = await (await d.getFileHandle(target, { create: true })).createWritable();
     try { await w.write(text); } finally { await w.close(); }
+    // 和 move() 一樣:讀回來確認封存的副本完整,才移除原檔
+    if ((await (await d.getFileHandle(target)).getFile().then(f => f.text())) !== text) throw new Error('verify');
     const i = path.lastIndexOf('/');
     await (await this.dir(i < 0 ? '' : path.slice(0, i))).removeEntry(name);
     this.refresh();

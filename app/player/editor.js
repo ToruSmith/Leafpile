@@ -421,7 +421,7 @@ export function openEditor(player, { onSaved, onClose }) {
     const name = nextName(names, title);
     const path = `${dir}/${name}`;
     try {
-      await source.writeText(path, `# ${title || splitOrder(name).label}\n`);
+      await source.writeText(path, `# ${title || splitOrder(name).label}\n`, { expect: null });
       await onSaved?.();
       setStatus(t('editor.added', { name }), 'ok');
       await load(path);
