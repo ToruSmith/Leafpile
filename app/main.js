@@ -27,6 +27,7 @@ import { renderShelf } from './ui/shelf.js';
 import { renderReader } from './ui/notes/reader.js';
 import { renderEditor, newNoteFileName, newNoteText } from './ui/notes/editor.js';
 import { openPalette } from './ui/palette.js';
+import { mountSidebar, recordRecent } from './ui/sidebar.js';
 import { openCheckPanel } from './ui/check-view.js';
 import { dialog, confirmDialog, toast } from './ui/dialog.js';
 import { Player } from './player/player.js';
@@ -37,7 +38,7 @@ import { loadQA, saveQA } from './player/qa-store.js';
 import { applyUITheme } from './player/themes.js';
 import { t, setLang, getLang, normalizeLang } from './core/i18n.js';
 
-export const VERSION = '0.7.0';
+export const VERSION = '0.8.0';
 const REPO_URL = 'https://github.com/ToruSmith/Leafpile';
 const MDSLIDE_URL = 'https://github.com/ToruSmith/Mdslide-Pile';
 
@@ -187,6 +188,26 @@ function invalidate(key) {
   state.graphs.delete(key);
 }
 
+// ---------------- 側邊欄 ----------------
+/** 掛上書庫導覽;訪客視角時只列會公開的筆記(等圖譜建好再填內容)。 */
+function sideFor(key, vault, current, context) {
+  const shown = state.visitor && vault.kind === 'leafpile'
+    ? getGraph(key).then(g => visitorVault(vault, visibleTo(g, vault)))
+    : vault;
+  return mountSidebar(app, {
+    lib: key, vault: shown, boards: (vault.boards || []).map(b => b.name), href: hrefs(key),
+    current, context, onSearch: () => showPalette(),
+  });
+}
+
+/** 讓畫面的 cleanup 也卸下側邊欄。 */
+function withSide(view, off) {
+  if (!view || !off) return view;
+  const prev = view.cleanup;
+  view.cleanup = () => { off(); prev?.call(view); };
+  return view;
+}
+
 // ---------------- 共用畫面 ----------------
 function header(active = '') {
   return `<header class="topbar">
@@ -329,6 +350,7 @@ async function showShelf(key) {
         onNewNote: vault.notesSource?.canWrite ? () => newNote(key) : null,
       }),
     };
+    withSide(state.view, mountSidebar(app, { lib: key, vault: shown, boards: (vault.boards || []).map(b => b.name), href, current: { type: 'shelf' }, context: 'shelf', onSearch: () => showPalette() }));
     document.title = `${vault.title} · Leafpile`;
     if (source.kind === 'handle') watchVault(key, vault);
   } catch (e) { showError(e); }
@@ -378,6 +400,7 @@ async function showBoard(key, name) {
       toNote: src.canWrite && vault.notesSource?.canWrite ? text => boardTextToNote(key, text) : null,
       reloadGraph: async () => { await getVault(key); return getGraph(key); },
     });
+    withSide(state.view, sideFor(key, vault, { type: 'b', id: name, title: name }, 'board'));
     document.title = `${name} · Leafpile`;
   } catch (e) { showError(e, keyBase(key)); }
 }
@@ -509,6 +532,7 @@ async function showNote(key, rel, heading) {
         boards: r.vault.boards?.length ? boardsOfNote(key, rel) : null,
       }),
     };
+    withSide(state.view, sideFor(key, r.vault, { type: 'n', id: rel, title: r.note.title }, 'note'));
     document.title = `${r.note.title} · Leafpile`;
   } catch (e) { showError(e, keyBase(key)); }
 }
@@ -615,6 +639,7 @@ async function showDeck(key, topicId, projectId, start, reading = false) {
     const source = vault.slidesSource;
     const project = findDeck(vault, topicId, projectId);
     if (!project) throw new UserError(t('err.noDeck'));
+    recordRecent(key, { t: 'd', id: `${topicId}/${projectId}`, title: project.title || projectId });
     const deck = await withEmbeds(key, vault, await loadDeck(source, project));
     if (!deck.sections.length) throw new UserError(t('err.emptyDeck'));
     const href = hrefs(key);

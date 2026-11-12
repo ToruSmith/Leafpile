@@ -10,6 +10,7 @@ import { deckCardHTML, wireDeckCards } from './library-view.js';
 import { hydrate } from '../player/hydrate.js';
 import { resolveMediaPath } from '../core/media.js';
 import { canPickDirectory } from '../sources/sources.js';
+import { readPref, writePref, readJSON, writeJSON } from './prefs.js';
 import { tableColumns, cellText, sortRows, filterRows, valueOf } from '../core/table.js';
 
 const VIEW_KEY = 'leafpile-shelf-view';
@@ -17,7 +18,7 @@ const VIEWS = ['all', 'notes', 'slides', 'table'];
 const SORT_KEY = 'leafpile-table-sort';
 
 function savedView() {
-  try { const v = localStorage.getItem(VIEW_KEY); return VIEWS.includes(v) ? v : 'all'; } catch { return 'all'; }
+  const v = readPref(VIEW_KEY); return VIEWS.includes(v) ? v : 'all';
 }
 
 /**
@@ -125,7 +126,7 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
 
   // ---------- 表格檢視(唯讀):每篇筆記一列,front matter 的欄位當成欄 ----------
   let sort = { key: 'date', dir: 'desc' }, tagFilter = '', tableRows = null;
-  try { const v = JSON.parse(localStorage.getItem(SORT_KEY) || 'null'); if (v?.key) sort = { key: String(v.key), dir: v.dir === 'asc' ? 'asc' : 'desc' }; } catch { /* 壞資料就用預設 */ }
+  { const v = readJSON(SORT_KEY); if (v?.key) sort = { key: String(v.key), dir: v.dir === 'asc' ? 'asc' : 'desc' }; }
   const catOf = new Map(vault.categories.flatMap(c => c.topics.map(tp => [tp.id, c.id])));
   const rowsOf = graphResult => [...graphResult.notes.values()].map(rec => {
     const tp = vault.topics.find(x => x.id === rec.topicId);
@@ -162,7 +163,7 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
     if (s) {
       const k = s.dataset.sort;
       sort = sort.key === k ? { key: k, dir: sort.dir === 'asc' ? 'desc' : 'asc' } : { key: k, dir: k === 'date' ? 'desc' : 'asc' };
-      try { localStorage.setItem(SORT_KEY, JSON.stringify(sort)); } catch { /* 隱私模式 */ }
+      writeJSON(SORT_KEY, sort);
       return renderTable();
     }
     const tg = e.target.closest('[data-tag]');
@@ -181,7 +182,7 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
 
   root.querySelectorAll('.segmented button').forEach(b => b.addEventListener('click', () => {
     view = b.dataset.view;
-    try { localStorage.setItem(VIEW_KEY, view); } catch { /* 隱私模式 */ }
+    writePref(VIEW_KEY, view);
     root.querySelectorAll('.segmented button').forEach(x => x.setAttribute('aria-selected', String(x === b)));
     apply();
   }));

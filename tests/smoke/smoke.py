@@ -57,7 +57,10 @@ def main():
         page.locator('.book-card').first.click(); page.wait_for_timeout(1500)
         assert page.locator('.note-article h1').count() == 1, '筆記沒有打開'
         assert '/n/' in page.url, f'筆記網址不對:{page.url}'
-        page.locator('.note-left li:nth-child(2) a').click(); page.wait_for_timeout(1500)
+        # 側邊欄(書庫導覽):目前這篇自動展開並標出;從樹狀目錄換到同一本的第 2 篇
+        assert page.locator('.side-nav .sn-tree [aria-current=page]').count() == 1, '側邊欄沒有標出目前這篇'
+        page.locator('.side-nav .sn-tree a[href*="02-links"]').click(); page.wait_for_timeout(1500)
+        assert '02-links' in page.url, f'側邊欄的連結沒有換頁:{page.url}'
         page.wait_for_selector('.backlinks li', timeout=10000)
         assert page.locator('.used-by li').count() >= 1, '沒有顯示「被哪些簡報引用」'
         note_url = page.url

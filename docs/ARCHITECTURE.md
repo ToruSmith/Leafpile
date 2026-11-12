@@ -37,6 +37,13 @@ Leafpile 沿用 Mdslide Pile 的分層：資料只往下流，**來源 → `core
 | `ui/shelf.js` | 書架：分類、主題、筆記本、散篇、簡報卡片、急件、全文搜尋 |
 | `ui/notes/reader.js`、`editor.js` | 閱讀（目錄、反向連結）與編輯（即時預覽、草稿保護、`[[` 自動完成） |
 | `ui/palette.js`、`ui/dialog.js` | Ctrl+K 指令面板、對話框與提示 |
+| `core/nav.js`、`ui/sidebar.js` | 側邊欄（書庫導覽，唯讀）：樹狀目錄、目前位置、釘選與最近開過 |
+| `core/table.js` | 書庫的表格檢視（唯讀）：front matter 欄位、排序、篩選 |
+| `ui/prefs.js` | 本機偏好設定（localStorage）的唯一入口；所有用到的鍵列在檔案開頭 |
+
+### 本機偏好設定
+
+字級、書庫顯示、表格排序、小地圖、側邊欄收合、釘選與最近開過等，都只存在瀏覽器的 localStorage，不寫進書庫檔案。新功能要記住設定時，一律透過 `ui/prefs.js`，並把鍵名補進它開頭的清單；讀不到或壞資料時回預設值，不能讓畫面出錯。
 
 ### 網址
 
