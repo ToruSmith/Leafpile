@@ -22,6 +22,7 @@ import { hydrate, mountPage, openPageTab } from '../player/hydrate.js';
 import { prepareMedia } from './media-import.js';
 import { dialog, toast } from './dialog.js';
 import { enterFullscreen, exitFullscreen, autoHide } from './fullscreen.js';
+import { readFlag, writeFlag } from './prefs.js';
 
 const MIN_Z = 0.1, MAX_Z = 2.5, MAX_LIVE = 3, DOUBLE_MS = 400, SNAP_PX = 6;
 const INKS = ['#2b2925', '#c0504d', '#3f6fb0', '#5a8f5a'];
@@ -147,7 +148,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   const MINI_KEY = 'leafpile-board-minimap';
   const mini = $('.board-mini'), miniSvg = mini.querySelector('svg'), miniBtn = $('.board-mini-btn');
   let miniOn = false, miniRaf = 0, miniFrame = null, miniDrag = false;
-  try { miniOn = localStorage.getItem(MINI_KEY) === '1'; } catch { /* 隱私模式 */ }
+  miniOn = readFlag(MINI_KEY);
   const viewport = () => { const r = view.getBoundingClientRect(); return { x: -cam.x / cam.z, y: -cam.y / cam.z, width: r.width / cam.z, height: r.height / cam.z }; };
   function queueMini() { if (miniOn && !miniRaf) miniRaf = requestAnimationFrame(() => { miniRaf = 0; drawMini(); }); }
   function drawMini() {
@@ -169,7 +170,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   }
   function setMini(on) {
     miniOn = on;
-    try { localStorage.setItem(MINI_KEY, on ? '1' : '0'); } catch { /* 略 */ }
+    writeFlag(MINI_KEY, on);
     mini.hidden = !on;
     miniBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
     $('[data-b=minimap]')?.setAttribute('aria-pressed', on ? 'true' : 'false');
@@ -740,7 +741,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   // 工具列平常幾秒沒動作就收起來(右上角 ☰ 或滑鼠移到上緣叫回);「固定工具列」可以讓它一直顯示。全螢幕時一律會收起
   const PIN_KEY = 'leafpile-board-pin';
   let pinned = false;
-  try { pinned = localStorage.getItem(PIN_KEY) === '1'; } catch { /* 隱私模式 */ }
+  pinned = readFlag(PIN_KEY);
   const hideable = () => full || !pinned;
   const syncHide = () => { page.classList.toggle('hideable', hideable()); $('[data-b=pin]').setAttribute('aria-pressed', pinned ? 'true' : 'false'); };
   function setFull(on) {
@@ -979,7 +980,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     const b = el?.dataset.b;
     if (b === 'more') { setMenu(menu.hidden); return; }
     if (b === 'minimap') { setMini(!miniOn); return; }
-    if (b === 'pin') { pinned = !pinned; try { localStorage.setItem(PIN_KEY, pinned ? '1' : '0'); } catch { /* 略 */ } syncHide(); if (!pinned) barAuto.show(2500); }
+    if (b === 'pin') { pinned = !pinned; writeFlag(PIN_KEY, pinned); syncHide(); if (!pinned) barAuto.show(2500); }
     if (el && !el.hasAttribute('data-keep') && el.closest('.board-menu')) setMenu(false);
     if (b === 'in') zoomAt(cam.z * 1.25);
     if (b === 'out') zoomAt(cam.z / 1.25);

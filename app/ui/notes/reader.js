@@ -12,6 +12,7 @@ import { notesOfTopic } from '../../core/vault.js';
 import { sourceStatus } from '../../core/graph.js';
 import { resolvePublic, isLocalOnly } from '../../core/privacy.js';
 import { pct, parseScale, stepScale } from '../../core/scale.js';
+import { readPref, writePref } from '../prefs.js';
 import { canFullscreen, enterFullscreen, exitFullscreen, autoHide } from '../fullscreen.js';
 
 const SCALE_KEY = 'leafpile-note-scale';
@@ -27,7 +28,7 @@ function leaveImmersive() {
 window.addEventListener('hashchange', () => { if (immersive && !/\/n\//.test(location.hash)) leaveImmersive(); });
 
 function savedScale() {
-  try { return parseScale(localStorage.getItem(SCALE_KEY)); } catch { return 1; }
+  return parseScale(readPref(SCALE_KEY));
 }
 
 /** 筆記裡的圖片路徑:/ 開頭 = 筆記渠道根目錄;其他 = 相對於這篇筆記所在的資料夾。 */
@@ -149,7 +150,7 @@ export function renderReader(root, { vault, rel, note, topic, book, header, href
     const v = stepScale(Number(page.style.getPropertyValue('--note-scale')) || 1, d);
     page.style.setProperty('--note-scale', v);
     root.querySelectorAll('.val').forEach(b => { b.textContent = pct(v); });
-    try { localStorage.setItem(SCALE_KEY, String(v)); } catch { /* 隱私模式 */ }
+    writePref(SCALE_KEY, v);
   };
   root.querySelectorAll('[data-scale]').forEach(b => b.addEventListener('click', () => setScale(Number(b.dataset.scale))));
 
