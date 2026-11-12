@@ -84,7 +84,7 @@ export function renderReader(root, { vault, rel, note, topic, book, header, href
               <button data-act="rename">${esc(t('move.rename'))}</button><button data-act="move">${esc(t('move.move'))}</button><button data-act="archive">${esc(t('move.archive'))}</button></div></details>` : ''}
             <span class="scale"><button data-scale="-1" title="${esc(t('note.smaller'))}" aria-label="${esc(t('note.smaller'))}">A−</button><button data-scale="1" title="${esc(t('note.larger'))}" aria-label="${esc(t('note.larger'))}">A+</button></span>
           </div>
-          ${toc.length ? `<section class="toc"><h3>${esc(t('note.toc'))}</h3><ol>${toc.map(h => `<li class="l${h.level}"><a href="#" data-slug="${esc(h.slug)}">${esc(h.text)}</a></li>`).join('')}</ol></section>` : ''}
+          ${toc.length ? `<details class="toc" open><summary><h3>${esc(t('note.toc'))}</h3></summary><ol>${toc.map(h => `<li class="l${h.level}"><a href="#" data-slug="${esc(h.slug)}">${esc(h.text)}</a></li>`).join('')}</ol></details>` : ''}
           <section class="backlinks"><h3>${esc(t('note.backlinks'))}</h3><p class="muted">${esc(t('note.indexing'))}</p></section>
           <section class="used-by" hidden><h3>${esc(t('note.usedByDecks'))}</h3><ul></ul></section>
           <section class="on-boards" hidden><h3>${esc(t('note.onBoards'))}</h3><ul></ul></section>
@@ -101,6 +101,10 @@ export function renderReader(root, { vault, rel, note, topic, book, header, href
   });
 
   const scrollTo = slug => root.querySelector(`#h-${CSS.escape(slug)}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // 手機:目錄放在文章上方,預設收起;點了某一節就收起來
+  const narrow = matchMedia('(max-width: 820px)').matches, tocBox = root.querySelector('details.toc');
+  if (narrow && tocBox) tocBox.open = false;
+  root.querySelectorAll('.toc a').forEach(a => a.addEventListener('click', e => { if (narrow && tocBox) tocBox.open = false; }));
   root.querySelectorAll('.toc a').forEach(a => a.addEventListener('click', e => { e.preventDefault(); scrollTo(a.dataset.slug); history.replaceState(null, '', href.note(rel, a.dataset.slug)); }));
   if (heading) requestAnimationFrame(() => scrollTo(heading));
   else window.scrollTo(0, 0);

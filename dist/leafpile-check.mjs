@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Leafpile 書庫檢查工具(單檔版 v0.5.0)
+// Leafpile 書庫檢查工具(單檔版 v0.5.1)
 // 由 scripts/bundle-check.mjs 自動產生,請不要手動修改。原始碼:https://github.com/ToruSmith/Leafpile
 //
 // 用法(需要 Node.js 18 以上):
@@ -691,7 +691,7 @@ const LOCALE_ZH_HANT = {
   'board.fitTitle': '把所有卡片放進畫面(按 F)',
   'board.empty': '這張畫布是空的。',
   'board.emptyEdit': '這張畫布是空的。雙擊任何地方新增文字,或按上方「+ 筆記或簡報」。',
-  'board.hint': '拖曳平移 · Ctrl+滾輪縮放 · F 適合畫面 · Ctrl+F 搜尋',
+  'board.hint': '拖曳平移 · Ctrl+滾輪或兩指縮放 · F 適合畫面 · Ctrl+F 搜尋',
   'board.hintEdit': '拖曳移動(自動對齊,Alt 暫停) · Shift+點或拖曳多選 · 圓點拖曳連線 · 雙擊新增或編輯 · Ctrl+C/V/D 複製 · Ctrl+F 搜尋 · Ctrl+Z 復原',
   'board.kindNote': '筆記',
   'board.kindDeck': '簡報',

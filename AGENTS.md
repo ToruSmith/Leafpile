@@ -9,7 +9,7 @@ Leafpile 把一個本機資料夾同時當成筆記庫與簡報庫：`notes/` �
 
 ## 目前階段
 
-v0.5.0：P1、P2 完成；P3 完成畫布（含嵌入與簡報模式）、發布前檢查、筆記改名／搬移／封存。還沒做的在 [`docs/ROADMAP.md`](docs/ROADMAP.md)：手機閱讀、圖譜增量更新。**開始寫程式前先確認目前在哪個階段，不要跳做後面階段的功能。**
+v0.5.1：P1、P2 完成；P3 完成畫布（含嵌入與簡報模式）、發布前檢查、筆記改名／搬移／封存。路線圖的 P3 都已完成或量測後暫緩（圖譜快取，見 [`docs/ROADMAP.md`](docs/ROADMAP.md)）。**開始寫程式前先確認目前在哪個階段，不要跳做後面階段的功能。**
 
 簡報引擎（`app/player/`、`app/core/` 的 slide、markdown、library 等）來自 [Mdslide Pile](https://github.com/ToruSmith/Mdslide-Pile) v1.14.0。它的洗牌動畫有守門測試（`tests/protected.test.mjs`），**未經維護者同意不得修改**。
 
@@ -51,7 +51,7 @@ content/              公開書庫（部署到 GitHub Pages）：notes/、slides
 starter/              範例書庫的說明、設定與歡迎筆記（scripts/build-starter.mjs 組裝）
 dist/                 單檔檢查工具 leafpile-check.mjs（自動產生，請勿手改）
 docs/                 SPEC、INTEROP、ARCHITECTURE、ROADMAP、AI_PROMPTS、slides/（簡報指南與手冊）
-scripts/              check、guard-content、promote、after-talk、source-sync、new-deck、build-catalog、bundle-check、build-starter
+scripts/              check、guard-content、promote、after-talk、source-sync、bench-graph、new-deck、build-catalog、bundle-check、build-starter
 tests/                node:test 單元測試；smoke/（Playwright）；visual/（畫面比對）
 ```
 
