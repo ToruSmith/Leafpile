@@ -10,7 +10,7 @@ import { t } from './i18n.js';
 import { isHidden, isMarkdown, RESERVED_DIRS, join } from './names.js';
 import { openVault } from './vault.js';
 import { buildGraph, sourceStatus } from './graph.js';
-import { parseCanvas, missingFiles } from './canvas.js';
+import { parseCanvas, missingFiles, fileKind } from './canvas.js';
 import { sectionOf } from './note.js';
 
 export const MAX_SLIDES = 45;
@@ -214,7 +214,15 @@ export async function checkVault(source, onProgress, { today = new Date().toISOS
     let board;
     try { board = parseCanvas(await source.readText(b.path)); } catch (e) { say('error', b.path, t('check.boardBroken', { error: e.message })); continue; }
     for (const i of board.issues) say('warn', b.path, t('check.boardIssue', { issue: i }));
-    for (const f of missingFiles(board, graph)) say('warn', b.path, t('check.boardMissing', { file: f }));
+    for (const f of missingFiles(board, graph)) {
+      // 圖片、HTML、PDF 不在圖譜裡:看檔案在不在
+      if (['image', 'html', 'pdf'].includes(fileKind(f))) {
+        const i = f.lastIndexOf('/');
+        const names = await source.list(i < 0 ? '' : f.slice(0, i)).then(l => l.map(e => e.name), () => []);
+        if (names.includes(f.slice(i + 1))) continue;
+      }
+      say('warn', b.path, t('check.boardMissing', { file: f }));
+    }
   }
   return {
     kind: 'leafpile', title: vault.title, topics: slides.topics, problems, warnings,

@@ -9,7 +9,7 @@ Leafpile 把一個本機資料夾同時當成筆記庫與簡報庫：`notes/` �
 
 ## 目前階段
 
-v0.3.0：P1、P2 完成，P3 完成三項（畫布、發布前檢查、筆記改名／搬移／封存）。還沒做的在 [`docs/ROADMAP.md`](docs/ROADMAP.md)：圖譜增量更新與手機閱讀打磨。**開始寫程式前先確認目前在哪個階段，不要跳做後面階段的功能。**
+v0.4.0：P1、P2 完成；P3 完成畫布（含嵌入與簡報模式）、發布前檢查、筆記改名／搬移／封存。還沒做的在 [`docs/ROADMAP.md`](docs/ROADMAP.md)：畫布第二批、手機閱讀、圖譜增量更新。**開始寫程式前先確認目前在哪個階段，不要跳做後面階段的功能。**
 
 簡報引擎（`app/player/`、`app/core/` 的 slide、markdown、library 等）來自 [Mdslide Pile](https://github.com/ToruSmith/Mdslide-Pile) v1.14.0。它的洗牌動畫有守門測試（`tests/protected.test.mjs`），**未經維護者同意不得修改**。
 

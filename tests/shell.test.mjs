@@ -26,7 +26,7 @@ test('快取版本:內容變了,版本就變', () => {
   assert.match(a, /"\.\/"/);
 });
 
-test('CSP:允許四個嵌入網域,其他框架與行內程式一律擋下', async () => {
+test('CSP:框架只收 https 與本機 blob(畫布嵌入);行內程式一律擋下', async () => {
   const html = await read('index.html');
   const csp = html.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/)[1];
   const dir = name => csp.split(';').map(s => s.trim()).find(s => s.startsWith(name + ' '))?.split(/\s+/).slice(1) || [];
@@ -35,10 +35,10 @@ test('CSP:允許四個嵌入網域,其他框架與行內程式一律擋下', asy
   for (const url of ['https://youtu.be/aqz-KE-bpKQ', 'https://www.bilibili.com/video/BV1xx411c7mD', 'https://drive.google.com/file/d/abc123/view', 'https://vimeo.com/76979871', 'https://codepen.io/jo/pen/AbCd12']) {
     const m = classifyMedia(url);
     assert.ok(m.embed, url);
-    assert.ok(frames.includes(new URL(m.embed).origin), `${new URL(m.embed).origin} 不在 frame-src`);
+    assert.ok(new URL(m.embed).protocol === 'https:', `${m.embed} 不是 https`);
   }
-  assert.ok(frames.includes('https://*.github.io') && frames.includes("'self'"), 'GitHub Pages 與倉庫裡的 HTML 要能嵌入');
-  assert.ok(!frames.includes('https:') && !frames.includes('*'), '不開放任意網站');
+  assert.deepEqual([...frames].sort(), ["'self'", 'blob:', 'https:'].sort(), '只收 https(畫布的嵌入網頁,一定要使用者按「載入」)、本機 PDF 與倉庫裡的 HTML');
+  assert.ok(!frames.includes('*') && !frames.includes('http:') && !frames.includes('data:'), '不收 http、data: 與萬用字元');
   assert.ok(!/\son[a-z]+=/i.test(html), 'index.html 不能有行內事件');
 });
 

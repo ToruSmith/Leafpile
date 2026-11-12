@@ -125,3 +125,78 @@ export function boardFileName(name) {
   const safe = String(name).trim().replace(/[\\/:*?"<>|#^[\]\u0000-\u001f]/g, '').replace(/\s+/g, '-').slice(0, 60) || 'board';
   return `${safe}.canvas`;
 }
+
+// ---------- 檔案卡的種類與嵌入 ----------
+
+const EXT = p => (String(p).split(/[?#]/)[0].match(/\.([a-z0-9]+)$/i)?.[1] || '').toLowerCase();
+export const IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg', 'avif']);
+
+/** file 卡片指的是哪一種檔案:note / deck(由 resolveFile 判斷)、image、html、pdf、other。 */
+export function fileKind(file) {
+  const e = EXT(file);
+  if (IMAGE_EXT.has(e)) return 'image';
+  if (e === 'html' || e === 'htm') return 'html';
+  if (e === 'pdf') return 'pdf';
+  if (e === 'md') return 'note';
+  if (/(^|\/)deck\.ya?ml$/i.test(String(file))) return 'deck';
+  return 'other';
+}
+
+/** 使用者貼上的可能是整段 <iframe ...>(Google 簡報的嵌入碼):取出 src。 */
+export function extractURL(input) {
+  const s = String(input || '').trim();
+  const m = s.match(/<iframe[^>]*\ssrc\s*=\s*["']([^"']+)["']/i);
+  return (m ? m[1] : s).replace(/&amp;/g, '&').trim();
+}
+
+/**
+ * 連結卡能不能嵌入、嵌入哪個網址:
+ *   YouTube、Vimeo、Bilibili、Google 雲端硬碟 → 播放器(一定嵌入)
+ *   Google 簡報 → /embed(一定嵌入)
+ *   其他 https 網頁 → 卡片設了 x-embed 才嵌入
+ * 只接受 https。
+ * @param {(url: string) => object} classify  core/media.js 的 classifyMedia
+ * @returns {{ url: string, provider: string, auto: boolean } | null}
+ */
+export function embedFor(node, classify) {
+  const url = String(node?.url || '');
+  if (!/^https:\/\//i.test(url)) return null;
+  const c = classify(url);
+  if (c.kind === 'embed' && c.embed && !c.interactive) return { url: c.embed, provider: c.provider, auto: true };
+  let m;
+  if ((m = url.match(/^https:\/\/docs\.google\.com\/presentation\/d\/(e\/[\w-]+|[\w-]+)/))) {
+    return { url: `https://docs.google.com/presentation/d/${m[1]}/embed?start=false&loop=false`, provider: 'Google Slides', auto: true };
+  }
+  if (node['x-embed'] === true) return { url: c.kind === 'embed' && c.embed ? c.embed : url, provider: c.provider || new URL(url).hostname, auto: false };
+  return null;
+}
+
+/**
+ * 簡報模式的順序:有群組就一個群組一頁,沒有就一張卡片一頁。
+ * 由上到下、同一列由左到右(上緣差不到一半高度算同一列)。
+ */
+export function slideOrder(board) {
+  const groups = board.nodes.filter(n => n.type === 'group');
+  const items = groups.length ? groups : board.nodes;
+  return [...items].sort((a, b) => {
+    const row = Math.abs(a.y - b.y) < Math.min(a.height, b.height) / 2;
+    return row ? a.x - b.x : a.y - b.y;
+  });
+}
+
+/** 文字卡轉成筆記:標題取第一個標題或第一行;內文保留(標題那一行拿掉)。 */
+export function textToNote(text) {
+  const lines = String(text || '').replace(/\r/g, '').split('\n');
+  const i = lines.findIndex(l => l.trim());
+  if (i < 0) return { title: '', body: '' };
+  const first = lines[i].trim();
+  const title = first.replace(/^#{1,6}\s+/, '').replace(/[*_`[\]]/g, '').trim().slice(0, 80);
+  const body = (/^#{1,6}\s/.test(first) ? [...lines.slice(0, i), ...lines.slice(i + 1)] : lines).join('\n').trim();
+  return { title, body };
+}
+
+/** 筆記出現在哪些畫布的哪些卡片(只比對 file 欄位)。 */
+export function boardsWith(boards, path) {
+  const p = norm(path);
+  return boards.filter(b => b.board.nodes.some(n => n.type === 'file' && norm(String(n.file || '').replace(/^\/+/, '')) === p)).map(b => b.name);
+}

@@ -157,6 +157,26 @@ export class HandleSource {
     return to;
   }
 
+  /**
+   * 畫布的素材(圖片、HTML、PDF):只能寫進 boards/media/,只收這幾種副檔名,有大小上限。
+   * 檔名由呼叫端用內容雜湊決定,所以同名 = 同內容:已經存在就直接沿用,不覆蓋。
+   */
+  async writeMedia(path, blob) {
+    if (!/^boards\/media\/[^/]+\.(png|jpe?g|webp|gif|svg|avif|html?|pdf)$/i.test(path) || path.includes('..')) throw new Error('bad path');
+    const limit = /\.html?$/i.test(path) ? 500 * 1024 : 5 * 1024 * 1024;
+    if (blob.size > limit) throw new Error('too large');
+    if (!(await this.ensureWritable())) throw new Error('denied');
+    let d = this.handle;
+    for (const part of ['boards', 'media']) d = await d.getDirectoryHandle(part, { create: true });
+    const name = path.slice(path.lastIndexOf('/') + 1);
+    if (!(await exists(d, name))) {
+      const w = await (await d.getFileHandle(name, { create: true })).createWritable();
+      try { await w.write(blob); } finally { await w.close(); }
+    }
+    this.listCache.delete('boards/media'); this.listCache.delete('boards');
+    return path;
+  }
+
   /** 搬到同一個簡報資料夾下的 _封存/(不真的刪檔)。回傳新位置。 */
   async archive(path, archiveDir) {
     checkPath(path);

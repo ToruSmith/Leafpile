@@ -197,7 +197,8 @@ from_deck: slides/10-reading/2026-11-x
 `boards/*.canvas`，格式是 [JSON Canvas](https://jsoncanvas.org/)：
 
 - `file` 節點可以指向筆記（`notes/…/x.md`）或簡報（`slides/…/deck.yml`）。
-- Leafpile 自訂的欄位一律以 `x-` 開頭，例如節點的 `"x-kind": "deck"`、檔案層級的 `"x-board"`。
+- Leafpile 自訂的欄位一律以 `x-` 開頭：節點的 `"x-kind": "deck"`、連結卡的 `"x-embed": true`（嵌入網頁）、HTML 卡的 `"x-scripts": true`（允許執行腳本）。
+- 圖片、HTML、PDF 卡片是 `file` 節點，檔案放在 `boards/media/`。
 - 讀寫時保留所有未知欄位。
 
 ## 8. 封存

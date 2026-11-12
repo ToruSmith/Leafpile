@@ -6,7 +6,7 @@ English · [繁體中文](README.md)
 
 Leafpile connects two things that are usually done twice: you collect notes in Markdown, promote them into a 3D card-pile slide deck when it is time to share, and save the Q&A back into your notes afterwards. Files stay on your computer or USB drive; the website only reads them. Nothing to install, nothing uploaded.
 
-**Live site: <https://torusmith.github.io/Leafpile/>** · current version v0.3.0 · [Join the public beta](docs/BETA.en.md)
+**Live site: <https://torusmith.github.io/Leafpile/>** · current version v0.4.0 · [Join the public beta](docs/BETA.en.md)
 
 ![Shelf: notes and decks under the same topic](docs/images/shelf.en.webp)
 
@@ -55,7 +55,7 @@ Full rules: [`docs/INTEROP.md`](docs/INTEROP.md) (Traditional Chinese). Deck for
 | Keep what was said | While playing a deck, Ctrl+K → **Save this deck as an after-talk note** |
 | Present | Enter to zoom, arrows to move, S speaker view, D pen, P for PDF, export to a single HTML file |
 | Rename, move or archive a note | **More ▾** on the note; `[[links]]` to it are updated |
-| Lay out notes and decks together | **Boards** on the library page → **+ New board**; drag, connect, autosaved |
+| Lay out notes and decks together | **Boards** on the library page → **+ New board**: notes, decks, images, web pages, videos, HTML and PDF; drag, connect, autosaved, and **▶ Present** |
 | Before publishing to GitHub | **🔒 Pre-publish check** on the library page: what will be public, possible personal data, and a visitor view |
 | Check the library | **✓ Check** on the library page, or `node leafpile-check.mjs` |
 

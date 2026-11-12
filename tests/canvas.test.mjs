@@ -77,3 +77,36 @@ test('檢查工具:畫布壞掉是錯誤,卡片指到不存在的檔案是提醒
   assert.deepEqual([...content.problems, ...content.warnings].filter(x => x.path.startsWith('boards/')), []);
   assert.ok(parseCanvas(readFileSync(new URL('../content/boards/00-examples-overview.canvas', import.meta.url), 'utf8')).nodes.length > 3);
 });
+
+import { fileKind, extractURL, embedFor, slideOrder, textToNote, boardsWith } from '../app/core/canvas.js';
+import { classifyMedia } from '../app/core/media.js';
+
+test('fileKind / extractURL', () => {
+  assert.deepEqual(['boards/media/a.WEBP', 'x/p.html', 'x/d.pdf', 'notes/a.md', 'slides/t/x/deck.yml', 'a.zip'].map(fileKind), ['image', 'html', 'pdf', 'note', 'deck', 'other']);
+  assert.equal(extractURL('<iframe src="https://docs.google.com/presentation/d/e/2PAC/embed?start=false&amp;loop=false" width="960"></iframe>'), 'https://docs.google.com/presentation/d/e/2PAC/embed?start=false&loop=false');
+  assert.equal(extractURL('  https://a.b/c '), 'https://a.b/c');
+});
+
+test('embedFor:播放器與 Google 簡報自動嵌入;一般網頁要 x-embed;只收 https', () => {
+  assert.equal(embedFor({ url: 'https://youtu.be/dQw4w9WgXcQ' }, classifyMedia).provider, 'YouTube');
+  assert.match(embedFor({ url: 'https://docs.google.com/presentation/d/1AbC_d-9/edit#slide=id.p' }, classifyMedia).url, /^https:\/\/docs\.google\.com\/presentation\/d\/1AbC_d-9\/embed\?/);
+  assert.match(embedFor({ url: 'https://docs.google.com/presentation/d/e/2PACX-1v/pub?start=false' }, classifyMedia).url, /\/d\/e\/2PACX-1v\/embed/);
+  assert.equal(embedFor({ url: 'https://example.org/page' }, classifyMedia), null);
+  assert.deepEqual(embedFor({ url: 'https://example.org/page', 'x-embed': true }, classifyMedia), { url: 'https://example.org/page', provider: 'example.org', auto: false });
+  assert.equal(embedFor({ url: 'http://example.org/page', 'x-embed': true }, classifyMedia), null);
+  assert.equal(embedFor({ url: 'javascript:alert(1)', 'x-embed': true }, classifyMedia), null);
+});
+
+test('slideOrder:群組優先;由上到下、同列由左到右', () => {
+  const n = (id, x, y, type = 'text') => ({ id, type, x, y, width: 100, height: 100 });
+  assert.deepEqual(slideOrder({ nodes: [n('c', 0, 300), n('b', 200, 10), n('a', 0, 0)] }).map(x => x.id), ['a', 'b', 'c']);
+  assert.deepEqual(slideOrder({ nodes: [n('t', 0, 0), n('g2', 500, 0, 'group'), n('g1', 0, 0, 'group')] }).map(x => x.id), ['g1', 'g2']);
+});
+
+test('textToNote / boardsWith', () => {
+  assert.deepEqual(textToNote('\n# 本月目標\n讀完兩本書\n'), { title: '本月目標', body: '讀完兩本書' });
+  assert.deepEqual(textToNote('一句話就是**標題**\n第二行'), { title: '一句話就是標題', body: '一句話就是**標題**\n第二行' });
+  assert.deepEqual(textToNote('  '), { title: '', body: '' });
+  const boards = [{ name: 'A', board: { nodes: [{ type: 'file', file: 'notes/x.md' }] } }, { name: 'B', board: { nodes: [{ type: 'text', text: 'notes/x.md' }] } }];
+  assert.deepEqual(boardsWith(boards, 'notes/x.md'), ['A']);
+});
