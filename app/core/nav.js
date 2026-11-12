@@ -6,9 +6,10 @@ import { notesOfTopic } from './vault.js';
 /**
  * 依書庫的分類與主題排出樹狀目錄。
  * 書庫沒有設定分類時,回傳一個 id 為 null 的群組,畫面上直接列主題。
+ * titles(選填):筆記路徑 → 標題。資料夾清單只有檔名,讀完筆記內容後用它換成真正的標題。
  * @returns {{ id: string|null, name: string, count: number, topics: object[] }[]}
  */
-export function navTree(vault) {
+export function navTree(vault, titles = null) {
   const topicNode = tp => {
     const items = (tp.notes?.items || []).map(i => i.kind === 'book'
       ? { kind: 'book', path: i.path, title: i.title, notes: i.notes.map(noteNode) }
@@ -17,7 +18,7 @@ export function navTree(vault) {
     const count = notesOfTopic(tp.notes).length + decks.length;
     return { kind: 'topic', id: tp.id, title: tp.title, color: tp.color || '', items, decks, count };
   };
-  const noteNode = n => ({ kind: 'note', rel: n.path, title: n.title });
+  const noteNode = n => ({ kind: 'note', rel: n.path, title: titles?.get(n.path) || n.title });
   const groups = vault.categories?.length
     ? vault.categories.map(c => ({ id: c.id, name: c.name, topics: c.topics.map(topicNode) }))
     : [{ id: null, name: '', topics: vault.topics.map(topicNode) }];
@@ -80,8 +81,8 @@ export function parseNavState(raw) {
  * 依目前的書庫把清單裡的項目對上:標題換成最新的,找不到的(改名、刪掉、訪客模式看不到)拿掉。
  * 只影響顯示,不改存起來的清單,所以換回能看到的狀態時釘選還在。
  */
-export function liveEntries(list, vault, boards = []) {
-  const notes = new Map(vault.topics.flatMap(tp => notesOfTopic(tp.notes).map(n => [n.path, n.title])));
+export function liveEntries(list, vault, boards = [], titles = null) {
+  const notes = new Map(vault.topics.flatMap(tp => notesOfTopic(tp.notes).map(n => [n.path, titles?.get(n.path) || n.title])));
   const decks = new Map(vault.topics.flatMap(tp => (tp.decks || []).map(d => [`${tp.id}/${d.id}`, d.title || d.id])));
   const bset = new Set(boards);
   return (list || []).flatMap(e => {

@@ -51,6 +51,12 @@ def main():
         page.click('.note-table [data-sort=title]'); page.wait_for_timeout(200)
         assert page.locator('.note-table th[aria-sort=ascending]').count() == 1, '表格沒有依標題排序'
         page.click('.segmented [data-view=all]'); page.wait_for_timeout(200)
+        # 側邊欄:在書庫頁點主題要能展開(書庫頁外層也有 data-view,曾經把點擊攔下來)
+        topic = page.locator('.side-nav .sn-tree details:not(.sn-cat)').first
+        assert not topic.evaluate('d => d.open'), '主題一開始應該是收起的'
+        topic.locator('> summary').click(); page.wait_for_timeout(200)
+        assert topic.evaluate('d => d.open'), '在書庫頁點側邊欄的主題沒有展開'
+        topic.locator('> summary').click(); page.wait_for_timeout(200)
         page.fill('.search', '雙向同步'); page.wait_for_timeout(300)  # 只出現在內文裡
         assert page.locator('.results li').count() >= 1, '全文搜尋沒有結果'
         page.fill('.search', ''); page.wait_for_timeout(200)

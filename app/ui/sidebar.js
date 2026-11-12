@@ -47,7 +47,7 @@ const ICON = {
  *   context?: 'shelf'|'note'|'board', onSearch?: () => void }} opts
  * @returns {() => void} 卸下(移除元素與監聽)
  */
-export function mountSidebar(app, { lib, vault, boards = [], href, current = { type: 'shelf' }, context = 'shelf', onSearch }) {
+export function mountSidebar(app, { lib, vault, boards = [], href, current = { type: 'shelf' }, context = 'shelf', onSearch, graph = null }) {
   const body = document.body, wide = matchMedia(WIDE);
   const pref = readJSON(SIDE_KEY, {}) || {};
   const prefKey = context === 'board' ? 'board' : 'page';
@@ -89,15 +89,16 @@ export function mountSidebar(app, { lib, vault, boards = [], href, current = { t
   window.addEventListener('keydown', onKey);
   syncTop(); syncState();
 
-  let alive = true, v = null;
+  let alive = true, v = null, titles = null;
   const render = () => {
     if (!alive || !v) return;
-    const tree = navTree(v);
+    const tree = navTree(v, titles);
     const st = loadNav(lib);
-    const pins = liveEntries(st.pins, v, boards), recent = liveEntries(st.recent, v, boards).filter(e => !isPinned(st.pins, e) && !(e.t === current.type && e.id === current.id)).slice(0, 6);
+    const pins = liveEntries(st.pins, v, boards, titles), recent = liveEntries(st.recent, v, boards, titles).filter(e => !isPinned(st.pins, e) && !(e.t === current.type && e.id === current.id)).slice(0, 6);
     const op = setOf(opened, lib), cl = setOf(closed, lib);
     const auto = new Set(pathTo(tree, { type: current.type, id: current.id }));
-    const isOpen = (k, def) => !cl.has(k) && (op.has(k) || auto.has(k) || def);
+    // 目前這篇所在的位置一律展開(就算之前手動收起過);其餘照使用者的選擇,沒選過就用預設
+    const isOpen = (k, def) => auto.has(k) || (!cl.has(k) && (op.has(k) || def));
     const cur = (type, id) => (current.type === type && current.id === id ? ' aria-current="page"' : '');
     const linkOf = e => (e.t === 'n' ? href.note(e.id) : e.t === 'd' ? href.deck(...e.id.split('/')) : href.board(e.id));
     const entry = (e, act) => `<li><a href="${linkOf(e)}"${cur(e.t, e.id)} class="sn-item">${ICON[e.t]}<span>${esc(e.title)}</span></a>${act}</li>`;
@@ -152,7 +153,9 @@ export function mountSidebar(app, { lib, vault, boards = [], href, current = { t
   aside.addEventListener('click', e => {
     if (e.target.closest('.sn-fold')) return wide.matches ? setCollapsed(true) : setOpen(false);
     if (e.target.closest('.sn-search')) { setOpen(false); return onSearch?.(); }
-    const view = e.target.closest('[data-view]')?.dataset.view;
+    // 只認側邊欄自己的「書庫總覽／表格」連結(書庫頁外層也有 data-view,不能用 closest 一路往上找)
+    const viewLink = e.target.closest('.sn-sys a[data-view]');
+    const view = viewLink && aside.contains(viewLink) ? viewLink.dataset.view : '';
     if (view) {
       // 已經在書庫頁:直接切換顯示;否則記下要的顯示再過去
       const seg = document.querySelector(`.segmented [data-view="${view}"]`);
@@ -177,6 +180,12 @@ export function mountSidebar(app, { lib, vault, boards = [], href, current = { t
 
   aside.innerHTML = `<div class="sn-scroll"><p class="sn-empty">${esc(t('side.loading'))}</p></div>`;
   Promise.resolve(vault).then(x => { v = x; render(); }).catch(() => { if (alive) aside.innerHTML = ''; });
+  // 筆記內容讀完(圖譜建好)後,把檔名換成筆記標題
+  Promise.resolve(graph).then(g => {
+    if (!g?.notes) return;
+    titles = new Map([...g.notes.values()].map(n => [n.rel, n.title]));
+    render();
+  }).catch(() => { /* 沒有圖譜就維持檔名 */ });
 
   return () => {
     alive = false;
