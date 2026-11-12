@@ -38,7 +38,7 @@ import { loadQA, saveQA } from './player/qa-store.js';
 import { applyUITheme } from './player/themes.js';
 import { t, setLang, getLang, normalizeLang } from './core/i18n.js';
 
-export const VERSION = '0.8.0';
+export const VERSION = '0.8.1';
 const REPO_URL = 'https://github.com/ToruSmith/Leafpile';
 const MDSLIDE_URL = 'https://github.com/ToruSmith/Mdslide-Pile';
 
@@ -197,6 +197,7 @@ function sideFor(key, vault, current, context) {
   return mountSidebar(app, {
     lib: key, vault: shown, boards: (vault.boards || []).map(b => b.name), href: hrefs(key),
     current, context, onSearch: () => showPalette(),
+    graph: vault.kind === 'leafpile' ? getGraph(key).catch(() => null) : null,
   });
 }
 
@@ -350,7 +351,7 @@ async function showShelf(key) {
         onNewNote: vault.notesSource?.canWrite ? () => newNote(key) : null,
       }),
     };
-    withSide(state.view, mountSidebar(app, { lib: key, vault: shown, boards: (vault.boards || []).map(b => b.name), href, current: { type: 'shelf' }, context: 'shelf', onSearch: () => showPalette() }));
+    withSide(state.view, mountSidebar(app, { lib: key, vault: shown, boards: (vault.boards || []).map(b => b.name), href, current: { type: 'shelf' }, context: 'shelf', onSearch: () => showPalette(), graph: graph?.catch(() => null) }));
     document.title = `${vault.title} · Leafpile`;
     if (source.kind === 'handle') watchVault(key, vault);
   } catch (e) { showError(e); }

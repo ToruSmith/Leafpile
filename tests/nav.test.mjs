@@ -87,3 +87,12 @@ test('liveEntries:標題換成最新的,找不到的不顯示(但不刪)', () =>
   assert.deepEqual(live.map(e => e.title), ['第 1 章', '11 月讀書會', 'overview']);
   assert.equal(list.length, 5, '原清單不變');
 });
+
+test('navTree / liveEntries:有標題對照時,用筆記標題取代檔名', () => {
+  const titles = new Map([['10-reading/loose.md', '散篇的真正標題'], ['20-work/a.md', '工作 A']]);
+  const tree = navTree(vault, titles);
+  const loose = tree[0].topics[0].items.find(i => i.rel === '10-reading/loose.md');
+  assert.equal(loose.title, '散篇的真正標題');
+  assert.equal(tree[0].topics[0].items[0].notes[0].title, '第 1 章', '沒有對照的維持原本的');
+  assert.deepEqual(liveEntries([{ t: 'n', id: '20-work/a.md', title: 'a' }], vault, [], titles).map(e => e.title), ['工作 A']);
+});
