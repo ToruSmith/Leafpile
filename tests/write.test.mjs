@@ -74,3 +74,30 @@ test('archive:搬到 _封存,不真的刪掉;同名會加編號', async () => {
   assert.equal(await s.archive('deck/01-sec/01-x.md', 'deck/_封存'), 'deck/_封存/01-x-2.md');
   assert.equal(root.dirs.deck.dirs['_封存'].files['01-x.md'], 'one', '先前封存的不能被蓋掉');
 });
+
+test('writeText:expect: null 只建新檔,已經有同名檔就不覆蓋', async () => {
+  const root = fakeDir('lib', { 'a.md': '# 原本的' });
+  const s = new HandleSource(root);
+  await assert.rejects(() => s.writeText('a.md', '# 新的', { expect: null }), /stale/);
+  assert.equal(root.files['a.md'], '# 原本的', '不能蓋掉已經存在的檔案');
+  await s.writeText('b.md', '# 新的', { expect: null });
+  assert.equal(root.files['b.md'], '# 新的');
+});
+
+test('archive:封存的副本讀回來不一致就停下來,原檔保留', async () => {
+  const sec = fakeDir('01-sec', { '01-x.md': '# x' });
+  const root = fakeDir('lib', {}, { deck: fakeDir('deck', {}, { '01-sec': sec }) });
+  const s = new HandleSource(root);
+  // 模擬寫入不完整:封存資料夾裡寫進去的內容被截斷
+  root.dirs.deck.getDirectoryHandle = async (n, o) => {
+    if (!root.dirs.deck.dirs[n]) root.dirs.deck.dirs[n] = fakeDir(n);
+    const a = root.dirs.deck.dirs[n];
+    if (n === '_封存') {
+      const gf = a.getFileHandle.bind(a);
+      a.getFileHandle = async (fn, fo) => { const h = await gf(fn, fo); return { ...h, createWritable: async () => ({ write: () => {}, close: async () => { a.files[fn] = '# 截斷'; } }) }; };
+    }
+    return a;
+  };
+  await assert.rejects(() => s.archive('deck/01-sec/01-x.md', 'deck/_封存'), /verify/);
+  assert.equal(sec.files['01-x.md'], '# x', '原檔不能被移除');
+});

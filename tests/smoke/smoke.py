@@ -269,6 +269,27 @@ def main():
         else:
             errors.append('service worker 沒有接手頁面')
         errors.extend('csp: ' + v for v in page.evaluate('window.__csp'))
+
+        # 無障礙基本檢查:看得到的按鈕、連結、輸入框都要有名稱(文字、aria-label 或 title),
+        # 只有符號(⋯、×、▸)的按鈕也要有 aria-label 或 title,螢幕報讀才念得出來
+        unnamed = '''() => {
+          const vis = e => { const r = e.getBoundingClientRect(), s = getComputedStyle(e); return r.width > 0 && r.height > 0 && s.visibility !== 'hidden'; };
+          const out = [];
+          for (const e of document.querySelectorAll('button, a[href], [role=button], input:not([type=hidden]), select, textarea')) {
+            if (!vis(e)) continue;
+            const label = e.getAttribute('aria-label') || e.getAttribute('title');
+            const field = /^(INPUT|SELECT|TEXTAREA)$/.test(e.tagName);
+            const text = field ? (e.getAttribute('placeholder') || e.labels?.[0]?.textContent || '') : (e.textContent || e.querySelector('img[alt]')?.alt || '');
+            if (!label && !/[\\p{L}\\p{N}]/u.test(text)) out.push(e.outerHTML.slice(0, 120));
+          }
+          return out;
+        }'''
+        page.set_default_timeout(15000)
+        for h in ['', '#/repo', '#/repo/n/00-examples%2F2026-11-leafpile-basics%2F01-two-channels.md', '#/repo/b/00-examples-overview', '#/repo/d/00-examples/2026-11-minimal']:
+            page.goto(BASE + h); page.wait_for_timeout(2000)
+            for v in ['notes', 'table'] if h == '#/repo' else ['']:
+                if v: page.click(f'.segmented [data-view={v}]'); page.wait_for_timeout(400)
+                errors.extend(f'沒有名稱({h or "首頁"} {v}):{x}' for x in page.evaluate(unnamed))
         browser.close()
 
     if errors:
