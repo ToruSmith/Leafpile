@@ -722,6 +722,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
         const ids = isSel(n.id) ? selIds().filter(x => x !== n.id) : [...selIds(), n.id];
         select({ ids }); act = null; return;
       }
+      const prevSel = selIds();
       if (!isSel(n.id)) select({ ids: [n.id] });
       if (!canEdit) { act = { type: 'pan', sx: e.clientX, sy: e.clientY, cx: cam.x, cy: cam.y }; return; }
       if (h === 'resize') act = { type: 'resize', n, w0: n.width, h0: n.height, sx: w.x, sy: w.y };
@@ -732,6 +733,13 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
         const r = view.getBoundingClientRect(), vis = { x: -cam.x / cam.z, y: -cam.y / cam.z, w: r.width / cam.z, h: r.height / cam.z };
         const still = board.nodes.filter(m => !ids.has(m.id) && m.x < vis.x + vis.w && m.x + m.width > vis.x && m.y < vis.y + vis.h && m.y + m.height > vis.y);
         act = { type: 'move', sx: w.x, sy: w.y, items: moving.map(x => ({ x0: x.x, y0: x.y, node: x })), box0: bounds(selNodes()), lines: snapLines(still), moved: false, id: n.id };
+        // 觸控沒有 Shift:長按卡片 = 加選/取消
+        if (e.pointerType === 'touch') act.lp = setTimeout(() => {
+          if (!act || act.moved || act.type !== 'move') return;
+          const ids = selIds().length > 1 && isSel(n.id) ? selIds().filter(x => x !== n.id) : [...new Set([...(act.prev || []), n.id])];
+          act = null; navigator.vibrate?.(12); select({ ids });
+        }, 500);
+        act.prev = prevSel;
       }
       return;
     }
@@ -742,8 +750,14 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     }
     if (e.shiftKey && canEdit) { act = { type: 'marquee', sx: w.x, sy: w.y, cx: e.clientX, cy: e.clientY, base: selIds() }; return; }
     if (isDouble('bg') && canEdit) { act = null; e.preventDefault(); return addTextAt(w.x, w.y); } // preventDefault:不要讓瀏覽器把焦點搶回畫布
+    const base = selIds();
     select(null);
     act = { type: 'pan', sx: e.clientX, sy: e.clientY, cx: cam.x, cy: cam.y };
+    // 觸控沒有 Shift:長按空白處再拖曳 = 框選
+    if (e.pointerType === 'touch' && canEdit) {
+      const a = act;
+      a.lp = setTimeout(() => { if (act === a && a.still !== false) { act = { type: 'marquee', sx: w.x, sy: w.y, cx: e.clientX, cy: e.clientY, base }; navigator.vibrate?.(12); } }, 500);
+    }
   });
 
   view.addEventListener('pointermove', e => {
@@ -754,7 +768,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
       return zoomAt(act.z * Math.hypot(p.x - q.x, p.y - q.y) / act.d, (p.x + q.x) / 2, (p.y + q.y) / 2);
     }
     if (act.type === 'pan') {
-      if (Math.abs(e.clientX - act.sx) + Math.abs(e.clientY - act.sy) > 4) act.still = false;
+      if (Math.abs(e.clientX - act.sx) + Math.abs(e.clientY - act.sy) > 4) { act.still = false; clearTimeout(act.lp); }
       if (act.still && present) return;
       world.classList.remove('glide'); cam.x = act.cx + e.clientX - act.sx; cam.y = act.cy + e.clientY - act.sy; return applyCam();
     }
@@ -772,7 +786,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     }
     if (act.type === 'move') {
       let dx = w.x - act.sx, dy = w.y - act.sy;
-      if (Math.abs(dx) + Math.abs(dy) > 2) { act.moved = true; pop.hidden = true; }
+      if (Math.abs(dx) + Math.abs(dy) > 2) { act.moved = true; pop.hidden = true; clearTimeout(act.lp); }
       let guides = null;
       if (!e.altKey && act.box0) { // 吸附附近卡片的邊與中線
         const s = snapMove({ ...act.box0, x: act.box0.x + dx, y: act.box0.y + dy }, act.lines, SNAP_PX / cam.z);
@@ -799,6 +813,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     pointers.delete(e.pointerId);
     if (!act) return;
     const a = act; act = null;
+    clearTimeout(a.lp);
     if (a.type === 'pan' && present && a.still) { // 簡報中點一下 = 下一頁(點左邊三分之一 = 上一頁)
       const r = view.getBoundingClientRect();
       return showSlide(present.i + (e.clientX - r.left < r.width / 3 ? -1 : 1));
