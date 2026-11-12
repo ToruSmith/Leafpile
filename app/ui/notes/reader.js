@@ -11,12 +11,23 @@ import { t } from '../../core/i18n.js';
 import { notesOfTopic } from '../../core/vault.js';
 import { sourceStatus } from '../../core/graph.js';
 import { resolvePublic, isLocalOnly } from '../../core/privacy.js';
+import { pct, parseScale, stepScale } from '../../core/scale.js';
+import { canFullscreen, enterFullscreen, exitFullscreen, autoHide } from '../fullscreen.js';
 
 const SCALE_KEY = 'leafpile-note-scale';
-const SCALES = [0.9, 1, 1.12, 1.25, 1.4];
+
+// 沉浸閱讀:換上一篇／下一篇時畫面會重畫,所以狀態放在模組裡,離開筆記頁才關
+let immersive = false;
+const IMM_CLASSES = ['immersive', 'rd-toc', 'rd-chap'];
+function leaveImmersive() {
+  immersive = false;
+  document.body.classList.remove(...IMM_CLASSES);
+  exitFullscreen();
+}
+window.addEventListener('hashchange', () => { if (immersive && !/\/n\//.test(location.hash)) leaveImmersive(); });
 
 function savedScale() {
-  try { const v = Number(localStorage.getItem(SCALE_KEY)); return SCALES.includes(v) ? v : 1; } catch { return 1; }
+  try { return parseScale(localStorage.getItem(SCALE_KEY)); } catch { return 1; }
 }
 
 /** 筆記裡的圖片路徑:/ 開頭 = 筆記渠道根目錄;其他 = 相對於這篇筆記所在的資料夾。 */
@@ -82,7 +93,8 @@ export function renderReader(root, { vault, rel, note, topic, book, header, href
             ${canPromote ? `<button class="btn ghost promote" title="${esc(t('promote.buttonTitle'))}">${esc(t('promote.button'))}</button>` : ''}
             ${canPromote ? `<details class="note-more"><summary class="btn ghost" title="${esc(t('move.moreTitle'))}">${esc(t('move.more'))}</summary><div class="note-more-menu">
               <button data-act="rename">${esc(t('move.rename'))}</button><button data-act="move">${esc(t('move.move'))}</button><button data-act="archive">${esc(t('move.archive'))}</button></div></details>` : ''}
-            <span class="scale"><button data-scale="-1" title="${esc(t('note.smaller'))}" aria-label="${esc(t('note.smaller'))}">A−</button><button data-scale="1" title="${esc(t('note.larger'))}" aria-label="${esc(t('note.larger'))}">A+</button></span>
+            <button class="btn ghost imm" data-rd="enter" title="${esc(t('note.immersiveTitle'))}">${esc(t('note.immersive'))}</button>
+            <span class="scale"><button data-scale="-1" title="${esc(t('note.smaller'))}" aria-label="${esc(t('note.smaller'))}">A−</button><button class="val" data-scale="0" title="${esc(t('note.scaleReset'))}">${pct(scale)}</button><button data-scale="1" title="${esc(t('note.larger'))}" aria-label="${esc(t('note.larger'))}">A+</button></span>
           </div>
           ${toc.length ? `<details class="toc" open><summary><h3>${esc(t('note.toc'))}</h3></summary><ol>${toc.map(h => `<li class="l${h.level}"><a href="#" data-slug="${esc(h.slug)}">${esc(h.text)}</a></li>`).join('')}</ol></details>` : ''}
           <section class="backlinks"><h3>${esc(t('note.backlinks'))}</h3><p class="muted">${esc(t('note.indexing'))}</p></section>
@@ -90,6 +102,17 @@ export function renderReader(root, { vault, rel, note, topic, book, header, href
           <section class="on-boards" hidden><h3>${esc(t('note.onBoards'))}</h3><ul></ul></section>
         </aside>
       </div>
+      <div class="rd-hot" aria-hidden="true"></div>
+      <div class="rd-bar" role="toolbar" aria-label="${esc(t('rd.toolbar'))}">
+        ${siblings.length > 1 ? `<button data-rd="chap" aria-pressed="false">${esc(t('rd.chapters'))}</button>` : ''}
+        ${toc.length ? `<button data-rd="toc" aria-pressed="false">${esc(t('note.toc'))}</button>` : ''}
+        <button data-scale="-1" aria-label="${esc(t('note.smaller'))}">A−</button>
+        <button class="val" data-scale="0" title="${esc(t('note.scaleReset'))}">${pct(scale)}</button>
+        <button data-scale="1" aria-label="${esc(t('note.larger'))}">A+</button>
+        ${canFullscreen() ? `<button data-rd="full">${esc(t('rd.fullscreen'))}</button>` : ''}
+        <button data-rd="exit">${esc(t('rd.exit'))}</button>
+      </div>
+      <button class="rd-fab" data-rd="menu" aria-label="${esc(t('rd.menu'))}" title="${esc(t('rd.menu'))}">☰</button>
     </div>`;
 
   const article = root.querySelector('.note-article');
@@ -120,13 +143,46 @@ export function renderReader(root, { vault, rel, note, topic, book, header, href
     b.closest('details').open = false;
     window.dispatchEvent(new CustomEvent('leafpile:note-action', { detail: { action: b.dataset.act, rel } }));
   }));
-  const page = root.querySelector('.note-page');
-  root.querySelectorAll('[data-scale]').forEach(b => b.addEventListener('click', () => {
-    const cur = SCALES.indexOf(Number(page.style.getPropertyValue('--note-scale')) || 1);
-    const v = SCALES[Math.min(SCALES.length - 1, Math.max(0, (cur < 0 ? 1 : cur) + Number(b.dataset.scale)))];
+  const page = root.querySelector('.note-page'), rdBar = root.querySelector('.rd-bar');
+  const bar = autoHide(rdBar);
+  const setScale = d => {
+    const v = stepScale(Number(page.style.getPropertyValue('--note-scale')) || 1, d);
     page.style.setProperty('--note-scale', v);
+    root.querySelectorAll('.val').forEach(b => { b.textContent = pct(v); });
     try { localStorage.setItem(SCALE_KEY, String(v)); } catch { /* 隱私模式 */ }
+  };
+  root.querySelectorAll('[data-scale]').forEach(b => b.addEventListener('click', () => setScale(Number(b.dataset.scale))));
+
+  // 沉浸閱讀:隱藏頁首與側欄,只留內文;目錄與章節從浮動按鈕開成抽屜
+  const syncBar = () => rdBar.querySelectorAll('[data-rd=chap],[data-rd=toc]').forEach(b => b.setAttribute('aria-pressed', document.body.classList.contains('rd-' + b.dataset.rd) ? 'true' : 'false'));
+  const setImmersive = on => {
+    if (on) {
+      immersive = true;
+      document.body.classList.remove('rd-toc', 'rd-chap');
+      document.body.classList.add('immersive');
+      if (tocBox) tocBox.open = false;
+      syncBar(); bar.show(5000);
+      enterFullscreen(document.documentElement);
+    } else leaveImmersive();
+  };
+  const drawer = k => {
+    const cls = 'rd-' + k, other = k === 'toc' ? 'rd-chap' : 'rd-toc', on = !document.body.classList.contains(cls);
+    document.body.classList.remove(other); document.body.classList.toggle(cls, on);
+    if (k === 'toc' && tocBox) tocBox.open = on;
+    syncBar();
+  };
+  root.querySelectorAll('[data-rd]').forEach(b => b.addEventListener('click', () => {
+    const k = b.dataset.rd;
+    if (k === 'enter') setImmersive(true);
+    else if (k === 'exit') setImmersive(false);
+    else if (k === 'chap' || k === 'toc') drawer(k);
+    else if (k === 'full') (document.fullscreenElement ? exitFullscreen() : enterFullscreen(document.documentElement));
+    else if (k === 'menu') bar.toggle();
   }));
+  root.querySelector('.rd-hot').addEventListener('mouseenter', () => { if (immersive) bar.show(); });
+  // 抽屜裡點了連結就收起來
+  root.querySelectorAll('.note-left a, .toc a').forEach(a => a.addEventListener('click', () => { if (immersive) { document.body.classList.remove('rd-toc', 'rd-chap'); syncBar(); } }));
+  if (immersive) { document.body.classList.add('immersive'); syncBar(); bar.show(2500); }
 
   // 目錄:捲動時標出目前所在的段落
   const heads = [...article.querySelectorAll('h2[id], h3[id]')];
@@ -142,11 +198,19 @@ export function renderReader(root, { vault, rel, note, topic, book, header, href
   // 快捷鍵:← → 上一篇 / 下一篇、P 快閃播放、E 編輯
   const onKey = e => {
     if (closeBox) { if (e.key === 'Escape') closeBox(); return; }
+    // 全螢幕中 Esc 先由瀏覽器退出全螢幕(留在沉浸版面),再按一次才離開沉浸閱讀
+    if (e.key === 'Escape' && immersive && !document.fullscreenElement) {
+      if (document.body.classList.contains('rd-toc') || document.body.classList.contains('rd-chap')) { document.body.classList.remove('rd-toc', 'rd-chap'); syncBar(); } else setImmersive(false);
+      return;
+    }
     if (e.target.closest?.('input, textarea, select, [contenteditable]') || e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.key === 'ArrowLeft' && prev) location.hash = href.note(prev.path);
     else if (e.key === 'ArrowRight' && next) location.hash = href.note(next.path);
     else if (e.key.toLowerCase() === 'p') location.hash = href.flash(rel);
     else if (e.key.toLowerCase() === 'e' && canEdit) location.hash = href.edit(rel);
+    else if (e.key.toLowerCase() === 'f') setImmersive(!immersive);
+    else if (e.key === '+' || e.key === '=') setScale(1);
+    else if (e.key === '-') setScale(-1);
   };
   window.addEventListener('keydown', onKey);
 
@@ -186,5 +250,5 @@ export function renderReader(root, { vault, rel, note, topic, book, header, href
     if (bl) bl.textContent = t('note.indexFailed');
   });
 
-  return () => { alive = false; closeBox?.(); io?.disconnect(); window.removeEventListener('keydown', onKey); };
+  return () => { alive = false; closeBox?.(); io?.disconnect(); bar.dispose(); window.removeEventListener('keydown', onKey); document.body.classList.remove(...IMM_CLASSES); };
 }

@@ -56,6 +56,16 @@ def main():
         page.wait_for_selector('.backlinks li', timeout=10000)
         assert page.locator('.used-by li').count() >= 1, '沒有顯示「被哪些簡報引用」'
         note_url = page.url
+        # 字級(十級)與沉浸閱讀:隱藏頁首與側欄、浮動按鈕列、F 鍵離開
+        page.click('.note-tools [data-scale="1"]')
+        assert page.locator('.note-tools .val').inner_text() == '112%', '字級沒有放大一級'
+        page.click('.note-tools .val')
+        assert page.locator('.note-tools .val').inner_text() == '100%', '字級沒有回到 100%'
+        page.click('.note-tools .imm'); page.wait_for_timeout(500)
+        assert page.evaluate("document.body.classList.contains('immersive')"), '沒有進入沉浸閱讀'
+        assert not page.locator('.topbar').is_visible() and page.locator('.rd-bar').is_visible(), '沉浸閱讀應隱藏頁首並顯示浮動按鈕列'
+        page.keyboard.press('f'); page.wait_for_timeout(500)
+        assert not page.evaluate("document.body.classList.contains('immersive')") and page.locator('.topbar').is_visible(), '按 F 沒有離開沉浸閱讀'
         page.locator('.md a.wikilink').first.click(); page.wait_for_timeout(1500)
         assert '/n/' in page.url and page.url != note_url, f'[[連結]] 沒有帶到另一篇筆記:{page.url}'
         page.keyboard.press('Control+k'); page.wait_for_timeout(300)

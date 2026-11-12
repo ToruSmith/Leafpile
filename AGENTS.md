@@ -9,7 +9,7 @@ Leafpile 把一個本機資料夾同時當成筆記庫與簡報庫：`notes/` �
 
 ## 目前階段
 
-v0.5.1：P1、P2 完成；P3 完成畫布（含嵌入與簡報模式）、發布前檢查、筆記改名／搬移／封存。路線圖的 P3 都已完成或量測後暫緩（圖譜快取，見 [`docs/ROADMAP.md`](docs/ROADMAP.md)）。**開始寫程式前先確認目前在哪個階段，不要跳做後面階段的功能。**
+v0.6.0：P1、P2 完成；P3 完成畫布（含嵌入與簡報模式）、發布前檢查、筆記改名／搬移／封存、沉浸閱讀與字級。路線圖的 P3 都已完成或量測後暫緩（圖譜快取，見 [`docs/ROADMAP.md`](docs/ROADMAP.md)）。**開始寫程式前先確認目前在哪個階段，不要跳做後面階段的功能。**
 
 簡報引擎（`app/player/`、`app/core/` 的 slide、markdown、library 等）來自 [Mdslide Pile](https://github.com/ToruSmith/Mdslide-Pile) v1.14.0。它的洗牌動畫有守門測試（`tests/protected.test.mjs`），**未經維護者同意不得修改**。
 
@@ -40,11 +40,12 @@ app/
     graph.js          背景索引（標題、連結、搜尋）            ← Leafpile
     privacy.js        公開判斷、個資樣式                     ← Leafpile
     bridge.js         摘錄嵌入、升級成簡報、講後筆記          ← Leafpile
+    scale.js          筆記字級（十級，0.8–2.2 倍）           ← Leafpile
     check.js          檢查規則（checkVault 包住 checkLibrary）
     library.js slide.js markdown.js yaml.js names.js …      簡報引擎（Mdslide Pile）
     locales/          zh-Hant.js、en.js（兩份的鍵必須一致）
   sources/            資料來源（Http、Handle、FileList）與最近開啟的書庫
-  ui/                 shelf.js（書架）、notes/reader.js、notes/editor.js、palette.js、dialog.js、check-view.js
+  ui/                 shelf.js（書架）、notes/reader.js（含沉浸閱讀）、notes/editor.js、palette.js、dialog.js、check-view.js、fullscreen.js（全螢幕與浮動列自動收起）
   player/             播放器（Mdslide Pile）＋ flash.js（快閃播放）
   styles/             themes.css、slides.css、app.css、notes.css
 content/              公開書庫（部署到 GitHub Pages）：notes/、slides/、boards/、_site.yml
