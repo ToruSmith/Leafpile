@@ -131,7 +131,7 @@ export function mountSidebar(app, { lib, vault, boards = [], href, current = { t
         </section>
         ${recent.length ? `<section class="sn-sec"><h3>${esc(t('side.recent'))}</h3><ul>${recent.map(e => entry(e, `<button class="sn-act" data-pin="${esc(e.t)}|${esc(e.id)}|${esc(e.title)}" aria-label="${esc(t('side.pin'))}" title="${esc(t('side.pin'))}">${ICON.pin}</button>`)).join('')}</ul></section>` : ''}
         ${boards.length ? `<section class="sn-sec"><details data-k="boards"${isOpen('boards', boards.length <= 5 || current.type === 'b') ? ' open' : ''}><summary class="sn-h"><span>${esc(t('side.boards'))}</span><small>${boards.length}</small></summary><ul>${boards.map(b => `<li><a class="sn-item" href="${href.board(b)}"${cur('b', b)}>${ICON.b}<span>${esc(b)}</span></a></li>`).join('')}</ul></details></section>` : ''}
-        <section class="sn-sec sn-tree"><h3>${esc(t('side.topics'))}</h3>${groups || `<p class="sn-empty">${esc(t('side.topicsEmpty'))}</p>`}</section>
+        <section class="sn-sec sn-tree"><h3>${esc(t('side.topics'))}<a class="sn-manage" href="${href.shelf}" data-view="table" data-mode="topics" title="${esc(t('side.manageTitle'))}">${esc(t('side.manage'))}</a></h3>${groups || `<p class="sn-empty">${esc(t('side.topicsEmpty'))}</p>`}</section>
       </div>`;
     const sc = aside.querySelector('.sn-scroll');
     sc.scrollTop = prevScroll;
@@ -154,13 +154,14 @@ export function mountSidebar(app, { lib, vault, boards = [], href, current = { t
     if (e.target.closest('.sn-fold')) return wide.matches ? setCollapsed(true) : setOpen(false);
     if (e.target.closest('.sn-search')) { setOpen(false); return onSearch?.(); }
     // 只認側邊欄自己的「書庫總覽／表格」連結(書庫頁外層也有 data-view,不能用 closest 一路往上找)
-    const viewLink = e.target.closest('.sn-sys a[data-view]');
+    const viewLink = e.target.closest('.sn-sys a[data-view], .sn-manage[data-view]');
     const view = viewLink && aside.contains(viewLink) ? viewLink.dataset.view : '';
     if (view) {
-      // 已經在書庫頁:直接切換顯示;否則記下要的顯示再過去
-      const seg = document.querySelector(`.segmented [data-view="${view}"]`);
-      if (seg && location.hash === href.shelf) { e.preventDefault(); seg.click(); setOpen(false); return; }
+      const mode = viewLink.dataset.mode || (view === 'table' ? 'notes' : '');
+      // 已經在書庫頁:通知書庫頁直接切換;否則記下要的顯示再過去
+      if (location.hash === href.shelf) { e.preventDefault(); setOpen(false); window.dispatchEvent(new CustomEvent('leafpile-shelf', { detail: { view, mode } })); return; }
       writePref('leafpile-shelf-view', view);
+      if (mode) writePref('leafpile-table-mode', mode);
     }
     const pin = e.target.closest('[data-pin], [data-unpin]');
     if (pin) {

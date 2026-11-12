@@ -7,13 +7,16 @@ import { t } from '../core/i18n.js';
  * @param {{ title?: string, message?: string, fields?: { name, label, value?, type?: 'text'|'select', options?: {value,label}[] }[], buttons: { label, value, primary? }[] }} opts
  * @returns {Promise<{ value: any, fields: Record<string,string> } | null>} 按 Esc 或點外面 = null
  */
-export function dialog({ title = '', message = '', fields = [], buttons }) {
+export function dialog({ title = '', message = '', list = [], note = '', error = '', fields = [], buttons }) {
   return new Promise(resolve => {
     const box = document.createElement('div');
     box.className = 'lp-dialog';
     box.innerHTML = `<form class="lp-dialog-card" role="dialog" aria-modal="true"${title ? ` aria-label="${esc(title)}"` : ''}>
       ${title ? `<h2>${esc(title)}</h2>` : ''}
       ${message ? `<p>${esc(message)}</p>` : ''}
+      ${list.length ? `<ul class="lp-dialog-list">${list.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+      ${note ? `<p class="lp-dialog-note">${esc(note)}</p>` : ''}
+      ${error ? `<p class="lp-dialog-error" role="alert">${esc(error)}</p>` : ''}
       ${fields.map(f => `<label><span>${esc(f.label)}</span>${f.type === 'select'
         ? `<select name="${esc(f.name)}">${f.options.map(o => `<option value="${esc(o.value)}"${o.value === f.value ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}</select>`
         : `<input name="${esc(f.name)}" value="${esc(f.value || '')}" autocomplete="off"${f.placeholder ? ` placeholder="${esc(f.placeholder)}"` : ''}>`}</label>`).join('')}

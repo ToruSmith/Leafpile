@@ -28,6 +28,9 @@ import { renderReader } from './ui/notes/reader.js';
 import { renderEditor, newNoteFileName, newNoteText } from './ui/notes/editor.js';
 import { openPalette } from './ui/palette.js';
 import { mountSidebar, recordRecent } from './ui/sidebar.js';
+import { topicDialog, previewDialog, describeChange, categoriesDialog } from './ui/topic-manage.js';
+import { topicConfPath, planTopicEdit, newTopicYaml, planCategories, suggestTopicPrefix } from './core/topics.js';
+import { parseYaml } from './core/yaml.js';
 import { openCheckPanel } from './ui/check-view.js';
 import { dialog, confirmDialog, toast } from './ui/dialog.js';
 import { Player } from './player/player.js';
@@ -38,7 +41,7 @@ import { loadQA, saveQA } from './player/qa-store.js';
 import { applyUITheme } from './player/themes.js';
 import { t, setLang, getLang, normalizeLang } from './core/i18n.js';
 
-export const VERSION = '0.8.1';
+export const VERSION = '0.9.0';
 const REPO_URL = 'https://github.com/ToruSmith/Leafpile';
 const MDSLIDE_URL = 'https://github.com/ToruSmith/Mdslide-Pile';
 
@@ -186,6 +189,109 @@ function invalidate(key) {
   state.sources.get(key)?.refresh?.();
   state.vaults.delete(key);
   state.graphs.delete(key);
+}
+
+// ---------------- 主題管理(設定類) ----------------
+// 只改 _topic.yml 與 _site.yml;每次都先預覽,寫入後可以復原(把原本的內容寫回去)。
+
+/** _site.yml 裡的分類(包含還沒有主題的)。 */
+function siteCategories(vault) {
+  const list = vault.site?.categories;
+  return Array.isArray(list) ? list.filter(c => c && c.id != null).map(c => ({ id: String(c.id), name: String(c.name ?? c.id), color: c.color ? String(c.color) : '' })) : [];
+}
+
+/** 讀檔(不存在回空字串)與它目前的狀態(寫入時用來確認沒被別人改過)。 */
+async function readForEdit(src, path) {
+  const stat = await src.stat(path);
+  return { stat, text: stat == null ? '' : await src.readText(path) };
+}
+
+/** 寫入,完成後重新讀書庫;原本有檔案的話,提示上放「復原」。 */
+async function writeConfig(key, path, before, text, doneMsg) {
+  const src = state.sources.get(key);
+  let after;
+  try {
+    after = await src.writeText(path, text, { expect: before.stat, mkdir: before.stat == null });
+  } catch (e) {
+    toast(t(String(e.message) === 'stale' ? 'tm.stale' : 'tm.writeFailed', { path }), { ms: 6000 });
+    return false;
+  }
+  invalidate(key);
+  const undo = before.stat == null ? [] : [{
+    label: t('tm.undo'),
+    run: async () => {
+      try { await src.writeText(path, before.text, { expect: after }); invalidate(key); route(); toast(t('tm.undone')); }
+      catch { toast(t('tm.undoFailed', { path }), { ms: 6000 }); }
+    },
+  }];
+  toast(doneMsg, { ms: 8000, actions: undo });
+  route();
+  return true;
+}
+
+async function editTopic(key, id) {
+  const vault = await getVault(key);
+  const src = state.sources.get(key);
+  if (!vault || !src?.canWrite) return toast(t('ne.readonly'));
+  const tp = vault.topics.find(x => x.id === id);
+  if (!tp) return;
+  const path = topicConfPath(id);
+  const before = await readForEdit(src, path);
+  const conf = (before.text && parseYaml(before.text)) || {};
+  const cats = siteCategories(vault);
+  let last = null;
+  for (;;) {
+    const v = await topicDialog({ mode: 'edit', id, conf: last ? { ...conf, ...last, name: last.name } : conf, title: last?.name ?? tp.title, categories: cats });
+    if (!v) return;
+    last = v;
+    const plan = planTopicEdit(before.text, v, id);
+    if (!plan.changes.length) return toast(t('tm.noChange'));
+    const ok = await previewDialog({ title: t('tm.previewTitle'), path, lines: plan.changes.map(c => describeChange(c, cats)), note: before.stat == null ? t('tm.willCreate') : t('tm.noLinks') });
+    if (ok) return writeConfig(key, path, before, plan.text, t('tm.saved', { path }));
+  }
+}
+
+async function newTopic(key) {
+  const vault = await getVault(key);
+  const src = state.sources.get(key);
+  if (!vault || !src?.canWrite || !vault.notesSource) return toast(t('ne.readonly'));
+  const ids = vault.topics.map(tp => tp.id).filter(x => x !== '_');
+  const cats = siteCategories(vault);
+  const v = await topicDialog({ mode: 'new', categories: cats, ids, prefix: suggestTopicPrefix(ids), title: '' });
+  if (!v) return;
+  const path = topicConfPath(v.id);
+  const text = newTopicYaml(v);
+  const lines = [t('tm.newFolder', { path: `notes/${v.id}/` }), ...text.trim().split('\n')];
+  if (!(await previewDialog({ title: t('tm.previewNew'), path, lines, note: t('tm.newNote'), ok: t('tm.create') }))) return;
+  if ((await src.stat(path)) != null) return toast(t('move.exists'));
+  return writeConfig(key, path, { stat: null, text: '' }, text, t('tm.created', { name: v.name }));
+}
+
+async function editCategories(key) {
+  const vault = await getVault(key);
+  const src = state.sources.get(key);
+  if (!vault || !src?.canWrite) return toast(t('ne.readonly'));
+  const path = '_site.yml';
+  const before = await readForEdit(src, path);
+  const used = new Map();
+  for (const tp of vault.topics) if (tp.category) used.set(tp.category, (used.get(tp.category) || 0) + 1);
+  let current = siteCategories(vault);
+  for (;;) {
+    const next = await categoriesDialog({ categories: current, used });
+    if (!next) return;
+    current = next;
+    const plan = planCategories(before.text, next, vault.topics);
+    if (plan.blocked.length) { toast(t('tm.catBlocked', { names: plan.blocked.map(b => b.id).join(', ') }), { ms: 6000 }); continue; }
+    if (!plan.changes.length) return toast(t('tm.noChange'));
+    const name = id => next.find(c => c.id === id)?.name || id;
+    const lines = plan.changes.map(c => c.type === 'order' ? t('tm.catOrder', { list: c.ids.map(name).join(' \u2192 ') })
+      : c.type === 'add' ? t('tm.catAdded', { name: c.name, id: c.id })
+      : c.type === 'remove' ? t('tm.catRemoved', { name: c.name })
+      : c.type === 'rename' ? t('tm.catRenamed', { from: c.from, to: c.to })
+      : t('tm.catRecolor', { name: c.name, to: c.to || t('tm.unset') }));
+    const note = [t('tm.catNote'), plan.lostComments ? t('tm.lostComments', { n: plan.lostComments }) : ''].filter(Boolean).join(' ');
+    if (await previewDialog({ title: t('tm.previewCats'), path, lines, note })) return writeConfig(key, path, before, plan.text, t('tm.saved', { path }));
+  }
 }
 
 // ---------------- 側邊欄 ----------------
@@ -349,6 +455,9 @@ async function showShelf(key) {
         onRefresh: key === 'repo' ? null : () => { invalidate(key); showShelf(key); },
         onCheck: () => runCheck(key),
         onNewNote: vault.notesSource?.canWrite ? () => newNote(key) : null,
+        onTopicEdit: vault.kind === 'leafpile' && source.canWrite ? id => editTopic(key, id) : null,
+        onTopicNew: vault.kind === 'leafpile' && source.canWrite && vault.notesSource ? () => newTopic(key) : null,
+        onCategories: vault.kind === 'leafpile' && source.canWrite ? () => editCategories(key) : null,
       }),
     };
     withSide(state.view, mountSidebar(app, { lib: key, vault: shown, boards: (vault.boards || []).map(b => b.name), href, current: { type: 'shelf' }, context: 'shelf', onSearch: () => showPalette(), graph: graph?.catch(() => null) }));

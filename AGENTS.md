@@ -9,7 +9,7 @@ Leafpile 把一個本機資料夾同時當成筆記庫與簡報庫：`notes/` �
 
 ## 目前階段
 
-v0.8.0：P1、P2 完成；P3 完成畫布（含嵌入與簡報模式）、發布前檢查、筆記改名／搬移／封存、沉浸閱讀與字級、畫布小地圖與右鍵選單、書庫表格檢視、側邊欄。下一步是主題管理（見路線圖）。路線圖的 P3 都已完成或量測後暫緩（圖譜快取，見 [`docs/ROADMAP.md`](docs/ROADMAP.md)）。**開始寫程式前先確認目前在哪個階段，不要跳做後面階段的功能。**
+v0.9.0：P1、P2 完成；P3 完成畫布（含嵌入與簡報模式）、發布前檢查、筆記改名／搬移／封存、沉浸閱讀與字級、畫布小地圖與右鍵選單、書庫表格檢視、側邊欄、主題管理（設定類）。結構類主題管理視需要再做（見路線圖）。路線圖的 P3 都已完成或量測後暫緩（圖譜快取，見 [`docs/ROADMAP.md`](docs/ROADMAP.md)）。**開始寫程式前先確認目前在哪個階段，不要跳做後面階段的功能。**
 
 簡報引擎（`app/player/`、`app/core/` 的 slide、markdown、library 等）來自 [Mdslide Pile](https://github.com/ToruSmith/Mdslide-Pile) v1.14.0。它的洗牌動畫有守門測試（`tests/protected.test.mjs`），**未經維護者同意不得修改**。
 
@@ -43,11 +43,13 @@ app/
     scale.js          筆記字級（十級，0.8–2.2 倍）           ← Leafpile
     table.js          書庫表格檢視（唯讀，front matter 欄位）  ← Leafpile
     nav.js            側邊欄的樹狀目錄、釘選與最近開過         ← Leafpile
+    yaml-edit.js      設定檔的局部改寫（保留註解）             ← Leafpile
+    topics.js         主題管理（設定類）的規則與預覽           ← Leafpile
     check.js          檢查規則（checkVault 包住 checkLibrary）
     library.js slide.js markdown.js yaml.js names.js …      簡報引擎（Mdslide Pile）
     locales/          zh-Hant.js、en.js（兩份的鍵必須一致）
   sources/            資料來源（Http、Handle、FileList）與最近開啟的書庫
-  ui/                 shelf.js（書架）、notes/reader.js（含沉浸閱讀）、notes/editor.js、palette.js、dialog.js、check-view.js、fullscreen.js（全螢幕與浮動列自動收起）、sidebar.js（側邊欄）、prefs.js（本機偏好設定的唯一入口）
+  ui/                 shelf.js（書架）、notes/reader.js（含沉浸閱讀）、notes/editor.js、palette.js、dialog.js、check-view.js、fullscreen.js（全螢幕與浮動列自動收起）、sidebar.js（側邊欄）、prefs.js（本機偏好設定的唯一入口）、topic-manage.js（主題管理的對話框）
   player/             播放器（Mdslide Pile）＋ flash.js（快閃播放）
   styles/             themes.css、slides.css、app.css、notes.css
 content/              公開書庫（部署到 GitHub Pages）：notes/、slides/、boards/、_site.yml
