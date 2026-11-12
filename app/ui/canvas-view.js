@@ -1,9 +1,13 @@
-// 畫布畫面:boards/*.canvas(JSON Canvas)。純邏輯在 app/core/canvas.js。
+// 畫布畫面:boards/*.canvas(JSON Canvas)。純邏輯在 app/core/canvas.js 與 app/core/canvas-ops.js。
 //
-// 看:拖曳空白處平移、滾輪平移、Ctrl/⌘+滾輪或兩指縮放;F 適合畫面、0 回到 100%;「▶ 簡報」依群組逐頁放大。
-// 改(可寫入的書庫才有):拖曳卡片、右下角調整大小、拖曳卡片邊上的圓點連線、雙擊新增或編輯、
-//   選取後上方的小工具列(顏色、連線文字、嵌入、允許腳本、轉成筆記、移除)、Delete 從畫布移除(不動檔案)、
-//   Ctrl+Z 復原;圖片/HTML/PDF 可以選檔、拖進來或 Ctrl+V 貼上。
+// 看:拖曳空白處平移、滾輪平移、Ctrl/⌘+滾輪或兩指縮放;F 適合畫面、0 回到 100%;Ctrl+F 搜尋;
+//   「▶ 簡報」依群組逐頁放大;「匯出」存成 PNG 或 SVG。
+// 改(可寫入的書庫才有):
+//   選取:點一下;Shift+點加選;Shift+拖曳空白處框選;Ctrl+A 全選。選取後上方有小工具列
+//     (顏色、連線文字、對齊、等距、框成群組、轉成筆記、群組轉大綱、移除…)。
+//   拖曳卡片(會吸附附近卡片的邊與中線,按住 Alt 暫停)、右下角調整大小、拖曳卡片邊上的圓點連線、
+//   雙擊新增或編輯、Delete 從畫布移除(不動檔案)、Ctrl+Z 復原、Ctrl+C/X/V 複製剪下貼上、Ctrl+D 複製一份;
+//   圖片/HTML/PDF 可以選檔、拖進來或 Ctrl+V 貼上;「✎ 手繪」畫完變成一張圖。
 // 嵌入(網頁、影片、HTML、PDF):先只顯示「▶ 載入」,最多同時 3 個;按「互動」才接收滑鼠;⛶ 全螢幕、↗ 新分頁。
 // 存檔:改完 0.8 秒自動存;存之前比對檔案狀態,被別的程式改過就停下來。
 //
@@ -13,11 +17,13 @@ import { escapeHTML as esc, renderMarkdown } from '../core/markdown.js';
 import { t } from '../core/i18n.js';
 import { classifyMedia } from '../core/media.js';
 import { serializeCanvas, canvasColor, edgePath, bounds, resolveFile, newId, SIDES, PRESET_COLORS, fileKind, embedFor, extractURL, slideOrder } from '../core/canvas.js';
+import { withMembers, alignNodes, distribute, snapLines, snapMove, copyFragment, parseFragment, pasteFragment, searchNodes, groupOutline, buildBoardSvg, strokesToSvg } from '../core/canvas-ops.js';
 import { hydrate, mountPage, openPageTab } from '../player/hydrate.js';
 import { prepareMedia } from './media-import.js';
 import { dialog, toast } from './dialog.js';
 
-const MIN_Z = 0.1, MAX_Z = 2.5, MAX_LIVE = 3, DOUBLE_MS = 400;
+const MIN_Z = 0.1, MAX_Z = 2.5, MAX_LIVE = 3, DOUBLE_MS = 400, SNAP_PX = 6;
+const INKS = ['#2b2925', '#c0504d', '#3f6fb0', '#5a8f5a'];
 
 /**
  * @param {HTMLElement} root
@@ -31,7 +37,8 @@ const MIN_Z = 0.1, MAX_Z = 2.5, MAX_LIVE = 3, DOUBLE_MS = 400;
  * @param {null | ((text: string) => Promise<void>)} o.save
  * @param {{ value: string, label: string, file: string, deck?: boolean }[]} [o.choices]
  * @param {(topicId: string) => string} [o.colorOf]
- * @param {null | ((text: string) => Promise<string|null>)} [o.toNote]  文字卡轉成筆記,回傳新筆記的路徑
+ * @param {null | ((text: string) => Promise<string|null>)} [o.toNote]  用一段文字建立筆記,回傳路徑(notes/…)
+ * @param {null | (() => Promise<object>)} [o.reloadGraph]
  */
 export function renderBoard(root, { board, name, header, href, graph, source, save, choices = [], colorOf = () => '', toNote = null, reloadGraph = null }) {
   const canEdit = !!save;
@@ -46,8 +53,11 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
           ${canEdit ? `<button class="btn ghost" data-b="text" title="${esc(t('board.addTextTitle'))}">${esc(t('board.addText'))}</button>
           <button class="btn ghost" data-b="card" title="${esc(t('board.addCardTitle'))}">${esc(t('board.addCard'))}</button>
           <button class="btn ghost" data-b="link" title="${esc(t('board.addLinkTitle'))}">${esc(t('board.addLink'))}</button>
-          ${canMedia ? `<button class="btn ghost" data-b="file" title="${esc(t('board.addFileTitle'))}">${esc(t('board.addFile'))}</button>` : ''}
+          ${canMedia ? `<button class="btn ghost" data-b="file" title="${esc(t('board.addFileTitle'))}">${esc(t('board.addFile'))}</button>
+          <button class="btn ghost" data-b="draw" title="${esc(t('board.drawTitle'))}">${esc(t('board.draw'))}</button>` : ''}
           <button class="btn ghost" data-b="undo" title="${esc(t('board.undo'))}" aria-label="${esc(t('board.undo'))}">↶</button>` : ''}
+          <button class="btn ghost" data-b="search" title="${esc(t('board.searchTitle'))}" aria-label="${esc(t('board.searchTitle'))}">⌕</button>
+          <button class="btn ghost" data-b="export" title="${esc(t('board.exportTitle'))}">${esc(t('board.export'))}</button>
           <button class="btn ghost" data-b="present" title="${esc(t('board.presentTitle'))}">${esc(t('board.present'))}</button>
           <button class="btn ghost" data-b="out" aria-label="${esc(t('board.zoomOut'))}">−</button>
           <button class="btn ghost zoom" data-b="reset" title="${esc(t('board.zoomReset'))}">100%</button>
@@ -57,27 +67,37 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
         <input type="file" class="board-file" accept="image/*,.html,.htm,.pdf" multiple hidden>
       </div>
       <div class="board-view" tabindex="0" aria-label="${esc(t('board.aria', { name }))}">
-        <div class="board-world"><svg class="board-edges" aria-hidden="true"><defs><marker id="board-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z"/></marker></defs><g class="edges"></g></svg><div class="nodes"></div></div>
+        <div class="board-world"><svg class="board-edges" aria-hidden="true"><defs><marker id="board-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z"/></marker></defs><g class="edges"></g><g class="ink"></g></svg><div class="nodes"></div></div>
+        <div class="board-marquee" hidden></div>
         <div class="board-pop" hidden></div>
+        <form class="board-search" hidden><input type="search" placeholder="${esc(t('board.searchPlaceholder'))}" aria-label="${esc(t('board.searchTitle'))}"><span class="n"></span><button type="button" data-s="close" aria-label="${esc(t('checkp.close'))}">×</button></form>
+        <div class="board-draw-bar" hidden><span>${esc(t('board.drawing'))}</span>${INKS.map((c, i) => `<button data-ink="${c}" class="${i ? '' : 'on'}" style="--sw:${c}" aria-label="${esc(t('board.color'))}"></button>`).join('')}<button data-d="undo">↶</button><button data-d="cancel">${esc(t('dialog.cancel'))}</button><button data-d="done" class="primary">${esc(t('board.drawDone'))}</button></div>
         <p class="board-empty" hidden>${esc(t(canEdit ? 'board.emptyEdit' : 'board.empty'))}</p>
         <p class="board-hint">${esc(t(canEdit ? 'board.hintEdit' : 'board.hint'))}</p>
         <div class="board-present-bar" hidden><button data-p="prev" aria-label="${esc(t('board.prev'))}">‹</button><span class="n"></span><button data-p="next" aria-label="${esc(t('board.next'))}">›</button><button data-p="exit">${esc(t('board.presentExit'))}</button></div>
       </div>
     </div></div>`;
 
-  const page = root.querySelector('.board-page');
-  const view = root.querySelector('.board-view'), world = root.querySelector('.board-world');
-  const nodesEl = root.querySelector('.nodes'), edgesEl = root.querySelector('.edges'), pop = root.querySelector('.board-pop');
-  const status = root.querySelector('.board-status'), zoomBtn = root.querySelector('.zoom'), fileInput = root.querySelector('.board-file');
-  let cam = { x: 0, y: 0, z: 1 }, sel = null, editing = null, g = null, alive = true, present = null;
-  let dirty = false, saving = false, saveTimer = null, broken = false;
+  const $ = s => root.querySelector(s);
+  const page = $('.board-page'), view = $('.board-view'), world = $('.board-world');
+  const nodesEl = $('.nodes'), edgesEl = $('.edges'), inkEl = $('.ink'), pop = $('.board-pop'), marquee = $('.board-marquee');
+  const status = $('.board-status'), zoomBtn = $('.zoom'), fileInput = $('.board-file'), searchBox = $('.board-search'), drawBar = $('.board-draw-bar');
+  let cam = { x: 0, y: 0, z: 1 }, sel = null, editing = null, g = null, alive = true, present = null, drawing = null, search = null;
+  let dirty = false, saving = false, saveTimer = null, broken = false, clip = null;
   const history = [serializeCanvas(board)], future = [];
   const els = new Map();   // id → { el, sig }
   const live = [];         // 載入中的嵌入卡 id(最舊的在前)
   const interactive = new Set();
 
-  // ---------- 鏡頭 ----------
+  // ---------- 選取 ----------
+  // sel = { ids: [...] }(一張或多張卡片)或 { edge: id }
   const byId = id => board.nodes.find(n => n.id === id);
+  const selIds = () => sel?.ids || [];
+  const isSel = id => selIds().includes(id);
+  const single = () => (selIds().length === 1 ? byId(selIds()[0]) : null);
+  const selNodes = () => selIds().map(byId).filter(Boolean);
+
+  // ---------- 鏡頭 ----------
   const applyCam = () => {
     world.style.transform = `translate(${cam.x}px, ${cam.y}px) scale(${cam.z})`;
     zoomBtn.textContent = `${Math.round(cam.z * 100)}%`;
@@ -103,10 +123,15 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   };
   const fit = () => fitTo(bounds(board.nodes));
   const center = () => { const r = view.getBoundingClientRect(); return toWorld(r.left + r.width / 2, r.top + r.height / 2); };
+  const centerOn = n => { const r = view.getBoundingClientRect(); world.classList.add('glide'); cam.x = r.width / 2 - (n.x + n.width / 2) * cam.z; cam.y = r.height / 2 - (n.y + n.height / 2) * cam.z; applyCam(); setTimeout(() => world.classList.remove('glide'), 600); };
 
   // ---------- 卡片 ----------
   const embedOf = n => (n.type === 'link' ? embedFor(n, classifyMedia) : null);
   const kindOf = n => (n.type === 'file' ? fileKind(n.file) : n.type);
+  const describe = n => {
+    const r = g && n.type === 'file' ? resolveFile(n.file, g) : null;
+    return r?.rec ? { kind: r.kind, title: r.rec.title } : { kind: kindOf(n) === 'file' ? 'other' : kindOf(n), title: String(n.file || '').split('/').pop() };
+  };
   const toolsHTML = () => `<div class="embed-tools"><button data-x="interact" title="${esc(t('board.interactTitle'))}">${esc(t('board.interact'))}</button><button data-x="full" title="${esc(t('board.fullscreen'))}" aria-label="${esc(t('board.fullscreen'))}">⛶</button><button data-x="open" title="${esc(t('board.openTab'))}" aria-label="${esc(t('board.openTab'))}">↗</button></div>`;
 
   /** 卡片內容(不含位置與選取狀態);內容一樣就不重畫。 */
@@ -131,14 +156,15 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   }
 
   function placeNode(n, el) {
-    const color = canvasColor(n.color);
-    el.style.cssText = `left:${n.x}px;top:${n.y}px;width:${n.width}px;height:${n.height}px;${color ? `--nc:${color};` : ''}z-index:${n.type === 'group' ? 0 : sel?.node === n.id ? 3 : 1}`;
-    el.className = `bnode t-${n.type} k-${kindOf(n)}${sel?.node === n.id ? ' sel' : ''}${color ? ' colored' : ''}${interactive.has(n.id) ? ' interactive' : ''}${live.includes(n.id) ? ' live' : ''}${editing === n.id ? ' editing' : ''}`;
+    const color = canvasColor(n.color), on = isSel(n.id);
+    el.style.cssText = `left:${n.x}px;top:${n.y}px;width:${n.width}px;height:${n.height}px;${color ? `--nc:${color};` : ''}z-index:${n.type === 'group' ? 0 : on ? 3 : 1}`;
+    el.className = `bnode t-${n.type} k-${kindOf(n)}${on ? ' sel' : ''}${color ? ' colored' : ''}${interactive.has(n.id) ? ' interactive' : ''}${live.includes(n.id) ? ' live' : ''}${editing === n.id ? ' editing' : ''}${search?.hits.includes(n.id) ? ' hit' : ''}${search && search.hits[search.i] === n.id ? ' hit-now' : ''}`;
     let h = el.querySelector(':scope > .hdl');
-    const want = canEdit && sel?.node === n.id && !editing && !present;
+    const want = canEdit && on && selIds().length === 1 && !editing && !present && !drawing;
     if (want && !h) { h = document.createElement('div'); h.className = 'hdl'; h.innerHTML = `<i class="resize" data-h="resize"></i>${n.type === 'group' ? '' : SIDES.map(s => `<i class="dot ${s}" data-h="link" data-side="${s}"></i>`).join('')}`; el.append(h); }
     if (!want && h) h.remove();
   }
+  const placeAll = () => { for (const n of board.nodes) { const r = els.get(n.id); if (r) placeNode(n, r.el); } };
 
   function drawNodes() {
     const seen = new Set();
@@ -158,10 +184,10 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     }
     for (const [id, rec] of els) if (!seen.has(id)) { rec.el.remove(); els.delete(id); const i = live.indexOf(id); if (i >= 0) live.splice(i, 1); interactive.delete(id); }
     if (source) hydrate(nodesEl, source).catch(() => {});
-    root.querySelector('.board-empty').hidden = board.nodes.length > 0;
+    $('.board-empty').hidden = board.nodes.length > 0 || !!drawing;
   }
 
-  function drawEdges(extra) {
+  function drawEdges(extra, guides) {
     const parts = [];
     for (const e of board.edges) {
       const a = byId(e.fromNode), b = byId(e.toNode);
@@ -173,26 +199,36 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
         ${e.label ? `<text x="${p.mid.x}" y="${p.mid.y}" dy="-6">${esc(e.label)}</text>` : ''}</g>`);
     }
     if (extra) parts.push(`<path class="draft" d="${extra}"/>`);
+    if (guides) {
+      const big = 1e5;
+      if (guides.gx != null) parts.push(`<line class="guide" x1="${guides.gx}" y1="${-big}" x2="${guides.gx}" y2="${big}"/>`);
+      if (guides.gy != null) parts.push(`<line class="guide" x1="${-big}" y1="${guides.gy}" x2="${big}" y2="${guides.gy}"/>`);
+    }
     edgesEl.innerHTML = parts.join('');
   }
 
   function draw() { drawNodes(); drawEdges(); drawPop(); }
 
   // ---------- 選取後的小工具列 ----------
+  const ALIGN = [['left', '⇤'], ['hcenter', '↔'], ['right', '⇥'], ['top', '⤒'], ['vcenter', '↕'], ['bottom', '⤓']];
   function drawPop() {
-    if (!canEdit || present || editing || !sel) { pop.hidden = true; return; }
+    if (!canEdit || present || editing || drawing || !sel) { pop.hidden = true; return; }
     const colors = `<span class="swatches">${['', ...Object.keys(PRESET_COLORS)].map(c => `<button data-pop="color" data-c="${c}" title="${esc(t('board.color'))}" aria-label="${esc(t('board.color'))} ${c || '—'}" style="--sw:${c ? PRESET_COLORS[c] : 'transparent'}" class="${c ? '' : 'none'}"></button>`).join('')}</span>`;
     let items = '';
     if (sel.edge) items = `<button data-pop="label">✎ ${esc(t('board.edgeText'))}</button>${colors}`;
-    else {
-      const n = byId(sel.node);
+    else if (selIds().length > 1) {
+      const n = selIds().length;
+      items = `<span class="count">${esc(t('board.selected', { n }))}</span><span class="aligns">${ALIGN.map(([m, icon]) => `<button data-pop="align" data-m="${m}" title="${esc(t('board.align.' + m))}" aria-label="${esc(t('board.align.' + m))}">${icon}</button>`).join('')}${n >= 3 ? `<button data-pop="dist" data-m="h" title="${esc(t('board.distH'))}" aria-label="${esc(t('board.distH'))}">⋯</button><button data-pop="dist" data-m="v" title="${esc(t('board.distV'))}" aria-label="${esc(t('board.distV'))}">⋮</button>` : ''}</span><button data-pop="group">▢ ${esc(t('board.makeGroup'))}</button>${colors}`;
+    } else {
+      const n = single();
       if (!n) { pop.hidden = true; return; }
       const k = kindOf(n);
       if (n.type === 'text') items += `<button data-pop="edit">✎ ${esc(t('board.editShort'))}</button>${toNote ? `<button data-pop="note">${esc(t('board.toNote'))}</button>` : ''}`;
-      if (n.type === 'group') items += `<button data-pop="glabel">✎ ${esc(t('board.groupLabel'))}</button>`;
+      if (n.type === 'group') items += `<button data-pop="glabel">✎ ${esc(t('board.groupLabel'))}</button>${toNote ? `<button data-pop="outline" title="${esc(t('board.outlineTitle'))}">${esc(t('board.outline'))}</button>` : ''}`;
       if (n.type === 'link' && !embedOf(n)?.auto) items += `<label><input type="checkbox" data-pop="embed"${n['x-embed'] === true ? ' checked' : ''}> ${esc(t('board.embedWeb'))}</label>`;
       if (n.type === 'link') items += `<button data-pop="url">✎ ${esc(t('board.editUrl'))}</button>`;
       if (k === 'html') items += `<label title="${esc(t('board.scriptsTitle'))}"><input type="checkbox" data-pop="scripts"${n['x-scripts'] === true ? ' checked' : ''}> ${esc(t('board.scripts'))}</label>`;
+      if (n.type !== 'group') items += `<button data-pop="group" title="${esc(t('board.makeGroupTitle'))}">▢</button>`;
       items += colors;
     }
     pop.innerHTML = `${items}<button data-pop="remove" class="danger" title="${esc(t('board.removeTitle'))}">${esc(t('board.remove'))}</button>`;
@@ -202,39 +238,53 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   function placePop() {
     if (pop.hidden || !sel) return;
     let x, y;
-    if (sel.node) { const n = byId(sel.node); if (!n) return; x = n.x + n.width / 2; y = n.y; }
+    if (sel.ids) { const b = bounds(selNodes()); if (!b) return; x = b.x + b.width / 2; y = b.y; }
     else { const e = board.edges.find(v => v.id === sel.edge), a = e && byId(e.fromNode), b = e && byId(e.toNode); if (!a || !b) return; const p = edgePath(a, b, e.fromSide, e.toSide); x = p.mid.x; y = p.mid.y; }
-    const r = view.getBoundingClientRect();
-    pop.style.left = `${Math.min(r.width - 12, Math.max(12, x * cam.z + cam.x))}px`;
-    pop.style.top = `${Math.max(46, y * cam.z + cam.y - 14)}px`;
+    const r = view.getBoundingClientRect(), half = pop.offsetWidth / 2 + 8; // 工具列整條都要在畫面裡
+    pop.style.left = `${Math.min(r.width - half, Math.max(half, x * cam.z + cam.x))}px`;
+    pop.style.top = `${Math.max(pop.offsetHeight + 8, y * cam.z + cam.y - 14)}px`;
   }
 
   pop.addEventListener('pointerdown', e => e.stopPropagation());
   pop.addEventListener('click', e => {
     const b = e.target.closest('[data-pop]');
     if (!b || b.tagName === 'INPUT') return;
-    const what = b.dataset.pop;
+    const what = b.dataset.pop, n = single();
     if (what === 'remove') return removeSelected();
     if (what === 'label') return editEdge(sel.edge);
-    if (what === 'edit') return editText(sel.node);
-    if (what === 'glabel') return editGroup(sel.node);
-    if (what === 'url') return editLink(sel.node);
-    if (what === 'note') return convertToNote(sel.node);
+    if (what === 'edit') return editText(n.id);
+    if (what === 'glabel') return editGroup(n.id);
+    if (what === 'url') return editLink(n.id);
+    if (what === 'note') return convertToNote(n.id);
+    if (what === 'outline') return outlineToNote(n.id);
+    if (what === 'group') return makeGroup();
+    if (what === 'align' || what === 'dist') {
+      const list = selNodes().filter(x => x.type !== 'group' || selIds().length);
+      const pos = what === 'align' ? alignNodes(list, b.dataset.m) : distribute(list, b.dataset.m);
+      for (const p of pos) moveWithMembers(byId(p.id), p.x, p.y);
+      draw(); return changed();
+    }
     if (what === 'color') {
-      const target = sel.edge ? board.edges.find(x => x.id === sel.edge) : byId(sel.node);
-      if (!target) return;
-      if (b.dataset.c) target.color = b.dataset.c; else delete target.color;
+      const targets = sel.edge ? [board.edges.find(x => x.id === sel.edge)] : selNodes();
+      for (const tg of targets.filter(Boolean)) { if (b.dataset.c) tg.color = b.dataset.c; else delete tg.color; }
       draw(); changed();
     }
   });
   pop.addEventListener('change', e => {
-    const n = byId(sel?.node);
+    const n = single();
     if (!n) return;
     const key = e.target.dataset.pop === 'embed' ? 'x-embed' : e.target.dataset.pop === 'scripts' ? 'x-scripts' : null;
     if (!key) return;
     if (e.target.checked) n[key] = true; else delete n[key];
     draw(); changed();
   });
+  /** 移動一張卡片;是群組的話,裡面的卡片一起移。 */
+  function moveWithMembers(n, x, y) {
+    if (!n) return;
+    const dx = x - n.x, dy = y - n.y;
+    const list = n.type === 'group' ? withMembers(board.nodes, [n.id]) : [n];
+    for (const m of list) { m.x += dx; m.y += dy; }
+  }
 
   // ---------- 嵌入 ----------
   function unload(id) {
@@ -340,7 +390,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   // ---------- 新增與編輯 ----------
   function addNode(node) {
     board.nodes.push(node);
-    sel = { node: node.id }; draw(); changed();
+    sel = { ids: [node.id] }; draw(); changed();
     return node;
   }
   function addTextAt(x, y) {
@@ -417,7 +467,8 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   /** 選檔、拖進來或貼上的圖片/HTML/PDF:存進 boards/media/,放成卡片。 */
   async function importFiles(files, at) {
     if (!canMedia) return toast(t('ne.readonly'));
-    let p = at || center(), added = 0;
+    let p = at || center();
+    const added = [];
     for (const f of files) {
       try {
         const m = await prepareMedia(f);
@@ -425,13 +476,14 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
         let w = 420, h = 300;
         if (m.kind === 'image' && m.width && m.height) { const k = Math.min(1, 480 / m.width, 480 / m.height); w = Math.max(80, Math.round(m.width * k)); h = Math.max(60, Math.round(m.height * k)); }
         if (m.kind === 'pdf') { w = 480; h = 600; }
-        board.nodes.push({ id: newId(board), type: 'file', file: m.path, x: Math.round(p.x - w / 2), y: Math.round(p.y - h / 2), width: w, height: h });
-        p = { x: p.x + 40, y: p.y + 40 }; added++;
+        const node = { id: newId(board), type: 'file', file: m.path, x: Math.round(p.x - w / 2), y: Math.round(p.y - h / 2), width: w, height: h };
+        board.nodes.push(node); added.push(node.id);
+        p = { x: p.x + 40, y: p.y + 40 };
       } catch (e) {
         toast(e.message === 'type' ? t('board.fileType', { name: f.name }) : e.message === 'too large' ? t('board.fileTooLarge', { name: f.name }) : t('ne.saveFailed', { error: e.message || e }), { ms: 6000 });
       }
     }
-    if (added) { sel = { node: board.nodes[board.nodes.length - 1].id }; draw(); changed(); }
+    if (added.length) { sel = { ids: added }; draw(); changed(); }
   }
   async function convertToNote(id) {
     const n = byId(id);
@@ -442,19 +494,167 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     draw(); changed();
     if (reloadGraph) { try { g = await reloadGraph(); if (alive) draw(); } catch { /* 下次開啟就會有 */ } }
   }
+  /** 群組轉成大綱筆記:建立新筆記,把筆記卡放在群組右邊。 */
+  async function outlineToNote(id) {
+    const grp = byId(id);
+    if (!grp || grp.type !== 'group' || !toNote) return;
+    const path = await toNote(groupOutline(board, grp, describe));
+    if (!path) return;
+    const node = { id: newId(board), type: 'file', file: path, x: grp.x + grp.width + 40, y: grp.y, width: 300, height: 120 };
+    board.nodes.push(node);
+    board.edges.push({ id: newId(board, 'e'), fromNode: grp.id, fromSide: 'right', toNode: node.id, toSide: 'left', label: t('board.outlineEdge') });
+    sel = { ids: [node.id] }; draw(); changed();
+    centerOn(node);
+    if (reloadGraph) { try { g = await reloadGraph(); if (alive) draw(); } catch { /* 下次開啟就會有 */ } }
+  }
+  async function makeGroup() {
+    const list = selNodes();
+    const b = bounds(list);
+    if (!b) return;
+    const label = await ask(t('board.makeGroup'), t('board.groupLabel'), '');
+    if (label == null) return;
+    const pad = 30;
+    const grp = { id: newId(board, 'g'), type: 'group', x: Math.round(b.x - pad), y: Math.round(b.y - pad), width: Math.round(b.width + pad * 2), height: Math.round(b.height + pad * 2), ...(label ? { label } : {}) };
+    board.nodes.unshift(grp); // 群組畫在最底下
+    sel = { ids: [grp.id] }; draw(); changed();
+  }
   function removeSelected() {
     if (!sel || !canEdit) return;
-    if (sel.node) {
-      board.nodes = board.nodes.filter(n => n.id !== sel.node);
-      board.edges = board.edges.filter(e => e.fromNode !== sel.node && e.toNode !== sel.node);
+    if (sel.ids) {
+      const gone = new Set(sel.ids);
+      board.nodes = board.nodes.filter(n => !gone.has(n.id));
+      board.edges = board.edges.filter(e => !gone.has(e.fromNode) && !gone.has(e.toNode));
     } else board.edges = board.edges.filter(e => e.id !== sel.edge);
     sel = null; draw(); changed();
   }
   function select(next) {
     const same = JSON.stringify(next) === JSON.stringify(sel);
-    sel = next;
-    if (!same) { for (const n of board.nodes) { const r = els.get(n.id); if (r) placeNode(n, r.el); } drawEdges(); drawPop(); }
+    sel = next && next.ids && !next.ids.length ? null : next;
+    if (!same) { placeAll(); drawEdges(); drawPop(); }
   }
+
+  // ---------- 剪貼簿 ----------
+  function copySelection(cut = false) {
+    if (!sel?.ids) return false;
+    clip = copyFragment(board, sel.ids);
+    const text = JSON.stringify(clip);
+    clip.text = text;
+    navigator.clipboard?.writeText(text).catch(() => { /* 沒有權限:用內部的剪貼簿 */ });
+    if (cut) removeSelected();
+    toast(t(cut ? 'board.cut' : 'board.copied', { n: clip.nodes.length }), { ms: 1500 });
+    return true;
+  }
+  function pasteFrag(frag, at) {
+    const b = bounds(frag.nodes.filter(n => n && Number.isFinite(Number(n.x))).map(n => ({ x: +n.x, y: +n.y, width: +n.width || 260, height: +n.height || 120 })));
+    // 原地複製:有群組的話放到右邊(群組是用範圍框住卡片的,疊在原本的上面會把原本的卡片也框進去)
+    const where = !b ? null
+      : at === 'offset' ? (frag.nodes.some(n => n?.type === 'group') ? { x: Math.round(b.x + b.width + 60), y: Math.round(b.y) } : null)
+      : { x: Math.round(at.x - b.width / 2), y: Math.round(at.y - b.height / 2) };
+    const out = pasteFragment(board, frag, { at: where });
+    if (!out.nodes.length) return;
+    // 群組放最前面(畫在最底下)
+    board.nodes = [...out.nodes.filter(n => n.type === 'group'), ...board.nodes, ...out.nodes.filter(n => n.type !== 'group')];
+    board.edges.push(...out.edges);
+    sel = { ids: out.nodes.map(n => n.id) }; draw(); changed();
+  }
+  const duplicate = () => { if (sel?.ids) pasteFrag(copyFragment(board, sel.ids), 'offset'); };
+
+  // ---------- 搜尋 ----------
+  const searchInput = searchBox.querySelector('input');
+  const titleOf = file => (g ? resolveFile(file, g).rec?.title || '' : '');
+  let searchTimer = null;
+  function openSearch() { searchBox.hidden = false; search = search || { hits: [], i: 0 }; searchInput.focus(); searchInput.select(); }
+  function closeSearch() { searchBox.hidden = true; search = null; placeAll(); view.focus({ preventScroll: true }); }
+  function runSearch() {
+    const hits = searchNodes(board, searchInput.value, titleOf);
+    search = { hits, i: 0 };
+    searchBox.querySelector('.n').textContent = searchInput.value.trim() ? t('board.searchCount', { i: hits.length ? 1 : 0, n: hits.length }) : '';
+    placeAll();
+    if (hits.length) centerOn(byId(hits[0]));
+  }
+  searchInput.addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(runSearch, 120); });
+  searchInput.addEventListener('keydown', e => {
+    e.stopPropagation();
+    if (e.key === 'Escape') { e.preventDefault(); return closeSearch(); }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (!search?.hits.length) return runSearch();
+      search.i = (search.i + (e.shiftKey ? -1 : 1) + search.hits.length) % search.hits.length;
+      searchBox.querySelector('.n').textContent = t('board.searchCount', { i: search.i + 1, n: search.hits.length });
+      placeAll(); centerOn(byId(search.hits[search.i]));
+    }
+  });
+  searchBox.addEventListener('submit', e => e.preventDefault());
+  searchBox.querySelector('[data-s=close]').addEventListener('click', closeSearch);
+
+  // ---------- 匯出 ----------
+  const blobToDataURL = blob => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
+  async function exportBoard() {
+    const hasSel = !!sel?.ids?.length;
+    const r = await dialog({
+      title: t('board.exportTitle'),
+      fields: [{ name: 'fmt', label: t('board.exportFormat'), type: 'select', value: 'png', options: [{ value: 'png', label: 'PNG' }, { value: 'svg', label: 'SVG' }] },
+        ...(hasSel ? [{ name: 'scope', label: t('board.exportScope'), type: 'select', value: 'sel', options: [{ value: 'sel', label: t('board.exportSel', { n: selIds().length }) }, { value: 'all', label: t('board.exportAll') }] }] : [])],
+      buttons: [{ label: t('dialog.cancel'), value: false }, { label: t('board.export'), value: true, primary: true }],
+    });
+    if (!r?.value) return;
+    const only = hasSel && r.fields.scope === 'sel' ? sel.ids : null;
+    const images = new Map();
+    for (const n of board.nodes) {
+      if (n.type !== 'file' || kindOf(n) !== 'image' || images.has(n.file) || !source) continue;
+      try { images.set(n.file, await blobToDataURL(await (await fetch(await source.mediaURL(n.file))).blob())); } catch { /* 讀不到就畫成一般卡片 */ }
+    }
+    const svg = buildBoardSvg(board, { describe, images, only, labels: { note: t('board.kindNote'), deck: t('board.kindDeck'), link: t('board.kindLink'), html: 'HTML', pdf: 'PDF', image: t('board.kindImage') } });
+    const fileName = `${name}.${r.fields.fmt}`;
+    let blob = new Blob([svg], { type: 'image/svg+xml' });
+    if (r.fields.fmt === 'png') {
+      const url = URL.createObjectURL(blob);
+      try {
+        const img = new Image();
+        img.src = url;
+        await img.decode();
+        const scale = Math.min(2, 8000 / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.naturalWidth * scale); c.height = Math.round(img.naturalHeight * scale);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        blob = await new Promise(res => c.toBlob(res, 'image/png'));
+      } finally { URL.revokeObjectURL(url); }
+    }
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: fileName });
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+
+  // ---------- 手繪 ----------
+  function startDraw() {
+    if (!canMedia) return;
+    sel = null; drawing = { strokes: [], cur: null, color: INKS[0] };
+    page.classList.add('drawing'); drawBar.hidden = false; draw();
+  }
+  function drawInk() {
+    if (!drawing) { inkEl.innerHTML = ''; return; }
+    inkEl.innerHTML = [...drawing.strokes, ...(drawing.cur ? [drawing.cur] : [])].map(s => s.length ? `<path d="M ${s.map(p => `${p.x} ${p.y}`).join(' L ')}" stroke="${drawing.color}"/>` : '').join('');
+  }
+  function stopDraw() { drawing = null; page.classList.remove('drawing'); drawBar.hidden = true; drawInk(); draw(); }
+  async function finishDraw() {
+    const res = drawing && strokesToSvg(drawing.strokes, { color: drawing.color });
+    if (!res) return stopDraw();
+    try {
+      const m = await prepareMedia(new File([res.svg], 'drawing.svg', { type: 'image/svg+xml' }));
+      await source.writeMedia(m.path, m.blob);
+      stopDraw();
+      addNode({ id: newId(board), type: 'file', file: m.path, x: res.x, y: res.y, width: res.width, height: res.height });
+    } catch (e) { toast(t('ne.saveFailed', { error: e.message || e }), { ms: 6000 }); }
+  }
+  drawBar.addEventListener('pointerdown', e => e.stopPropagation());
+  drawBar.addEventListener('click', e => {
+    const ink = e.target.closest('[data-ink]');
+    if (ink && drawing) { drawing.color = ink.dataset.ink; drawBar.querySelectorAll('[data-ink]').forEach(b => b.classList.toggle('on', b === ink)); return drawInk(); }
+    const d = e.target.closest('[data-d]')?.dataset.d;
+    if (d === 'undo' && drawing) { drawing.strokes.pop(); drawInk(); }
+    if (d === 'cancel') stopDraw();
+    if (d === 'done') finishDraw();
+  });
 
   // ---------- 簡報模式 ----------
   function showSlide(i) {
@@ -464,7 +664,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     world.classList.add('glide');
     const top = n.type === 'group' ? 34 : 0;
     fitTo({ x: n.x, y: n.y - top, width: n.width, height: n.height + top }, 40, 2.5);
-    root.querySelector('.board-present-bar .n').textContent = `${present.i + 1} / ${order.length}`;
+    $('.board-present-bar .n').textContent = `${present.i + 1} / ${order.length}`;
   }
   function startPresent() {
     const order = slideOrder(board);
@@ -472,7 +672,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     present = { order, i: 0, cam: { ...cam } };
     sel = null; draw();
     page.classList.add('presenting');
-    root.querySelector('.board-present-bar').hidden = false;
+    $('.board-present-bar').hidden = false;
     page.requestFullscreen?.().catch(() => {});
     setTimeout(() => showSlide(0), 120); // 等全螢幕後的尺寸
   }
@@ -480,11 +680,11 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     if (!present) return;
     cam = present.cam; present = null;
     page.classList.remove('presenting');
-    root.querySelector('.board-present-bar').hidden = true;
+    $('.board-present-bar').hidden = true;
     if (document.fullscreenElement === page) document.exitFullscreen?.().catch(() => {});
     applyCam(); setTimeout(() => world.classList.remove('glide'), 600);
   }
-  root.querySelector('.board-present-bar').addEventListener('click', e => {
+  $('.board-present-bar').addEventListener('click', e => {
     const p = e.target.closest('[data-p]')?.dataset.p;
     if (p === 'prev') showSlide(present.i - 1);
     if (p === 'next') showSlide(present.i + 1);
@@ -493,35 +693,46 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   const onFs = () => { if (present && !document.fullscreenElement) stopPresent(); };
   document.addEventListener('fullscreenchange', onFs);
 
-  // ---------- 指標:平移、拖曳、調整大小、連線、兩指縮放、雙擊 ----------
+  // ---------- 指標:平移、拖曳、框選、調整大小、連線、手繪、兩指縮放、雙擊 ----------
   const pointers = new Map();
   let act = null, lastTap = { id: '', t: 0 };
-  const inside = (n, gnode) => n !== gnode && n.x >= gnode.x && n.y >= gnode.y && n.x + n.width <= gnode.x + gnode.width && n.y + n.height <= gnode.y + gnode.height;
   /** 同一張卡片或同一條線 400 ms 內按兩次 = 雙擊(不靠瀏覽器的 dblclick:第一下選取時畫面會更新,瀏覽器就認不出來)。 */
   const isDouble = id => { const now = Date.now(); const d = lastTap.id === id && now - lastTap.t < DOUBLE_MS; lastTap = d ? { id: '', t: 0 } : { id, t: now }; return d; };
 
   view.addEventListener('pointerdown', e => {
-    if (e.target.closest('.board-present-bar, a.open, textarea, .embed-tools, .embed-load, .interactive .embed-box')) return;
+    if (e.target.closest('.board-present-bar, .board-search, .board-draw-bar, a.open, textarea, .embed-tools, .embed-load, .interactive .embed-box')) return;
     if (present) { if (e.button === 0) act = { type: 'pan', sx: e.clientX, sy: e.clientY, cx: cam.x, cy: cam.y, still: true }; return; }
     if (editing || e.button > 0) return;
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.size === 2) {
+      if (drawing) drawing.cur = null;
       const [p, q] = [...pointers.values()];
       act = { type: 'pinch', d: Math.hypot(p.x - q.x, p.y - q.y), z: cam.z };
       return;
     }
     view.setPointerCapture(e.pointerId);
-    const nodeEl = e.target.closest('.bnode'), edgeEl = e.target.closest('.bedge'), h = e.target.dataset?.h;
     const w = toWorld(e.clientX, e.clientY);
+    if (drawing) { drawing.cur = [w]; act = { type: 'ink' }; e.preventDefault(); return; }
+    const nodeEl = e.target.closest('.bnode'), edgeEl = e.target.closest('.bedge'), h = e.target.dataset?.h;
     if (nodeEl) {
       const n = byId(nodeEl.dataset.id);
       if (!n) return;
-      if (!h && isDouble('n:' + n.id)) { act = null; e.preventDefault(); if (canEdit) { if (n.type === 'text') editText(n.id); else if (n.type === 'group') editGroup(n.id); else if (n.type === 'link') editLink(n.id); } return; }
-      select({ node: n.id });
+      if (!h && !e.shiftKey && isDouble('n:' + n.id)) { act = null; e.preventDefault(); if (canEdit) { if (n.type === 'text') editText(n.id); else if (n.type === 'group') editGroup(n.id); else if (n.type === 'link') editLink(n.id); } return; }
+      if (e.shiftKey && canEdit) { // 加選/取消
+        const ids = isSel(n.id) ? selIds().filter(x => x !== n.id) : [...selIds(), n.id];
+        select({ ids }); act = null; return;
+      }
+      if (!isSel(n.id)) select({ ids: [n.id] });
       if (!canEdit) { act = { type: 'pan', sx: e.clientX, sy: e.clientY, cx: cam.x, cy: cam.y }; return; }
       if (h === 'resize') act = { type: 'resize', n, w0: n.width, h0: n.height, sx: w.x, sy: w.y };
       else if (h === 'link') act = { type: 'link', n, side: e.target.dataset.side };
-      else act = { type: 'move', n, sx: w.x, sy: w.y, items: [n, ...(n.type === 'group' ? board.nodes.filter(x => inside(x, n)) : [])].map(x => ({ x0: x.x, y0: x.y, node: x })), moved: false };
+      else {
+        const moving = withMembers(board.nodes, selIds());
+        const ids = new Set(moving.map(m => m.id));
+        const r = view.getBoundingClientRect(), vis = { x: -cam.x / cam.z, y: -cam.y / cam.z, w: r.width / cam.z, h: r.height / cam.z };
+        const still = board.nodes.filter(m => !ids.has(m.id) && m.x < vis.x + vis.w && m.x + m.width > vis.x && m.y < vis.y + vis.h && m.y + m.height > vis.y);
+        act = { type: 'move', sx: w.x, sy: w.y, items: moving.map(x => ({ x0: x.x, y0: x.y, node: x })), box0: bounds(selNodes()), lines: snapLines(still), moved: false, id: n.id };
+      }
       return;
     }
     if (edgeEl) {
@@ -529,6 +740,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
       if (isDouble('e:' + id)) { act = null; e.preventDefault(); return editEdge(id); }
       select({ edge: id }); act = null; return;
     }
+    if (e.shiftKey && canEdit) { act = { type: 'marquee', sx: w.x, sy: w.y, cx: e.clientX, cy: e.clientY, base: selIds() }; return; }
     if (isDouble('bg') && canEdit) { act = null; e.preventDefault(); return addTextAt(w.x, w.y); } // preventDefault:不要讓瀏覽器把焦點搶回畫布
     select(null);
     act = { type: 'pan', sx: e.clientX, sy: e.clientY, cx: cam.x, cy: cam.y };
@@ -543,19 +755,35 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     }
     if (act.type === 'pan') {
       if (Math.abs(e.clientX - act.sx) + Math.abs(e.clientY - act.sy) > 4) act.still = false;
-      if (act.still) return;
+      if (act.still && present) return;
       world.classList.remove('glide'); cam.x = act.cx + e.clientX - act.sx; cam.y = act.cy + e.clientY - act.sy; return applyCam();
     }
     const w = toWorld(e.clientX, e.clientY);
+    if (act.type === 'ink') { drawing.cur.push({ x: Math.round(w.x * 10) / 10, y: Math.round(w.y * 10) / 10 }); return drawInk(); }
+    if (act.type === 'marquee') {
+      const r = view.getBoundingClientRect();
+      const x1 = Math.min(act.cx, e.clientX) - r.left, y1 = Math.min(act.cy, e.clientY) - r.top;
+      Object.assign(marquee.style, { left: x1 + 'px', top: y1 + 'px', width: Math.abs(e.clientX - act.cx) + 'px', height: Math.abs(e.clientY - act.cy) + 'px' });
+      marquee.hidden = false;
+      const box = { x: Math.min(act.sx, w.x), y: Math.min(act.sy, w.y), x2: Math.max(act.sx, w.x), y2: Math.max(act.sy, w.y) };
+      const hit = board.nodes.filter(n => n.x < box.x2 && n.x + n.width > box.x && n.y < box.y2 && n.y + n.height > box.y && (n.type !== 'group' || (n.x >= box.x && n.y >= box.y && n.x + n.width <= box.x2 && n.y + n.height <= box.y2)));
+      sel = { ids: [...new Set([...act.base, ...hit.map(n => n.id)])] };
+      return placeAll();
+    }
     if (act.type === 'move') {
-      const dx = w.x - act.sx, dy = w.y - act.sy;
+      let dx = w.x - act.sx, dy = w.y - act.sy;
       if (Math.abs(dx) + Math.abs(dy) > 2) { act.moved = true; pop.hidden = true; }
+      let guides = null;
+      if (!e.altKey && act.box0) { // 吸附附近卡片的邊與中線
+        const s = snapMove({ ...act.box0, x: act.box0.x + dx, y: act.box0.y + dy }, act.lines, SNAP_PX / cam.z);
+        dx += s.dx; dy += s.dy; guides = s;
+      }
       for (const it of act.items) {
         it.node.x = Math.round(it.x0 + dx); it.node.y = Math.round(it.y0 + dy);
         const el = els.get(it.node.id)?.el;
         if (el) { el.style.left = it.node.x + 'px'; el.style.top = it.node.y + 'px'; }
       }
-      drawEdges();
+      drawEdges(null, guides);
     } else if (act.type === 'resize') {
       act.n.width = Math.max(80, Math.round(act.w0 + w.x - act.sx));
       act.n.height = Math.max(50, Math.round(act.h0 + w.y - act.sy));
@@ -575,7 +803,14 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
       const r = view.getBoundingClientRect();
       return showSlide(present.i + (e.clientX - r.left < r.width / 3 ? -1 : 1));
     }
-    if (a.type === 'move' && a.moved) { changed(); drawPop(); }
+    if (a.type === 'ink') { if (drawing?.cur?.length > 1) drawing.strokes.push(drawing.cur); if (drawing) drawing.cur = null; return drawInk(); }
+    if (a.type === 'marquee') { marquee.hidden = true; return drawPop(); }
+    if (a.type === 'move') {
+      drawEdges();
+      if (a.moved) changed();
+      else if (selIds().length > 1) return select({ ids: [a.id] }); // 多選時點一下(沒拖動)= 只選這張
+      drawPop();
+    }
     if (a.type === 'resize') { changed(); drawPop(); }
     if (a.type === 'link') {
       const target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.bnode');
@@ -611,10 +846,14 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     importFiles(files, toWorld(e.clientX, e.clientY));
   });
   const onPaste = e => {
-    if (!canEdit || editing || present || e.target.closest?.('input, textarea, .lp-dialog')) return;
+    if (!canEdit || editing || present || drawing || e.target.closest?.('input, textarea, .lp-dialog')) return;
     const files = [...(e.clipboardData?.files || [])];
     if (files.length) { e.preventDefault(); return importFiles(files); }
-    const text = extractURL(e.clipboardData?.getData('text') || '');
+    const raw = e.clipboardData?.getData('text') || '';
+    const own = !!clip && (!raw || raw === clip.text); // 自己複製的(剪貼簿寫不進去時,用內部的那份)
+    const frag = own ? clip : parseFragment(raw);
+    if (frag) { e.preventDefault(); return pasteFrag(frag, own ? 'offset' : center()); }
+    const text = extractURL(raw);
     if (/^https?:\/\/\S+$/i.test(text)) {
       e.preventDefault();
       const node = { id: newId(board), type: 'link', url: text }, c = center(), [w, h] = linkSize(embedFor(node, classifyMedia));
@@ -624,7 +863,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   window.addEventListener('paste', onPaste);
   fileInput.addEventListener('change', () => { const files = [...fileInput.files]; fileInput.value = ''; if (files.length) importFiles(files); });
 
-  root.querySelector('.board-tools').addEventListener('click', e => {
+  $('.board-tools').addEventListener('click', e => {
     const b = e.target.closest('[data-b]')?.dataset.b;
     if (b === 'in') zoomAt(cam.z * 1.25);
     if (b === 'out') zoomAt(cam.z / 1.25);
@@ -634,6 +873,9 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     if (b === 'card') addCard();
     if (b === 'link') addLink();
     if (b === 'file') fileInput.click();
+    if (b === 'draw') startDraw();
+    if (b === 'search') openSearch();
+    if (b === 'export') exportBoard();
     if (b === 'present') startPresent();
     if (b === 'text') { const c = center(); addTextAt(c.x, c.y); }
   });
@@ -646,19 +888,30 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
       else if (e.key === 'Escape') { e.preventDefault(); stopPresent(); }
       return;
     }
-    const mod = e.ctrlKey || e.metaKey;
-    if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); return e.shiftKey ? redo() : undo(); }
-    if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); return redo(); }
-    if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); return flush(); }
+    if (drawing) {
+      if (e.key === 'Escape') { e.preventDefault(); stopDraw(); }
+      if (e.key === 'Enter') { e.preventDefault(); finishDraw(); }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); drawing.strokes.pop(); drawInk(); }
+      return;
+    }
+    const mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase();
+    if (mod && k === 'f') { e.preventDefault(); return openSearch(); }
+    if (mod && k === 'z') { e.preventDefault(); return e.shiftKey ? redo() : undo(); }
+    if (mod && k === 'y') { e.preventDefault(); return redo(); }
+    if (mod && k === 's') { e.preventDefault(); return flush(); }
+    if (mod && k === 'a' && canEdit) { e.preventDefault(); return select({ ids: board.nodes.map(n => n.id) }); }
+    if (mod && k === 'c' && canEdit) { if (copySelection()) e.preventDefault(); return; }
+    if (mod && k === 'x' && canEdit) { if (copySelection(true)) e.preventDefault(); return; }
+    if (mod && k === 'd' && canEdit) { e.preventDefault(); return duplicate(); }
     if (mod) return;
-    if (e.key === 'Delete' || e.key === 'Backspace') { if (sel) { e.preventDefault(); removeSelected(); } return; }
-    if (e.key === 'Escape' && sel) return select(null);
+    if (e.key === 'Delete' || e.key === 'Backspace') { if (sel && canEdit) { e.preventDefault(); removeSelected(); } return; }
+    if (e.key === 'Escape') { if (search) return closeSearch(); if (sel) return select(null); return; }
     if (e.key === 'Enter' && sel) {
       e.preventDefault();
       if (sel.edge) return editEdge(sel.edge);
-      const n = byId(sel.node);
+      const n = single();
       if (n?.type === 'text') return editText(n.id);
-      return els.get(sel.node)?.el.querySelector('a.open')?.click();
+      return n && els.get(n.id)?.el.querySelector('a.open')?.click();
     }
     if (e.key === 'f' || e.key === 'F') fit();
     else if (e.key === '0') zoomAt(1);
