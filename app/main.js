@@ -15,6 +15,8 @@ import { buildGraph, sourceStatus, compareSource } from './core/graph.js';
 import { parseNote, slugify, splitFrontMatter, wikilinksOf } from './core/note.js';
 import { expandEmbeds, promoteNote, promoteBook, distillDeck, withSourceHash } from './core/bridge.js';
 import { openPrivacyPanel } from './ui/privacy-view.js';
+import { renderBoard } from './ui/canvas-view.js';
+import { parseCanvas, emptyCanvas, boardFileName } from './core/canvas.js';
 import { auditPrivacy, visitorVault, isLocalOnly } from './core/privacy.js';
 import { planLinkUpdates, retitle, renamedFile, rebaseLinks, retargetSource, dirOf } from './core/move.js';
 import { checkVault } from './core/check.js';
@@ -80,6 +82,7 @@ function hrefs(key) {
     edit: rel => `${base}/e/${enc(rel)}`,
     flash: (rel, n) => `${base}/f/${enc(rel)}${n ? '/' + n : ''}`,
     deck: (topicId, projectId, n, read) => `${base}/d/${enc(topicId)}/${enc(projectId)}${n ? '/' + n : ''}${read ? '/read' : ''}`,
+    board: name => `${base}/b/${enc(name)}`,
     go: (link, fromRel) => `${base}/go/${enc(JSON.stringify({ c: link.channel, t: link.target, h: link.heading }))}/${enc(fromRel)}`,
   };
 }
@@ -101,8 +104,9 @@ async function route() {
   if (mode === 'n' && a) return leaveView(), showNote(key, a, b);
   if (mode === 'e' && a) return leaveView(), showEditor(key, a);
   if (mode === 'go' && a) return followLink(key, a, b || '');
+  if (mode === 'b' && a) return leaveView(), showBoard(key, a);
   // Mdslide Pile 的舊網址:#/<書庫>/<主題>/<簡報>/<第幾張>
-  if (mode && a && !['n', 'e', 'f', 'd', 'go'].includes(mode)) return location.replace(hrefs(key).deck(mode, a, b, c === 'read'));
+  if (mode && a && !['n', 'e', 'f', 'd', 'go', 'b'].includes(mode)) return location.replace(hrefs(key).deck(mode, a, b, c === 'read'));
   leaveView();
   return showShelf(key);
 }
@@ -319,6 +323,7 @@ async function showShelf(key) {
         header: header(key === 'repo' ? 'repo' : 'home'),
         graph,
         onPrivacy: vault.kind === 'leafpile' ? () => runPrivacy(key) : null,
+        onNewBoard: vault.kind === 'leafpile' && source.canWrite ? () => newBoard(key) : null,
         onRefresh: key === 'repo' ? null : () => { invalidate(key); showShelf(key); },
         onCheck: () => runCheck(key),
         onNewNote: vault.notesSource?.canWrite ? () => newNote(key) : null,
@@ -344,6 +349,51 @@ function watchVault(key, vault) {
   }, 2500);
   const prev = state.view.cleanup;
   state.view.cleanup = () => { stop(); prev?.(); };
+}
+
+// ---------------- 畫布 ----------------
+async function showBoard(key, name) {
+  loading(t('loading.library'));
+  try {
+    const vault = await getVault(key);
+    if (!vault) return;
+    const info = (vault.boards || []).find(b => b.name === name);
+    if (!info) throw new UserError(t('board.notFound', { name }));
+    const src = state.sources.get(key);
+    src.refresh?.();
+    const text = await src.readText(info.path);
+    let board;
+    try { board = parseCanvas(text); } catch (e) { throw new UserError(t('check.boardBroken', { error: e.message })); }
+    let expect = src.canWrite ? await src.stat(info.path) : null;
+    const graph = getGraph(key);
+    const g = await graph.catch(() => null);
+    const choices = g ? [
+      ...[...g.notes.values()].map(n => ({ value: 'n:' + n.path, file: n.path, label: `${t('board.kindNote')} · ${vault.topics.find(tp => tp.id === n.topicId)?.title || ''} › ${n.title}` })),
+      ...[...g.decks.values()].map(d => ({ value: 'd:' + d.path, file: `${d.path}/deck.yml`, deck: true, label: `${t('board.kindDeck')} · ${vault.topics.find(tp => tp.id === d.topicId)?.title || ''} › ${d.title}` })),
+    ] : [];
+    state.view = renderBoard(app, {
+      board, name, header: header(key === 'repo' ? 'repo' : 'home'), href: hrefs(key), graph, choices,
+      colorOf: id => vault.topics.find(tp => tp.id === id)?.color || '',
+      save: src.canWrite ? async text => { expect = await src.writeText(info.path, text, { expect }); } : null,
+    });
+    document.title = `${name} · Leafpile`;
+  } catch (e) { showError(e, keyBase(key)); }
+}
+
+async function newBoard(key) {
+  try {
+    const vault = await getVault(key);
+    const src = state.sources.get(key);
+    if (!src?.canWrite) return toast(t('ne.readonly'));
+    const r = await dialog({ title: t('board.newTitle'), fields: [{ name: 'name', label: t('board.newName'), placeholder: t('board.newPlaceholder') }], buttons: [{ label: t('dialog.cancel'), value: false }, { label: t('board.create'), value: true, primary: true }] });
+    if (!r?.value) return;
+    const file = boardFileName(r.fields.name || '');
+    const name = file.replace(/\.canvas$/, '');
+    if ((vault.boards || []).some(b => b.name === name) || (await src.stat(`boards/${file}`)) != null) return toast(t('move.exists'));
+    await src.writeText(`boards/${file}`, emptyCanvas(), { mkdir: true });
+    invalidate(key);
+    location.hash = hrefs(key).board(name);
+  } catch (e) { noteErr(e); }
 }
 
 /** 訪客看不看得到這篇:公開、而且不在只留本機的主題。 */
@@ -857,6 +907,8 @@ async function paletteItems() {
       }
       if (deck && vault.kind === 'leafpile' && state.sources.get(key)?.canWrite) act(t('distill.action'), () => distill(key, deck.topicId, deck.projectId));
       if (vault.kind === 'leafpile') act(t('privacy.title'), () => runPrivacy(key));
+      for (const b of vault.boards || []) act(t('board.open', { name: b.name }), () => { location.hash = href.board(b.name); });
+      if (vault.kind === 'leafpile' && state.sources.get(key)?.canWrite) act(t('board.newTitle'), () => newBoard(key));
       if (vault.kind === 'leafpile') act(t(state.visitor ? 'privacy.visitorOff' : 'privacy.visitorOn'), () => setVisitor(!state.visitor));
       const project = deck && g && vault.kind === 'leafpile' ? findDeck(vault, deck.topicId, deck.projectId) : null;
       let st = null;

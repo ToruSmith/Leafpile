@@ -70,7 +70,7 @@
     {
       "id": "e-distill",
       "fromNode": "s-tour",
-      "fromSide": "bottom",
+      "fromSide": "left",
       "toNode": "n-after",
       "toSide": "right",
       "label": "講後筆記"

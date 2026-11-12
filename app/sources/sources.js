@@ -213,7 +213,7 @@ export class HandleSource {
 /** 只允許寫入書庫資料夾裡的 .md / .yml,路徑不能跳出去。 */
 function checkPath(path) {
   if (!/^[^/][^\0]*$/.test(path) || path.split('/').some(p => !p || p === '.' || p === '..')) throw new Error('bad path');
-  if (!/\.(md|ya?ml)$/i.test(path)) throw new Error('bad type');
+  if (!/\.(md|ya?ml|canvas)$/i.test(path)) throw new Error('bad type'); // 只寫文字檔:筆記、設定、畫布
 }
 
 async function exists(dir, name) {

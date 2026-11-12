@@ -139,7 +139,7 @@ export async function openVault(source) {
 
   if (!hasDir('notes') && !hasDir('slides')) {
     const slides = await scanLibrary(source);
-    return assemble({ kind: 'mdslide', title: slides.title, description: slides.description, theme: slides.theme, site: {}, issues: [], slides, slidesSource: source, slidesPrefix: '', notes: { topics: [], issues: [] }, notesSource: null });
+    return assemble({ kind: 'mdslide', title: slides.title, description: slides.description, theme: slides.theme, site: {}, issues: [], slides, slidesSource: source, slidesPrefix: '', notes: { topics: [], issues: [] }, notesSource: null, boards: [] });
   }
 
   const issues = [];
@@ -147,11 +147,15 @@ export async function openVault(source) {
   if (site.leafpile && Number(site.leafpile) > LEAFPILE_SCHEMA) issues.push({ path: '_site.yml', message: t('issue.newerLeafpile', { version: site.leafpile }) });
   const slidesSource = hasDir('slides') ? subSource(source, 'slides') : null;
   const notesSource = hasDir('notes') ? subSource(source, 'notes') : null;
+  const boards = hasDir('boards')
+    ? (await source.list('boards').catch(() => [])).filter(e => e.kind === 'file' && /\.canvas$/i.test(e.name) && !e.name.startsWith('.'))
+      .map(e => ({ name: e.name.replace(/\.canvas$/i, ''), path: `boards/${e.name}` })).sort((a, b) => a.name.localeCompare(b.name))
+    : [];
   const [slides, notes] = await Promise.all([
     slidesSource ? scanLibrary(slidesSource, { kind: 'library' }) : { kind: 'library', topics: [], issues: [] },
     notesSource ? scanNotes(notesSource) : { topics: [], issues: [] },
   ]);
-  return assemble({ kind: 'leafpile', title: str(site.title) || label, description: str(site.description), theme: str(site.theme), site, issues, slides, slidesSource, slidesPrefix: 'slides', notes, notesSource });
+  return assemble({ kind: 'leafpile', title: str(site.title) || label, description: str(site.description), theme: str(site.theme), site, issues, slides, slidesSource, slidesPrefix: 'slides', notes, notesSource, boards });
 }
 
 function assemble(v) {

@@ -10,6 +10,7 @@ import { t } from './i18n.js';
 import { isHidden, isMarkdown, RESERVED_DIRS, join } from './names.js';
 import { openVault } from './vault.js';
 import { buildGraph, sourceStatus } from './graph.js';
+import { parseCanvas, missingFiles } from './canvas.js';
 import { sectionOf } from './note.js';
 
 export const MAX_SLIDES = 45;
@@ -208,6 +209,12 @@ export async function checkVault(source, onProgress, { today = new Date().toISOS
     const st = sourceStatus(graph, d).status;
     if (st === 'missing') say('warn', join(d.path, 'deck.yml'), t('check.sourceMissing', { source: d.source }));
     if (st === 'changed') say('warn', join(d.path, 'deck.yml'), t('check.sourceChanged', { source: d.source }));
+  }
+  for (const b of vault.boards || []) {
+    let board;
+    try { board = parseCanvas(await source.readText(b.path)); } catch (e) { say('error', b.path, t('check.boardBroken', { error: e.message })); continue; }
+    for (const i of board.issues) say('warn', b.path, t('check.boardIssue', { issue: i }));
+    for (const f of missingFiles(board, graph)) say('warn', b.path, t('check.boardMissing', { file: f }));
   }
   return {
     kind: 'leafpile', title: vault.title, topics: slides.topics, problems, warnings,

@@ -24,7 +24,7 @@ function savedView() {
  *   href = { note(rel), deck(topicId, projectId) } 產生連結
  * @returns {Function} 清理函式
  */
-export function renderShelf(root, { vault, sourceKey, header, href, graph, onRefresh, onCheck, onNewNote, onPrivacy }) {
+export function renderShelf(root, { vault, sourceKey, header, href, graph, onRefresh, onCheck, onNewNote, onPrivacy, onNewBoard }) {
   applyUITheme(vault.theme || 'paper');
   const noteCount = vault.notes.topics.reduce((n, tp) => n + notesOfTopic(tp).length, 0);
   const deckCount = vault.topics.reduce((n, tp) => n + tp.decks.length, 0);
@@ -72,6 +72,9 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
             ${g.topics.map(tp => topicHTML(tp, vault, href)).join('')}
           </div>`).join('')}
       </div>
+      ${hasNotes && (vault.boards?.length || onNewBoard) ? `<section class="boards-row"><h2>${esc(t('board.heading'))}</h2><div class="boards-list">
+        ${(vault.boards || []).map(b => `<a class="board-card" href="${href.board(b.name)}"><span class="board-icon" aria-hidden="true"><i></i><i></i><i></i></span><b>${esc(b.name)}</b></a>`).join('')}
+        ${onNewBoard ? `<button class="board-card new-board">${esc(t('board.new'))}</button>` : ''}</div></section>` : ''}
       ${emptyTopics.length && (noteCount || deckCount) ? `<p class="empty-topics">${esc(t('shelf.emptyTopics', { list: emptyTopics.map(tp => tp.title).join(t('check.sep')) }))}</p>` : ''}
       ${!noteCount && !deckCount ? `<div class="shelf-empty"><p>${esc(t('shelf.emptyLibrary'))}</p></div>` : ''}
     </div>`;
@@ -145,6 +148,7 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
   $('.refresh')?.addEventListener('click', onRefresh);
   $('.check')?.addEventListener('click', onCheck);
   $('.privacy')?.addEventListener('click', () => onPrivacy?.());
+  $('.new-board')?.addEventListener('click', () => onNewBoard?.());
   $('.ro-chip')?.addEventListener('click', e => {
     const note = $('.ro-note');
     note.textContent = e.currentTarget.title;

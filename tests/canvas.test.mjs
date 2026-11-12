@@ -1,0 +1,79 @@
+// 畫布(JSON Canvas)的純邏輯。
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { memorySource } from './helpers.mjs';
+import { nodeSource } from '../scripts/node-source.mjs';
+import { openVault } from '../app/core/vault.js';
+import { buildGraph } from '../app/core/graph.js';
+import { checkVault } from '../app/core/check.js';
+import { parseCanvas, serializeCanvas, canvasColor, anchor, edgePath, bounds, resolveFile, missingFiles, newId, boardFileName } from '../app/core/canvas.js';
+
+test('parseCanvas / serializeCanvas:保留不認得的欄位;壞掉的項目略過但不讓整張壞掉', () => {
+  const src = JSON.stringify({
+    'x-board': { zoom: 1 }, nodes: [
+      { id: 'g', type: 'group', label: 'G', x: 0, y: 0, width: 500, height: 300, 'x-foo': 1 },
+      { id: 'a', type: 'text', text: 'hi', x: 10.4, y: 20, width: 200, height: 80, color: '3', obsidianThing: true },
+      { id: 'a', type: 'text', text: 'dup', x: 0, y: 0, width: 10, height: 10 },
+      { id: 'b', type: 'nope' },
+      { id: 'c', type: 'file', file: 'notes/x.md', x: 300, y: 0 },
+    ],
+    edges: [{ id: 'e1', fromNode: 'a', toNode: 'c', label: 'L', 'x-kind': 'promote' }, { id: 'e2', fromNode: 'a', toNode: 'zz' }],
+  });
+  const b = parseCanvas(src);
+  assert.deepEqual(b.nodes.map(n => n.id), ['g', 'a', 'c']);
+  assert.equal(b.issues.length, 3);
+  assert.equal(b.nodes[2].width, 260); // 缺尺寸:用預設
+  const out = JSON.parse(serializeCanvas(b));
+  assert.deepEqual(out['x-board'], { zoom: 1 });
+  assert.equal(out.nodes[0]['x-foo'], 1);
+  assert.equal(out.nodes[1].obsidianThing, true);
+  assert.equal(out.nodes[1].x, 10);
+  assert.deepEqual(out.edges, [{ id: 'e1', fromNode: 'a', toNode: 'c', label: 'L', 'x-kind': 'promote' }]);
+  assert.throws(() => parseCanvas('{壞'), /JSON/);
+  assert.deepEqual(parseCanvas('').nodes, []);
+});
+
+test('canvasColor:只接受預設色 1–6 與 #hex', () => {
+  assert.equal(canvasColor('1'), '#c0504d');
+  assert.equal(canvasColor('#abc'), '#abc');
+  assert.equal(canvasColor('red; background:url(x)'), '');
+  assert.equal(canvasColor(undefined), '');
+});
+
+test('anchor / edgePath / bounds:幾何', () => {
+  const a = { x: 0, y: 0, width: 100, height: 50 }, b = { x: 300, y: 0, width: 100, height: 50 };
+  assert.deepEqual(anchor(a, undefined, b), { x: 100, y: 25, side: 'right' });
+  assert.deepEqual(anchor(b, undefined, a), { x: 300, y: 25, side: 'left' });
+  assert.deepEqual(anchor(a, 'bottom'), { x: 50, y: 50, side: 'bottom' });
+  const p = edgePath(a, b);
+  assert.match(p.d, /^M 100 25 C /);
+  assert.deepEqual(p.mid, { x: 200, y: 25 });
+  assert.deepEqual(bounds([a, b]), { x: 0, y: 0, width: 400, height: 50 });
+  assert.equal(bounds([]), null);
+});
+
+test('resolveFile / missingFiles:筆記、簡報(deck.yml 或資料夾)、找不到', async () => {
+  const g = await buildGraph(await openVault(memorySource({
+    'notes/10-reading/a.md': '# A',
+    'slides/10-reading/talk/deck.yml': 'title: 分享\n', 'slides/10-reading/talk/01.md': '# 1',
+  })));
+  assert.equal(resolveFile('notes/10-reading/a.md', g).kind, 'note');
+  assert.equal(resolveFile('slides/10-reading/talk/deck.yml', g).rec.title, '分享');
+  assert.equal(resolveFile('slides/10-reading/talk', g).kind, 'deck');
+  assert.equal(resolveFile('notes/nope.md', g).kind, 'missing');
+  const board = parseCanvas(JSON.stringify({ nodes: [{ id: 'x', type: 'file', file: 'notes/nope.md', x: 0, y: 0, width: 10, height: 10 }, { id: 'y', type: 'file', file: 'notes/10-reading/a.md', x: 0, y: 0, width: 10, height: 10 }] }));
+  assert.deepEqual(missingFiles(board, g), ['notes/nope.md']);
+  assert.notEqual(newId(board), newId({ nodes: [], edges: [] }) + 'x');
+  assert.equal(boardFileName(' 讀書 / 規劃?'), '讀書-規劃.canvas');
+});
+
+test('檢查工具:畫布壞掉是錯誤,卡片指到不存在的檔案是提醒;範例畫布沒有問題', async () => {
+  const lib = { 'notes/a.md': '# A', 'boards/ok.canvas': JSON.stringify({ nodes: [{ id: 'x', type: 'file', file: 'notes/gone.md', x: 0, y: 0, width: 10, height: 10 }], edges: [] }), 'boards/bad.canvas': '{' };
+  const r = await checkVault(memorySource(lib));
+  assert.ok(r.problems.some(p => p.path === 'boards/bad.canvas'));
+  assert.ok(r.warnings.some(w => w.path === 'boards/ok.canvas' && w.message.includes('notes/gone.md')));
+  const content = await checkVault(nodeSource(new URL('../content', import.meta.url).pathname));
+  assert.deepEqual([...content.problems, ...content.warnings].filter(x => x.path.startsWith('boards/')), []);
+  assert.ok(parseCanvas(readFileSync(new URL('../content/boards/00-examples-overview.canvas', import.meta.url), 'utf8')).nodes.length > 3);
+});
