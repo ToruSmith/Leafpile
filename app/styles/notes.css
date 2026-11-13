@@ -720,3 +720,38 @@ body.immersive .side-nav, body.immersive .side-btn, body.immersive .sn-backdrop 
 .lp-dialog-card textarea { font-family: var(--font-mono); font-size: 13px; line-height: 1.5; resize: vertical; min-height: 160px; }
 .lp-dialog-card .lp-dialog-list { max-height: 40vh; overflow: auto; }
 .lp-dialog-buttons.wrap { flex-wrap: wrap; }
+
+/* 筆記的看板與月曆(唯讀) */
+.kanban { display: flex; gap: 12px; overflow-x: auto; padding: 2px 2px 12px; align-items: flex-start; overscroll-behavior-x: contain; }
+.kb-col { flex: 0 0 260px; display: flex; flex-direction: column; max-height: 70vh; border: 1px solid var(--line); border-radius: 12px; background: color-mix(in srgb, var(--line) 22%, var(--bg)); }
+.kb-col h3 { display: flex; align-items: center; gap: 8px; margin: 0; padding: 10px 12px; font-size: 14px; border-bottom: 1px solid var(--line); }
+.kb-col h3 .g-n { margin-left: auto; font-weight: 400; color: var(--muted); font-size: 12px; }
+.kb-col ul { list-style: none; margin: 0; padding: 8px; display: grid; gap: 8px; overflow-y: auto; }
+.kb-card { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+.kb-card > a { color: var(--ink); font-weight: 600; text-decoration: none; }
+.kb-card > a:hover { color: var(--accent); }
+.kb-card small { color: var(--muted); font-size: 12px; }
+.kb-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.cal-nav { display: inline-flex; align-items: center; gap: 4px; }
+.cal-nav .btn { padding: 4px 10px; font-size: 13px; }
+.cal-month { min-width: 8em; text-align: center; color: var(--ink); font-size: 14px; }
+table.calendar { table-layout: fixed; width: 100%; min-width: 0; }
+table.calendar th { text-align: center; font-size: 12px; color: var(--muted); padding: 6px 2px; }
+table.calendar td { vertical-align: top; height: 92px; padding: 4px 5px; border: 1px solid var(--line); overflow: hidden; }
+table.calendar td.out { background: color-mix(in srgb, var(--line) 25%, transparent); }
+table.calendar td.out .cal-d { opacity: .45; }
+table.calendar td.today .cal-d { background: var(--accent); color: var(--on-accent, #fff); border-radius: 999px; padding: 0 6px; }
+.cal-d { display: inline-block; font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+.cal-note { display: block; font-size: 12px; line-height: 1.35; padding: 1px 4px; margin-top: 2px; border-radius: 5px; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--ink); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-note:hover { background: color-mix(in srgb, var(--accent) 24%, transparent); }
+.cal-list { margin-top: 14px; }
+.cal-list h3 { font-size: 14px; margin: 0 0 6px; }
+.cal-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.cal-list li { display: flex; gap: 12px; font-size: 14px; line-height: 1.5; }
+.cal-list time { flex: none; width: 3.2em; color: var(--muted); font-variant-numeric: tabular-nums; }
+.cal-list .hint { margin-top: 8px; }
+@media (max-width: 720px) {
+  table.calendar td { height: 52px; padding: 3px; }
+  .cal-note { display: inline-block; width: 7px; height: 7px; padding: 0; margin: 1px; border-radius: 50%; background: var(--accent); font-size: 0; }
+  .kb-col { flex-basis: 78vw; }
+}
