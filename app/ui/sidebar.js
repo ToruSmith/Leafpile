@@ -89,6 +89,15 @@ export function mountSidebar(app, { lib, vault, boards = [], href, current = { t
   window.addEventListener('keydown', onKey);
   syncTop(); syncState();
 
+  // 書庫頁的「全部／表格」:書庫頁切換檢視時同步標示
+  const shelfView = () => readPref('leafpile-shelf-view');
+  const onShelfState = () => {
+    if (current.type !== 'shelf') return;
+    const now = shelfView() === 'table' ? 'table' : 'all';
+    aside.querySelectorAll('.sn-sys [data-view]').forEach(a => (a.dataset.view === now ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
+  };
+  window.addEventListener('leafpile-shelf-state', onShelfState);
+
   let alive = true, v = null, titles = null;
   const render = () => {
     if (!alive || !v) return;
@@ -122,8 +131,8 @@ export function mountSidebar(app, { lib, vault, boards = [], href, current = { t
       </div>
       <div class="sn-scroll">
         <ul class="sn-sys">
-          <li><a class="sn-item" href="${href.shelf}" data-view="all"${current.type === 'shelf' ? ' aria-current="page"' : ''}>${ICON.shelf}<span>${esc(t('side.shelf'))}</span></a></li>
-          <li><a class="sn-item" href="${href.shelf}" data-view="table">${ICON.table}<span>${esc(t('side.table'))}</span></a></li>
+          <li><a class="sn-item" href="${href.shelf}" data-view="all"${current.type === 'shelf' && shelfView() !== 'table' ? ' aria-current="page"' : ''}>${ICON.shelf}<span>${esc(t('side.shelf'))}</span></a></li>
+          <li><a class="sn-item" href="${href.shelf}" data-view="table"${current.type === 'shelf' && shelfView() === 'table' ? ' aria-current="page"' : ''}>${ICON.table}<span>${esc(t('side.table'))}</span></a></li>
           ${onSearch ? `<li><button class="sn-item sn-search">${ICON.search}<span>${esc(t('side.search'))}</span><kbd>Ctrl K</kbd></button></li>` : ''}
         </ul>
         <section class="sn-sec"><h3>${esc(t('side.pins'))}${canPin ? `<button class="sn-pin-cur" aria-pressed="${pinnedNow}" title="${esc(t(pinnedNow ? 'side.unpinThis' : 'side.pinThis'))}">${ICON.pin}<span>${esc(t(pinnedNow ? 'side.unpinThis' : 'side.pinThis'))}</span></button>` : ''}</h3>
@@ -194,6 +203,7 @@ export function mountSidebar(app, { lib, vault, boards = [], href, current = { t
     wide.removeEventListener('change', onWide);
     window.removeEventListener('resize', syncTop);
     window.removeEventListener('keydown', onKey);
+    window.removeEventListener('leafpile-shelf-state', onShelfState);
     aside.remove(); backdrop.remove(); btn.remove();
     body.classList.remove('has-side', 'side-open', 'side-collapsed', 'side-board');
   };

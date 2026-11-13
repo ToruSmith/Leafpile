@@ -9,7 +9,7 @@ Leafpile 把一個本機資料夾同時當成筆記庫與簡報庫：`notes/` �
 
 ## 目前階段
 
-v0.9.1：P1、P2 完成；P3 完成畫布（含嵌入與簡報模式）、發布前檢查、筆記改名／搬移／封存、沉浸閱讀與字級、畫布小地圖與右鍵選單、書庫表格檢視、側邊欄、主題管理（設定類）。結構類主題管理視需要再做（見路線圖）。路線圖的 P3 都已完成或量測後暫緩（圖譜快取，見 [`docs/ROADMAP.md`](docs/ROADMAP.md)）；目前在 v1.0 閘門，照路線圖的清單逐項完成。**開始寫程式前先確認目前在哪個階段，不要跳做後面階段的功能。**
+v0.9.2：P1、P2 完成；P3 完成畫布（含嵌入與簡報模式）、發布前檢查、筆記改名／搬移／封存、沉浸閱讀與字級、畫布小地圖與右鍵選單、書庫表格檢視、側邊欄、主題管理（設定類）。結構類主題管理視需要再做（見路線圖）。路線圖的 P3 都已完成或量測後暫緩（圖譜快取，見 [`docs/ROADMAP.md`](docs/ROADMAP.md)）；目前在 v1.0 閘門，照路線圖的清單逐項完成。**開始寫程式前先確認目前在哪個階段，不要跳做後面階段的功能。**
 
 簡報引擎（`app/player/`、`app/core/` 的 slide、markdown、library 等）來自 [Mdslide Pile](https://github.com/ToruSmith/Mdslide-Pile) v1.14.0。它的洗牌動畫有守門測試（`tests/protected.test.mjs`），**未經維護者同意不得修改**。
 
@@ -55,7 +55,7 @@ app/
 content/              公開書庫（部署到 GitHub Pages）：notes/、slides/、boards/、_site.yml
 starter/              範例書庫的說明、設定與歡迎筆記（scripts/build-starter.mjs 組裝）
 dist/                 單檔檢查工具 leafpile-check.mjs（自動產生，請勿手改）
-docs/                 SPEC、INTEROP、ARCHITECTURE、ROADMAP、AI_PROMPTS、slides/（簡報指南與手冊）
+docs/                 SPEC、INTEROP、FEATURES（功能手冊）、ARCHITECTURE、ROADMAP、AI_PROMPTS、slides/（簡報指南與手冊）
 scripts/              check、guard-content、promote、after-talk、source-sync、bench-graph、new-deck、build-catalog、bundle-check、build-starter
 tests/                node:test 單元測試；smoke/（Playwright）；visual/（畫面比對）
 ```
@@ -82,6 +82,7 @@ python tests/smoke/smoke.py http://localhost:8000/ chromium
 
 - [ ] 測試與守門檢查都通過
 - [ ] 規格變動已同步到 `docs/SPEC.md`、範例與測試
+- [ ] 新增或改動使用者看得到的功能、快捷鍵、按鈕，已同步到 `docs/FEATURES.md` 與 `docs/FEATURES.en.md`
 - [ ] `CHANGELOG.md` 已記錄
 - [ ] 若由 AI 參與，在 PR 勾選揭露；重要產出在 `AI_CREDITS.md` 加一列
 

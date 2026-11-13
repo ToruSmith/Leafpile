@@ -48,6 +48,7 @@ def main():
         page.click('.segmented [data-view=all]'); page.wait_for_timeout(200)
         page.click('.segmented [data-view=table]'); page.wait_for_timeout(800)  # 表格檢視(唯讀)
         assert page.locator('.note-table tbody tr').count() >= 5 and not page.locator('.topics').is_visible(), '表格檢視沒有列出筆記'
+        assert page.locator('.sn-sys [aria-current=page][data-view=table]').count() == 1, '切到表格後側邊欄沒有標示「表格」'
         page.click('.note-table [data-sort=title]'); page.wait_for_timeout(200)
         assert page.locator('.note-table th[aria-sort=ascending]').count() == 1, '表格沒有依標題排序'
         page.click('.seg-mini [data-mode=topics]'); page.wait_for_timeout(300)  # 主題清單(內建範例是唯讀:沒有編輯鈕)
@@ -55,6 +56,7 @@ def main():
         assert page.locator('.tm-edit').count() == 0, '唯讀書庫不該有編輯主題的按鈕'
         page.click('.seg-mini [data-mode=notes]'); page.wait_for_timeout(200)
         page.click('.segmented [data-view=all]'); page.wait_for_timeout(200)
+        assert page.locator('.sn-sys [aria-current=page][data-view=all]').count() == 1, '切回全部後側邊欄沒有標示「書庫總覽」'
         # 側邊欄:在書庫頁點主題要能展開(書庫頁外層也有 data-view,曾經把點擊攔下來)
         topic = page.locator('.side-nav .sn-tree details:not(.sn-cat)').first
         assert not topic.evaluate('d => d.open'), '主題一開始應該是收起的'

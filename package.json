@@ -1,6 +1,6 @@
 {
   "name": "leafpile",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "private": true,
   "type": "module",
   "description": "一個資料夾，平常是筆記，上台是簡報。Local-first Markdown notes and slides in one folder.",
