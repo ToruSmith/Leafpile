@@ -36,6 +36,8 @@ import { dialog, confirmDialog, toast } from './ui/dialog.js';
 import { readZip, writeZip } from './core/zip.js';
 import { fileKind, walkFiles, exportPlan, parsePackText, normalizeIncoming, planImport } from './core/pack.js';
 import { packDialog, importSourceDialog, pasteDialog, previewDialog as packPreview } from './ui/pack.js';
+import { buildPrompt, aiURL, assembleGenerated, AI_TARGETS } from './core/generate.js';
+import { generateDialog, replyDialog } from './ui/generate.js';
 import { Player } from './player/player.js';
 import { noteToDeck } from './player/flash.js';
 import { openExportDialog } from './player/export.js';
@@ -469,6 +471,7 @@ async function showShelf(key) {
         onRefresh: key === 'repo' ? null : () => { invalidate(key); showShelf(key); },
         onCheck: () => runCheck(key),
         onPack: vault.kind === 'leafpile' && !state.visitor ? () => packMenu(key) : null,
+        onGenerate: vault.kind === 'leafpile' && source.canWrite && !state.visitor ? () => generateFlow(key) : null,
         onNewNote: vault.notesSource?.canWrite ? () => newNote(key) : null,
         onTopicEdit: vault.kind === 'leafpile' && source.canWrite ? id => editTopic(key, id) : null,
         onTopicNew: vault.kind === 'leafpile' && source.canWrite && vault.notesSource ? () => newTopic(key) : null,
@@ -1104,6 +1107,8 @@ async function paletteItems() {
       if (st?.notes.length) act(t('deck.openSource'), () => { location.hash = href.note(st.notes[0].rel); });
       if ((st?.status === 'changed' || st?.status === 'untracked') && state.sources.get(key)?.canWrite) act(t(st.status === 'changed' ? 'deck.markSynced' : 'deck.trackSource'), () => markSynced(key, deck.topicId, deck.projectId));
       if (vault.notesSource?.canWrite) act(t('palette.newNote'), () => newNote(key, rel ? findNote(vault, rel)?.topic.id : undefined));
+      if (vault.kind === 'leafpile' && state.sources.get(key)?.canWrite) act(t('palette.generate'), () => generateFlow(key));
+      if (vault.kind === 'leafpile') act(t('palette.pack'), () => packMenu(key));
       act(t('palette.shelf'), () => { location.hash = href.shelf; });
       act(t('palette.check'), () => runCheck(key));
       if (g) {
@@ -1360,6 +1365,31 @@ async function openZip(file) {
     const name = file.name.replace(/\.zip$/i, '');
     useSession(new FileListSource(list.map(f => ({ file: new File([f.data], f.path.split('/').pop()), path: f.path })), name));
   } catch (e) { showError(new UserError(packError(e))); }
+}
+
+// ---------------- 用 AI 生成(筆記、簡報、畫布) ----------------
+// 填資料 → 複製提示詞並開啟 AI → 貼回回覆 → 組成檔案(core/generate.js)→ 匯入預覽(importFiles)。
+async function generateFlow(key) {
+  try {
+    const vault = await getVault(key);
+    const topics = vault.topics.filter(tp => tp.id !== '_' && tp.notes).map(tp => ({ id: tp.id, title: tp.title }));
+    const g = await generateDialog({ topics });
+    if (!g) return;
+    const newTopic = !g.topicId;
+    const topicId = g.topicId || '01-inbox';
+    const topicName = newTopic ? t('gen.inboxName') : vault.topics.find(tp => tp.id === topicId)?.title || topicId;
+    const prompt = buildPrompt({ kind: g.kind, title: g.title, topic: topicName, extra: g.extra, data: g.data });
+    let copied = false;
+    try { await navigator.clipboard.writeText(prompt); copied = true; } catch { /* 沒有權限:下一步的方框裡可以手動複製 */ }
+    const target = AI_TARGETS.find(a => a.id === g.target);
+    if (target) window.open(aiURL(target.id, prompt), '_blank', 'noopener');
+    toast(t(copied ? 'gen.copied' : 'gen.copyFailed'), { ms: copied ? 3000 : 7000 });
+    const reply = await replyDialog({ prompt, opened: target?.name || '' });
+    if (reply == null) return;
+    const files = assembleGenerated({ kind: g.kind, text: reply, title: g.title, topicId, topicName, newTopic, theme: vault.theme || 'paper', lang: getLang() });
+    if (!files.length) return toast(t('gen.empty'), { ms: 6000 });
+    await importFiles(key, files, t('gen.labelAI'));
+  } catch (e) { toast(packError(e), { ms: 8000 }); }
 }
 
 // ---------------- 拖放資料夾 ----------------

@@ -1117,6 +1117,45 @@ const LOCALE_ZH_HANT = {
   'pack.failed': '書庫包處理失敗:{error}',
   'home.openZip': '開啟 zip 書庫包',
   'home.openZipTitle': '別人給你的書庫包(.zip):不用解壓縮,任何瀏覽器都能看(唯讀)',
+  'gen.button': "AI 生成",
+  'gen.buttonTitle': "把你的資料交給常用的 AI(Claude、ChatGPT、Gemini),生成筆記、簡報或畫布,再匯入這個書庫",
+  'gen.title': "用 AI 生成",
+  'gen.lead': "一次生成一種。填好後按下方的 AI:提示詞會複製到剪貼簿並開新分頁,在 AI 的輸入框貼上(Ctrl+V)送出,再把回覆整段貼回來。",
+  'gen.note': "你的資料只會送到你選的 AI;Leafpile 不會傳到任何地方。品質取決於資料:給得越具體,結果越好。",
+  'gen.kind': "要生成什麼",
+  'gen.kind.note': "筆記",
+  'gen.kind.deck': "簡報",
+  'gen.kind.board': "畫布",
+  'gen.topic': "放在哪個主題",
+  'gen.newTopic': "(新主題:收件匣)",
+  'gen.titleLabel': "標題",
+  'gen.titlePh': "例如:原子習慣 第 1 章",
+  'gen.extra': "補充要求(可省略)",
+  'gen.extraPh': "例如:給新手看、大約 8 張投影片、用條列",
+  'gen.data': "資料(劃線、摘要、會議紀錄、網頁內容…)",
+  'gen.dataPh': "把資料貼在這裡",
+  'gen.copyOnly': "只複製提示詞",
+  'gen.open': "開啟 {name}",
+  'gen.needTitle': "請填標題。",
+  'gen.needData': "請貼上資料:AI 只會根據這些資料寫。",
+  'gen.copied': "提示詞已複製。",
+  'gen.copyFailed': "沒辦法自動複製,請在下一步的方框裡手動複製提示詞。",
+  'gen.pasteTitle': "貼上 AI 的回覆",
+  'gen.pasteLead': "{where}在輸入框按 Ctrl+V(Mac 是 ⌘V)貼上提示詞並送出,等它回覆完,把回覆整段複製貼到這裡。下一步會先預覽,不會覆蓋你原本的檔案。",
+  'gen.whereOpened': "已經開好 {name}。",
+  'gen.whereNone': "把提示詞貼到你常用的 AI。",
+  'gen.promptLabel': "提示詞(已複製;要的話可以再複製一次)",
+  'gen.replyLabel': "AI 的回覆",
+  'gen.replyPh': "=== FILE: … ===\n…\n=== END ===",
+  'gen.empty': "回覆裡沒有內容。請把 AI 的回覆整段貼上。",
+  'gen.labelAI': "AI 的回覆",
+  'gen.extraLine': "補充要求:{extra}",
+  'gen.prompt.note': "請把下面的「資料」整理成 Markdown 筆記。\n標題:{title}(主題:{topic})\n{extra}\n規則:\n1. 只用資料裡的內容,不要補資料沒有的事實;不確定的地方標「待確認」。\n2. 第一句寫結論;用 ## 小標分段,重點用條列,句子短。\n3. 不要寫 front matter 或版型設定。\n4. 內容適合拆成幾篇時,可以輸出多個檔案,每篇一個標題。\n只輸出下面的格式,不要其他說明:\n=== FILE: {title}.md ===\n# {title}\n(內文)\n=== END ===\n\n資料:\n{data}",
+  'gen.prompt.deck': "請把下面的「資料」整理成簡報大綱(Markdown)。\n簡報標題:{title}(主題:{topic})\n{extra}\n規則:\n1. 只用資料裡的內容,不要補資料沒有的事實。\n2. 用 ## 表示章節(2 到 4 章),### 表示一張投影片(每章 2 到 4 張)。\n3. 每張投影片 2 到 4 個條列重點,每點一句,20 字以內。\n4. 不要寫 front matter 或版型設定。\n只輸出下面的格式,不要其他說明:\n=== FILE: {title}.md ===\n# {title}\n## 第一章\n### 第一張投影片\n- 重點\n=== END ===\n\n資料:\n{data}",
+  'gen.prompt.board': "請把下面的「資料」整理成一張概念圖(畫布)的大綱。\n畫布名稱:{title}(主題:{topic})\n{extra}\n規則:\n1. 只用資料裡的內容。\n2. 用 ## 表示群組(3 到 6 組),群組底下用 - 列出卡片,每張一句話,20 字以內。\n3. 最後可以加一段 ## 連線,每行寫「- 卡片 A -> 卡片 B : 關係」,卡片文字要和上面完全一樣(可省略)。\n只輸出下面的格式,不要其他說明:\n=== FILE: {title}.md ===\n## 群組一\n- 卡片\n## 連線\n- 卡片 A -> 卡片 B : 關係\n=== END ===\n\n資料:\n{data}",
+  'gen.inboxName': '收件匣',
+  'palette.generate': '用 AI 生成筆記、簡報或畫布',
+  'palette.pack': '書庫包(匯出或匯入)',
   'dialog.ok': '確定',
   'dialog.cancel': '取消',
   'palette.open': '指令面板(Ctrl+K)',
@@ -2175,6 +2214,45 @@ const LOCALE_EN = {
   'pack.failed': 'Library pack failed: {error}',
   'home.openZip': 'Open a zip library pack',
   'home.openZipTitle': 'A library pack (.zip) someone gave you: view it in any browser without unzipping (read-only)',
+  'gen.button': "Generate with AI",
+  'gen.buttonTitle': "Give your material to an AI you use (Claude, ChatGPT, Gemini) to generate a note, deck or board, then import it into this library",
+  'gen.title': "Generate with AI",
+  'gen.lead': "One kind at a time. Fill this in and press an AI below: the prompt is copied and a new tab opens. Paste it into the AI (Ctrl+V), send it, then paste the whole reply back here.",
+  'gen.note': "Your material goes only to the AI you choose; Leafpile sends it nowhere. Quality depends on the material: the more specific, the better.",
+  'gen.kind': "What to generate",
+  'gen.kind.note': "Note",
+  'gen.kind.deck': "Deck",
+  'gen.kind.board': "Board",
+  'gen.topic': "Topic",
+  'gen.newTopic': "(new topic: Inbox)",
+  'gen.titleLabel': "Title",
+  'gen.titlePh': "e.g. Atomic Habits, chapter 1",
+  'gen.extra': "Extra requests (optional)",
+  'gen.extraPh': "e.g. for beginners, about 8 slides, use bullet points",
+  'gen.data': "Material (highlights, summaries, meeting notes, web text…)",
+  'gen.dataPh': "Paste your material here",
+  'gen.copyOnly': "Copy prompt only",
+  'gen.open': "Open {name}",
+  'gen.needTitle': "Please enter a title.",
+  'gen.needData': "Please paste your material: the AI writes only from it.",
+  'gen.copied': "Prompt copied.",
+  'gen.copyFailed': "Could not copy automatically; copy the prompt from the box in the next step.",
+  'gen.pasteTitle': "Paste the AI’s reply",
+  'gen.pasteLead': "{where}Paste the prompt into its input box with Ctrl+V (⌘V on Mac) and send it. When the reply is finished, copy all of it and paste it here. You will see a preview next; none of your files are overwritten.",
+  'gen.whereOpened': "{name} is open. ",
+  'gen.whereNone': "Use the AI you prefer. ",
+  'gen.promptLabel': "Prompt (already copied; copy again if needed)",
+  'gen.replyLabel': "The AI’s reply",
+  'gen.replyPh': "=== FILE: … ===\n…\n=== END ===",
+  'gen.empty': "The reply is empty. Paste the AI’s whole reply.",
+  'gen.labelAI': "the AI reply",
+  'gen.extraLine': "Extra requests: {extra}",
+  'gen.prompt.note': "Turn the material below into a Markdown note.\nTitle: {title} (topic: {topic})\n{extra}\nRules:\n1. Use only what is in the material; add no facts it does not contain. Mark anything uncertain as \"to be checked\".\n2. Start with the conclusion; split with ## headings; use short bullet points.\n3. No front matter or layout settings.\n4. If the material suits several notes, output several files, one title each.\nOutput only this format, with no other explanation:\n=== FILE: {title}.md ===\n# {title}\n(body)\n=== END ===\n\nMaterial:\n{data}",
+  'gen.prompt.deck': "Turn the material below into a slide deck outline (Markdown).\nDeck title: {title} (topic: {topic})\n{extra}\nRules:\n1. Use only what is in the material; add no facts it does not contain.\n2. Use ## for sections (2 to 4) and ### for one slide (2 to 4 per section).\n3. Each slide has 2 to 4 bullet points, one short sentence each.\n4. No front matter or layout settings.\nOutput only this format, with no other explanation:\n=== FILE: {title}.md ===\n# {title}\n## Section one\n### First slide\n- Point\n=== END ===\n\nMaterial:\n{data}",
+  'gen.prompt.board': "Turn the material below into an outline for a concept map (board).\nBoard name: {title} (topic: {topic})\n{extra}\nRules:\n1. Use only what is in the material.\n2. Use ## for groups (3 to 6) and - for cards under each group, one short sentence per card.\n3. Optionally end with a ## Links section, one line each: \"- Card A -> Card B : relation\", using the exact card text from above.\nOutput only this format, with no other explanation:\n=== FILE: {title}.md ===\n## Group one\n- Card\n## Links\n- Card A -> Card B : relation\n=== END ===\n\nMaterial:\n{data}",
+  'gen.inboxName': 'Inbox',
+  'palette.generate': 'Generate a note, deck or board with AI',
+  'palette.pack': 'Library pack (export or import)',
   'dialog.ok': 'OK',
   'dialog.cancel': 'Cancel',
   'palette.open': 'Command palette (Ctrl+K)',
@@ -3416,7 +3494,18 @@ function sourceFingerprint(notes) {
   }
   return h.toString(16).padStart(8, '0');
 }
-return { LAYOUT_KEYS, splitFrontMatter, slugify, plainInline, headingsOf, parseTarget, wikilinksOf, replaceWikilinks, formatWikilink, linkLabel, sectionOf, parseNote, sourceFingerprint };
+
+/** 新筆記的檔名:日期 + 標題(去掉檔名不能用的字元)。 */
+function newNoteFileName(title, date = new Date().toISOString().slice(0, 10)) {
+  const safe = String(title).trim().replace(/[\\/:*?"<>|#^[\]\u0000-\u001f]/g, '').replace(/\s+/g, '-').slice(0, 60) || 'note';
+  return `${date}-${safe}.md`;
+}
+
+/** 新筆記的內容(front matter + 標題)。 */
+function newNoteText(title, date = new Date().toISOString().slice(0, 10)) {
+  return `---\ntitle: ${/[:#'"[\]{},&*!|>%@`]/.test(title) ? JSON.stringify(title) : title}\ndate: ${date}\ntags: []\n---\n# ${title}\n\n`;
+}
+return { LAYOUT_KEYS, splitFrontMatter, slugify, plainInline, headingsOf, parseTarget, wikilinksOf, replaceWikilinks, formatWikilink, linkLabel, sectionOf, parseNote, sourceFingerprint, newNoteFileName, newNoteText };
 })();
 
 // ───────── app/core/markdown.js ─────────

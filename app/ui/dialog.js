@@ -81,7 +81,10 @@ export function toast(message, { ms = 2600, actions = [] } = {}) {
     el.addEventListener('mouseenter', () => clearTimeout(timer));
     el.addEventListener('mouseleave', () => { timer = setTimeout(close, 4000); });
   }
-  document.body.append(el);
+  // 同時有好幾則時由下往上堆疊,不要疊在同一個位置
+  let stack = document.querySelector('.lp-toast-stack');
+  if (!stack) { stack = document.createElement('div'); stack.className = 'lp-toast-stack'; document.body.append(stack); }
+  stack.append(el);
   requestAnimationFrame(() => el.classList.add('on'));
   timer = setTimeout(close, ms);
 }

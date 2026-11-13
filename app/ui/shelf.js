@@ -30,7 +30,7 @@ function savedView() {
  *   href = { note(rel), deck(topicId, projectId) } 產生連結
  * @returns {Function} 清理函式
  */
-export function renderShelf(root, { vault, sourceKey, header, href, graph, onRefresh, onCheck, onNewNote, onPrivacy, onPack, onNewBoard, onTopicEdit, onTopicNew, onCategories }) {
+export function renderShelf(root, { vault, sourceKey, header, href, graph, onRefresh, onCheck, onNewNote, onPrivacy, onPack, onGenerate, onNewBoard, onTopicEdit, onTopicNew, onCategories }) {
   applyUITheme(vault.theme || 'paper');
   const noteCount = vault.notes.topics.reduce((n, tp) => n + notesOfTopic(tp).length, 0);
   const deckCount = vault.topics.reduce((n, tp) => n + tp.decks.length, 0);
@@ -58,6 +58,7 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
             : hasNotes && sourceKey !== 'repo' ? `<button class="ro-chip" title="${esc(t(canPickDirectory() ? 'shelf.readonlyTip' : 'shelf.readonlyBrowserTip'))}">${esc(t('shelf.readonly'))}</button>` : ''}
           <button class="btn ghost check" title="${esc(t('lib.checkTitle'))}">${esc(t('lib.check'))}</button>
           ${onPrivacy ? `<button class="btn ghost privacy" title="${esc(t('privacy.buttonTitle'))}">${esc(t('privacy.button'))}</button>` : ''}
+          ${onGenerate ? `<button class="btn ghost gen-btn" title="${esc(t('gen.buttonTitle'))}">${esc(t('gen.button'))}</button>` : ''}
           ${onPack ? `<button class="btn ghost pack-btn" title="${esc(t('pack.buttonTitle'))}">${esc(t('pack.button'))}</button>` : ''}
           ${onRefresh ? `<button class="btn ghost refresh" title="${esc(t('lib.refreshTitle'))}">${esc(t('lib.refresh'))}</button>` : ''}
         </div>
@@ -298,6 +299,7 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
   $('.check')?.addEventListener('click', onCheck);
   $('.privacy')?.addEventListener('click', () => onPrivacy?.());
   $('.pack-btn')?.addEventListener('click', () => onPack?.());
+  $('.gen-btn')?.addEventListener('click', () => onGenerate?.());
   $('.new-board')?.addEventListener('click', () => onNewBoard?.());
   $('.ro-chip')?.addEventListener('click', e => {
     const note = $('.ro-note');

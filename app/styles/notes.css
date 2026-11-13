@@ -197,7 +197,9 @@ a.wikilink.missing { color: var(--muted); border-bottom-color: var(--muted); }
 .lp-dialog-card input, .lp-dialog-card select, .lp-dialog-card textarea { font: inherit; font-size: 15px; padding: 10px 12px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
 .lp-dialog-buttons { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 6px; }
 .lp-dialog-buttons .btn { padding: 9px 16px; font-size: 14px; }
-.lp-toast { position: fixed; right: 24px; bottom: 24px; z-index: 220; padding: 12px 18px; border-radius: 12px; background: var(--ink); color: var(--bg); font-size: 14px; box-shadow: 0 12px 30px rgb(var(--shadow) / .3); opacity: 0; transform: translateY(8px); transition: opacity .25s, transform .25s; max-width: min(420px, calc(100vw - 48px)); }
+.lp-toast-stack { position: fixed; right: 24px; bottom: 24px; z-index: 220; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; max-width: calc(100vw - 48px); pointer-events: none; }
+.lp-toast-stack > * { pointer-events: auto; }
+.lp-toast { padding: 12px 18px; border-radius: 12px; background: var(--ink); color: var(--bg); font-size: 14px; box-shadow: 0 12px 30px rgb(var(--shadow) / .3); opacity: 0; transform: translateY(8px); transition: opacity .25s, transform .25s; max-width: min(420px, calc(100vw - 48px)); }
 .lp-toast.on { opacity: 1; transform: none; }
 .check-summary .warn-count { color: var(--warn); }
 .check-problems.warnings li { border-left-color: var(--warn); }
