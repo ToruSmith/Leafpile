@@ -52,16 +52,27 @@ export async function generateDialog({ topics }) {
   }
 }
 
-/** 第二步:貼回 AI 的回覆。提示詞也放在這裡,自動複製失敗時可以手動複製。回傳回覆文字或 null。 */
-export async function replyDialog({ prompt, opened }) {
+/**
+ * 第二步:收回 AI 的成果。可以貼上文字、選 AI 給的 zip,或複製規格全文(AI 打不開網址時)。
+ * 回傳 { text } | { zip: true } | { spec: true, reply } | null。
+ */
+export async function replyDialog({ prompt, opened, reply = '' }) {
   const r = await dialog({
     title: t('gen.pasteTitle'),
     message: t('gen.pasteLead', { where: opened ? t('gen.whereOpened', { name: opened }) : t('gen.whereNone') }),
     fields: [
       { name: 'prompt', label: t('gen.promptLabel'), type: 'textarea', rows: 3, value: prompt },
-      { name: 'reply', label: t('gen.replyLabel'), type: 'textarea', rows: 10, placeholder: t('gen.replyPh') },
+      { name: 'reply', label: t('gen.replyLabel'), type: 'textarea', rows: 8, value: reply, placeholder: t('gen.replyPh') },
     ],
-    buttons: [{ label: t('dialog.cancel'), value: false }, { label: t('pack.next'), value: true, primary: true }],
+    buttons: [
+      { label: t('dialog.cancel'), value: null },
+      { label: t('gen.copySpec'), value: 'spec' },
+      { label: t('gen.pickZip'), value: 'zip' },
+      { label: t('pack.next'), value: 'text', primary: true },
+    ],
   });
-  return r?.value ? r.fields.reply : null;
+  if (!r || r.value == null) return null;
+  if (r.value === 'zip') return { zip: true };
+  if (r.value === 'spec') return { spec: true, reply: r.fields.reply };
+  return { text: r.fields.reply };
 }

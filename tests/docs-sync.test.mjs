@@ -35,3 +35,11 @@ test('使用手冊的版型一覽與設定速查表沒有漏掉', () => {
     assert.ok(manualEn.includes(`<!-- ${key}:`), `MANUAL.en.md 的設定速查表缺少 ${key}`);
   }
 });
+
+test('給 AI 的書庫包規格(docs/AI_PACK)列出所有簡報主題', async () => {
+  const list = themes.match(/THEMES = \[(.*?)\]/)[1].match(/'(\w+)'/g).map(s => s.slice(1, -1));
+  for (const f of ['AI_PACK.md', 'AI_PACK.en.md']) {
+    const doc = await readFile(new URL('../docs/' + f, import.meta.url), 'utf8');
+    for (const t of list) assert.ok(doc.includes(t), `docs/${f} 缺少主題 ${t}`);
+  }
+});

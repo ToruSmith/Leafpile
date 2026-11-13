@@ -275,17 +275,18 @@ You can also drop a zip onto the site: on your library page it starts an import;
 
 ## Generate with AI (notes, decks, boards)
 
-**Generate with AI** on the library page, or Ctrl+K → "Generate … with AI". One kind at a time.
+On the library page press **Generate with AI**, or Ctrl+K → "Generate with AI…". One kind at a time.
 
-1. Choose what to generate (note / deck / board), the topic and title, paste your material (highlights, summaries, meeting notes…), and optionally add one extra request. **The material can be left empty**: after the AI opens, upload a PDF, document or image right in the AI chat (a prefilled link cannot carry files); the prompt then says the material is in your attachments.
-2. Press **Open Claude**, **Open ChatGPT**, **Open Gemini** or **Copy prompt only**. The prompt is copied and a new tab opens; paste it with Ctrl+V and send (Claude and ChatGPT get it prefilled when it is short).
-3. Paste the AI's whole reply back → import preview → confirm.
+1. Choose what to generate (note / deck / board), the topic, the title, and optionally one extra request. Paste material into the material box, **or leave it empty** and upload a PDF, document or image in the AI.
+2. Press **Open Claude**, **Open ChatGPT**, **Open Gemini** or **Copy prompt only**. The prompt is copied and a new tab opens; drag any files into the AI chat first, then paste the prompt with Ctrl+V and send.
+3. If the AI gives a **zip**, press **Choose zip file**; if it gives text, paste all of it. → import preview → confirm.
 
-- The AI writes only the content (a Markdown outline); Leafpile adds file names, dates, front matter, deck section folders and `deck.yml`, and the board layout, so the prompt stays short and cheap in tokens.
-- The prompt tells the AI to use only your material and to mark anything uncertain. **The result is only as good as the material.**
+- The prompt is short: it asks the AI to read the **library pack spec** on GitHub ([`docs/AI_PACK.en.md`](AI_PACK.en.md)) and deliver a complete library pack (front matter and links for notes; chapter folders, layouts and speaker notes for decks; groups and edges for boards).
+- If the AI cannot open links (some AIs or free plans cannot browse), press **Copy full spec** and paste the spec to the AI.
+- The spec tells the AI to use only your material and mark anything uncertain. **Quality depends on the material.**
 - Your material goes only to the AI you choose; Leafpile sends it nowhere.
-- Any reply with `=== FILE: … ===` blocks can be imported; plain Markdown works too (treated as one file).
-- Decks: `##` is a section and `###` a slide. Boards: `##` is a group, `-` a card, and under `## Links` write "Card A -> Card B : relation".
+- Plain Markdown replies still import: Leafpile adds file names, dates and front matter (decks: `##` is a chapter, `###` a slide; boards: `##` is a group, `-` a card).
+- For bigger jobs (a whole book, several files), give `docs/AI_PACK.en.md` and the material to Claude or ChatGPT and ask for "a library pack zip following the spec"; see [`AI_PROMPTS.md`](AI_PROMPTS.md).
 
 ## Appearance
 

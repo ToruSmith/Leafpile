@@ -190,7 +190,7 @@ a.wikilink.missing { color: var(--muted); border-bottom-color: var(--muted); }
 
 /* ---------- 對話框與提示 ---------- */
 .lp-dialog { position: fixed; inset: 0; z-index: 210; background: color-mix(in srgb, var(--bg-deep) 60%, transparent); backdrop-filter: blur(3px); display: grid; place-items: center; padding: 20px; }
-.lp-dialog-card { width: min(460px, 100%); padding: 26px 28px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 30px 80px rgb(var(--shadow) / .35); display: grid; gap: 14px; color: var(--ink); }
+.lp-dialog-card { width: min(460px, 100%); padding: 26px 28px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 30px 80px rgb(var(--shadow) / .35); display: grid; gap: 14px; color: var(--ink); max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px); overflow: auto; overscroll-behavior: contain; }
 .lp-dialog-card h2 { font-family: var(--font-display); font-size: 21px; }
 .lp-dialog-card p { color: var(--muted); line-height: 1.7; font-size: 15px; }
 .lp-dialog-card label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }

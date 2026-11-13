@@ -1,6 +1,6 @@
 # AGENTS.md：給維護這個倉庫的 AI（與人）
 
-> 任務是**做內容**（筆記、簡報、講後筆記）：讀 [`docs/SPEC.md`](docs/SPEC.md)、[`docs/INTEROP.md`](docs/INTEROP.md)，現成提示詞在 [`docs/AI_PROMPTS.md`](docs/AI_PROMPTS.md)。動手前先跑 `node scripts/check.mjs <書庫> --index`（或書庫裡的 `node leafpile-check.mjs --index`）看全貌，不必逐檔翻找。
+> 任務是**做內容**（筆記、簡報、講後筆記）：讀 [`docs/SPEC.md`](docs/SPEC.md)、[`docs/INTEROP.md`](docs/INTEROP.md)，現成提示詞在 [`docs/AI_PROMPTS.md`](docs/AI_PROMPTS.md)；要交一個可以匯入的書庫包，照 [`docs/AI_PACK.md`](docs/AI_PACK.md)。動手前先跑 `node scripts/check.mjs <書庫> --index`（或書庫裡的 `node leafpile-check.mjs --index`）看全貌，不必逐檔翻找。
 > 任務是**改工具本身**：讀完這份，再讀 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)。
 
 ## 這個專案是什麼
@@ -23,7 +23,7 @@ v0.11.0：P1、P2 完成；P3 完成畫布（含嵌入與簡報模式）、發�
 6. **未知欄位原樣保留。** 別的軟體寫的 front matter 與畫布的 `x-` 欄位，讀寫時不可洗掉。
 7. **公開與否只由 `core/privacy` 判斷**，網站、守門腳本、匯出用同一套規則：筆記 > 筆記本 > 主題 > 私人。
 8. **互通不做雙向同步。** 新功能若會讓筆記自動改簡報、或簡報自動改筆記，先停下來問維護者（見 `docs/INTEROP.md`「刻意不做的事」）。
-9. **規格與程式同步。** 改了欄位、語法、命名規則，就同時改 `docs/SPEC.md`、範例內容、測試與 `CHANGELOG.md`。
+9. **規格與程式同步。** 改了欄位、語法、命名規則，就同時改 `docs/SPEC.md`、範例內容、測試與 `CHANGELOG.md`；影響 AI 產出的格式（筆記欄位、簡報版型、畫布欄位）也要改給 AI 的精簡規格 `docs/AI_PACK.md`、`docs/AI_PACK.en.md`（測試會用其中的範例建一個書庫跑檢查）。
 10. **介面文字一律走 i18n**，繁中與英文同時加。
 11. **repo 內路徑一律 ASCII**；中文顯示名稱寫在 yml。
 
@@ -59,7 +59,7 @@ app/
 content/              公開書庫（部署到 GitHub Pages）：notes/、slides/、boards/、_site.yml
 starter/              範例書庫的說明、設定與歡迎筆記（scripts/build-starter.mjs 組裝）
 dist/                 單檔檢查工具 leafpile-check.mjs（自動產生，請勿手改）
-docs/                 SPEC、INTEROP、FEATURES（功能手冊）、ARCHITECTURE、ROADMAP、AI_PROMPTS、slides/（簡報指南與手冊）
+docs/                 SPEC、INTEROP、FEATURES（功能手冊）、ARCHITECTURE、ROADMAP、AI_PROMPTS、AI_PACK（給 AI 的書庫包規格，「AI 生成」的提示詞指向它）、slides/（簡報指南與手冊）
 scripts/              check、guard-content、promote、after-talk、source-sync、bench-graph、new-deck、build-catalog、bundle-check、build-starter
 tests/                node:test 單元測試；smoke/（Playwright）；visual/（畫面比對）
 ```

@@ -2,7 +2,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { setLang } from '../app/core/i18n.js';
-import { buildPrompt, aiURL, assembleGenerated, parseOutline, outlineToCanvas, PREFILL_MAX } from '../app/core/generate.js';
+import { buildPrompt, aiURL, assembleGenerated, parseOutline, outlineToCanvas, PREFILL_MAX, SPEC_URLS, specPath } from '../app/core/generate.js';
+import { existsSync, readFileSync } from 'node:fs';
 import { parseCanvas } from '../app/core/canvas.js';
 import { memorySource } from './helpers.mjs';
 import { checkVault } from '../app/core/check.js';
@@ -10,17 +11,55 @@ import { checkVault } from '../app/core/check.js';
 setLang('zh-Hant');
 const base = { topicId: '10-reading', title: '原子習慣', today: '2026-11-13' };
 
-test('generate:提示詞帶標題、主題、補充要求與資料,而且精簡', () => {
+test('generate:提示詞很短,請 AI 先讀規格網址、交完整書庫包,帶齊主題資料夾、標題、要求與資料', () => {
   for (const kind of ['note', 'deck', 'board']) {
-    const p = buildPrompt({ kind, title: '原子習慣', topic: '讀書', extra: '給新手看', data: '劃線一\n劃線二' });
-    assert.match(p, /原子習慣/); assert.match(p, /讀書/); assert.match(p, /給新手看/); assert.match(p, /劃線一\n劃線二$/);
-    assert.match(p, /=== FILE: 原子習慣\.md ===/);
-    assert.ok(p.length - '劃線一\n劃線二'.length < 450, `${kind} 的提示詞太長:${p.length}`);
+    const p = buildPrompt({ kind, title: '原子習慣', topic: '讀書', topicId: '10-reading', extra: '給新手看', data: '劃線一\n劃線二' });
+    assert.ok(p.includes(SPEC_URLS['zh-Hant']), kind);
+    assert.match(p, /10-reading/); assert.match(p, /原子習慣/); assert.match(p, /讀書/); assert.match(p, /給新手看/);
+    assert.match(p, /zip/); assert.match(p, /劃線一\n劃線二$/);
+    assert.ok(p.length - '劃線一\n劃線二'.length < 400, `${kind} 的提示詞太長:${p.length}`);
   }
   assert.doesNotMatch(buildPrompt({ kind: 'note', title: 'a', data: 'b' }), /\n\n\n/, '沒有補充要求時不留空行');
+  assert.match(buildPrompt({ kind: 'note', title: 'a', data: 'b' }), /01-inbox/, '沒選主題時用收件匣');
   setLang('en');
-  assert.match(buildPrompt({ kind: 'deck', title: 'T', data: 'x' }), /^Turn the material/);
+  const en = buildPrompt({ kind: 'deck', title: 'T', data: 'x', lang: 'en' });
+  assert.match(en, /^First read the Leafpile library pack spec/); assert.ok(en.includes(SPEC_URLS.en));
   setLang('zh-Hant');
+});
+
+test('generate:規格網址指向倉庫裡真的存在的檔案(改檔名時要一起改)', () => {
+  for (const [lang, url] of Object.entries(SPEC_URLS)) {
+    assert.ok(url.endsWith('/main/' + specPath(lang)), url);
+    assert.ok(existsSync(new URL('../' + specPath(lang), import.meta.url)), specPath(lang));
+  }
+});
+
+test('generate:照 AI_PACK 規格範例做出的書庫包,匯入後通過檢查', async () => {
+  for (const lang of ['zh-Hant', 'en']) {
+    const doc = readFileSync(new URL('../' + specPath(lang), import.meta.url), 'utf8');
+    // 規格裡的範例:筆記(第 3 節)、deck.yml 與投影片(第 4 節)、畫布(第 5 節)
+    const blocks = [...doc.matchAll(/```(\w*)\n([\s\S]*?)```/g)].map(m => ({ lang: m[1], body: m[2] }));
+    const note = blocks.find(b => b.lang === 'markdown' && /^---\ntitle:/.test(b.body)).body
+      .replace(/^source: .*\n/m, '').replace(/\[\[[^\]]+\]\]/, '[[overview]]');
+    const deck = blocks.find(b => b.lang === 'yaml' && /^mdslide: 1/.test(b.body)).body;
+    const slide = blocks.find(b => b.lang === 'markdown' && /^# /.test(b.body) && /Note:/.test(b.body)).body;
+    const board = blocks.find(b => b.lang === 'json').body;
+    JSON.parse(board);
+    const d = 'slides/10-reading/2026-11-atomic-habits-share';
+    const lib = {
+      '_site.yml': 'leafpile: 1\ntitle: t\n', 'notes/10-reading/_topic.yml': 'name: r\n',
+      'notes/10-reading/2026-11-13-atomic-habits.md': note,
+      'notes/10-reading/2026-11-13-overview.md': '---\ntitle: overview\ndate: 2026-11-13\n---\n# overview\n',
+      [`${d}/deck.yml`]: deck,
+      [`${d}/01-why/01-hook.md`]: slide,
+      [`${d}/02-how/01-four-laws.md`]: '<!-- layout: stats -->\n# t\n- **3x** a\n- **12** b\n',
+      'boards/atomic-habits-map.canvas': board,
+    };
+    const r = await checkVault(memorySource(lib));
+    assert.deepEqual(r.problems, [], `${lang}: ${JSON.stringify(r.problems)}`);
+    const files = assembleGenerated({ ...base, kind: 'note', text: Object.entries(lib).map(([p, x]) => `=== FILE: ${p} ===\n${x}\n=== END ===`).join('\n') });
+    assert.equal(files.length, Object.keys(lib).length, '完整書庫包照原樣匯入');
+  }
 });
 
 test('generate:AI 網址,短的帶入、長的只開網站', () => {
