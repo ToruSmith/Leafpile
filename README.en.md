@@ -6,7 +6,7 @@ English · [繁體中文](README.md)
 
 Leafpile connects two things that are usually done twice: you collect notes in Markdown, promote them into a 3D card-pile slide deck when it is time to share, and save the Q&A back into your notes afterwards. Files stay on your computer or USB drive; the website only reads them. Nothing to install, nothing uploaded.
 
-**Live site: <https://torusmith.github.io/Leafpile/>** · current version v0.11.0 · [Join the public beta](docs/BETA.en.md)
+**Live site: <https://torusmith.github.io/Leafpile/>** · current version v0.14.1 · [Join the public beta](docs/BETA.en.md)
 
 ![Shelf: notes and decks under the same topic](docs/images/shelf.en.webp)
 
@@ -14,11 +14,19 @@ Leafpile connects two things that are usually done twice: you collect notes in M
 |---|---|
 | ![Note reader](docs/images/note.en.webp) | ![Flash play](docs/images/flash.en.webp) |
 
-| Focus reading: just the text and a floating bar | Boards: minimap and floating toolbar |
+| Focus reading: just the text and a floating bar | Boards: outline view, minimap and floating toolbar |
 |---|---|
 | ![Focus reading](docs/images/immersive.en.webp) | ![Board](docs/images/board.en.webp) |
 
 ![Table: sort and filter every note at once](docs/images/table.en.webp)
+
+| Kanban: columns from `status` and other fields (read-only) | Calendar: notes by date (read-only) |
+|---|---|
+| ![Kanban](docs/images/kanban.en.webp) | ![Calendar](docs/images/calendar.en.webp) |
+
+| Generate with AI: copy the prompt, get a library pack back | Library pack: export, back up, share |
+|---|---|
+| ![Generate with AI](docs/images/ai-generate.en.webp) | ![Library pack](docs/images/pack.en.webp) |
 
 ## The idea
 

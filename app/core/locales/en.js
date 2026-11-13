@@ -1024,7 +1024,7 @@ export const LOCALE_EN = {
   'gen.titlePh': "e.g. Atomic Habits, chapter 1",
   'gen.extra': "Extra requests (optional)",
   'gen.extraPh': "e.g. for beginners, about 8 slides, use bullet points",
-  'gen.data': "Material (highlights, summaries, meeting notes, web text…; or leave empty and upload files in the AI)",
+  'gen.data': "Material (highlights, summaries, meeting notes, web text…), or leave it empty and upload files in the AI",
   'gen.dataAttached': "(The material is in the files I attached. If nothing is attached, ask me for it first; do not make things up.)",
   'gen.dataPh': "Paste material, or leave empty and upload a PDF, document or image after the AI opens",
   'gen.copyOnly': "Copy prompt only",
