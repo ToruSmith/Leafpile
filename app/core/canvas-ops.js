@@ -172,6 +172,59 @@ export function groupOutline(board, group, describe) {
   return lines.join('\n') + '\n';
 }
 
+// ---------- 整張畫布的大綱(大綱檢視) ----------
+
+const byPos = list => slideOrder({ nodes: list.map(x => ({ ...x, type: 'text', _ref: x })) }).map(x => x._ref);
+
+/**
+ * 整張畫布排成大綱:頂層群組依位置排,群組裡的卡片(含巢狀群組)依位置排;不在任何群組裡的卡片放最後。
+ * 每一項帶「往外的連線」(→ 目標,連線文字)。給大綱檢視用,也能存成筆記。
+ * @param {(node: object) => { kind: 'note'|'deck'|'other', title: string }} describe
+ * @param {{ title?: string, loose?: string }} [o]  loose:沒有群組的卡片那一節的標題
+ * @returns {{ items: { id: string, depth: number, type: string, text: string, ref: string, edges: { id: string, text: string, label: string }[] }[], markdown: string }}
+ */
+export function boardOutline(board, describe, { title = '', loose = 'Other' } = {}) {
+  const nodes = board.nodes || [];
+  const groups = nodes.filter(n => n.type === 'group');
+  const inGroup = n => groups.some(g => g !== n && membersOf([n], g).length);
+  const direct = (inner) => inner.filter(n => !inner.some(o => o.type === 'group' && o !== n && membersOf([n], o).length));
+  const textOf = n => {
+    if (n.type === 'group') return n.label || '';
+    if (n.type === 'text') return firstLine(n.text);
+    if (n.type === 'link') return String(n.url || '');
+    const d = describe(n);
+    return d.title || String(n.file || '').split('/').pop();
+  };
+  const refOf = n => {
+    if (n.type === 'link') return `[${n.url}](${n.url})`;
+    if (n.type !== 'file') return textOf(n);
+    const d = describe(n);
+    return d.kind === 'note' ? `[[${d.title}]]` : d.kind === 'deck' ? `[[slides:${d.title}]]` : textOf(n);
+  };
+  const byIdMap = new Map(nodes.map(n => [n.id, n]));
+  const edgesOf = n => (board.edges || []).filter(e => e.fromNode === n.id && byIdMap.has(e.toNode))
+    .map(e => ({ id: e.toNode, text: textOf(byIdMap.get(e.toNode)), label: String(e.label || '') }));
+  const items = [];
+  const add = (n, depth) => items.push({ id: n.id, depth, type: n.type, text: textOf(n), ref: refOf(n), edges: edgesOf(n) });
+  const walk = (g, depth) => { for (const n of byPos(direct(membersOf(nodes, g)))) { add(n, depth); if (n.type === 'group') walk(n, depth + 1); } };
+  const top = byPos(nodes.filter(n => !inGroup(n)));
+  const topGroups = top.filter(n => n.type === 'group'), rest = top.filter(n => n.type !== 'group');
+  for (const g of topGroups) { add(g, 0); walk(g, 1); }
+  if (rest.length && topGroups.length) items.push({ id: '', depth: 0, type: 'loose', text: loose, ref: loose, edges: [] });
+  for (const n of rest) add(n, topGroups.length ? 1 : 0);
+
+  const lines = title ? [`# ${title}`, ''] : [];
+  for (const it of items) {
+    const node = byIdMap.get(it.id);
+    if (it.depth === 0 && (it.type === 'group' || it.type === 'loose')) { if (lines.length && lines.at(-1) !== '') lines.push(''); lines.push(`## ${it.text}`, ''); continue; }
+    const pad = '  '.repeat(Math.max(0, it.depth - (topGroups.length ? 1 : 0)));
+    lines.push(it.type === 'group' ? `${pad}- **${it.text}**` : `${pad}- ${it.ref}`);
+    if (it.type === 'text') for (const l of String(node.text || '').split('\n').map(x => x.trim()).filter(Boolean).slice(1)) lines.push(`${pad}  ${l.replace(/^[-*]\s+/, '')}`);
+    for (const e of it.edges) lines.push(`${pad}  - → ${e.text}${e.label ? ` (${e.label})` : ''}`);
+  }
+  return { items, markdown: lines.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n' };
+}
+
 // ---------- 匯出 SVG ----------
 
 const xml = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

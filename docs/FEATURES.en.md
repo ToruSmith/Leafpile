@@ -204,7 +204,7 @@ A floating toolbar at the top left: back to the library, board name, search, ful
 | Where | Items |
 |---|---|
 | On the toolbar (common) | + Text, + Note or deck (in "More" on narrow screens), ↶ Undo, ⌕ Search, Full screen, More ▾ |
-| More ▾ | + URL (a link card, or embed a web page, video or Google Slides), + Image or file, ✎ Draw (becomes an image card), ▶ Present, Export (PNG / SVG, selection or whole board), Minimap, Keep toolbar visible, Zoom (− 100% +) |
+| More ▾ | + URL (a link card, or embed a web page, video or Google Slides), + Image or file, ✎ Draw (becomes an image card), ▶ Present, Export (PNG / SVG, selection or whole board), Outline, Minimap, Keep toolbar visible, Zoom (− 100% +) |
 | Bottom right | Minimap toggle; drag inside the minimap to move the view |
 
 Read-only boards (the built-in examples, or a library you can't write to) have no add or edit items.
@@ -221,6 +221,7 @@ Read-only boards (the built-in examples, or a library you can't write to) have n
 | **0** | Back to 100% |
 | **+** / **−** | Zoom in / out |
 | **M** | Toggle the minimap |
+| **O** | Toggle the outline |
 | Double-click empty space | New text card |
 | Enter | Edit the selected text card; open a note or deck card |
 | Delete | Delete the selection |
@@ -236,8 +237,23 @@ Read-only boards (the built-in examples, or a library you can't write to) have n
 Right-click empty space, a card or a line (on a phone: select it, then tap ⋯).
 
 - Empty space: new text / note or deck / URL, paste, fit to screen, minimap.
+- A PDF card's toolbar has **Page**: set the page it opens at.
 - Card: open, edit, focus, copy, cut, duplicate, paste, group, bring to front / send to back, change color, delete. A text card can become a note; a group can become an outline note.
 - Line: edit text, change color, delete.
+
+### Outline
+
+More ▾ → **Outline**, or press **O**: a panel on the left (bottom half on phones) lists the whole board. Groups are headings; cards inside are ordered top to bottom, left to right; nested groups are indented; cards outside any group go under "Ungrouped". Each card's outgoing connections read "→ target label".
+
+- Click an item to select its card and center it; click "→ target" to jump to the target card.
+- **Copy**: copy the outline as Markdown (note cards become `[[Title]]`).
+- **Save as note** (writable libraries): save the outline of the whole board as a new note. For one group, use the group's "Turn into outline note".
+- Works on read-only boards too; the outline follows your edits.
+
+### Start videos at a time, PDFs at a page
+
+- Videos: put the start time in the URL, for example YouTube's "Share → Start at" (`?t=90`), or `t=1m30s`; Vimeo uses `#t=90s`, Bilibili `?t=90`.
+- PDF cards: select the card and press **Page** in its toolbar. It is stored in the card's `subpath` (`"#page=3"`), the same as Obsidian. Browsers whose built-in PDF viewer cannot jump to a page start at page one.
 
 ### Present mode
 

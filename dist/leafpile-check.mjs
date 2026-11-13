@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Leafpile 書庫檢查工具(單檔版 v0.12.0)
+// Leafpile 書庫檢查工具(單檔版 v0.13.0)
 // 由 scripts/bundle-check.mjs 自動產生,請不要手動修改。原始碼:https://github.com/ToruSmith/Leafpile
 //
 // 用法(需要 Node.js 18 以上):
@@ -952,6 +952,22 @@ const LOCALE_ZH_HANT = {
   'board.distH': '水平等距',
   'board.distV': '垂直等距',
   'board.outline': '轉成大綱筆記',
+  'board.outlineView': "大綱檢視",
+  'board.outlineViewTitle': "把群組、卡片和連線排成清單;點一項就跳到那張卡片",
+  'board.outlineLoose': "未分組",
+  'board.outlineEmpty': "畫布還沒有卡片。",
+  'board.outlineSave': "存成筆記",
+  'board.outlineSaveTitle': "把整張畫布的大綱存成一篇新筆記",
+  'board.outlineCopy': "複製",
+  'board.outlineCopyTitle': "把大綱複製成 Markdown",
+  'board.outlineCopied': "大綱已複製成 Markdown。",
+  'board.outlineCopyFailed': "沒辦法複製:瀏覽器沒有給剪貼簿權限。",
+  'board.outlineSaved': "大綱已存成筆記。",
+  'board.pdfPage': "頁碼",
+  'board.pdfPageN': "第 {n} 頁",
+  'board.pdfPageTitle': "從第幾頁開始顯示",
+  'board.pdfPageLabel': "頁碼(留空就從第一頁)",
+  'board.pdfPageBad': "頁碼要是 1 以上的整數。",
   'board.outlineTitle': '把群組裡的卡片依位置排成 Markdown 清單,建立一篇新筆記',
   'board.outlineEdge': '大綱',
   'board.copied': '已複製 {n} 張',
@@ -2054,6 +2070,22 @@ const LOCALE_EN = {
   'board.distH': 'Distribute horizontally',
   'board.distV': 'Distribute vertically',
   'board.outline': 'Turn into an outline note',
+  'board.outlineView': "Outline",
+  'board.outlineViewTitle': "List groups, cards and connections; click an item to jump to its card",
+  'board.outlineLoose': "Ungrouped",
+  'board.outlineEmpty': "This board has no cards yet.",
+  'board.outlineSave': "Save as note",
+  'board.outlineSaveTitle': "Save the outline of the whole board as a new note",
+  'board.outlineCopy': "Copy",
+  'board.outlineCopyTitle': "Copy the outline as Markdown",
+  'board.outlineCopied': "Outline copied as Markdown.",
+  'board.outlineCopyFailed': "Could not copy: the browser did not allow clipboard access.",
+  'board.outlineSaved': "Outline saved as a note.",
+  'board.pdfPage': "Page",
+  'board.pdfPageN': "p. {n}",
+  'board.pdfPageTitle': "Open at page",
+  'board.pdfPageLabel': "Page (leave empty for the first page)",
+  'board.pdfPageBad': "The page must be a whole number from 1.",
   'board.outlineTitle': 'List the cards in this group by position as a Markdown outline in a new note',
   'board.outlineEdge': 'outline',
   'board.copied': 'Copied {n}',
@@ -2618,15 +2650,24 @@ const PAGE = new Set(['html', 'htm']);
 /**
  * @returns {{ kind: 'image'|'video'|'audio'|'embed'|'page'|'unknown', src: string, provider?: string, embed?: string, thumb?: string, interactive?: boolean, remote: boolean }}
  */
+/** 影片網址裡的開始時間(t=90、t=90s、t=1m30s、t=1h2m3s、start=90)→ 秒數;沒有就是 0。 */
+function startSeconds(url) {
+  const m = String(url || '').match(/[?&#](?:t|start)=([\dhms]+)/i);
+  if (!m) return 0;
+  if (/^\d+$/.test(m[1])) return +m[1];
+  const p = m[1].match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/i);
+  return p ? (+p[1] || 0) * 3600 + (+p[2] || 0) * 60 + (+p[3] || 0) : 0;
+}
+
 function classifyMedia(src) {
   const s = src.trim();
   const remote = isURL(s);
   if (remote) {
     let m;
     if ((m = s.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{6,})/))) {
-      const t = s.match(/[?&](?:t|start)=(\d+)/);
+      const t = startSeconds(s);
       return { kind: 'embed', src: s, remote, provider: 'YouTube',
-        embed: `https://www.youtube-nocookie.com/embed/${m[1]}?rel=0&playsinline=1${t ? `&start=${t[1]}` : ''}`,
+        embed: `https://www.youtube-nocookie.com/embed/${m[1]}?rel=0&playsinline=1${t ? `&start=${t}` : ''}`,
         thumb: `https://i.ytimg.com/vi/${m[1]}/hqdefault.jpg` };
     }
     if ((m = s.match(/bilibili\.com\/video\/(BV[\w]+|av\d+)/i)) || (m = s.match(/b23\.tv\/(BV[\w]+)/i))) {
@@ -2634,13 +2675,13 @@ function classifyMedia(src) {
       const q = id.startsWith('av') ? `aid=${id.slice(2)}` : `bvid=${id}`;
       const p = s.match(/[?&]p=(\d+)/);
       return { kind: 'embed', src: s, remote, provider: 'Bilibili',
-        embed: `https://player.bilibili.com/player.html?${q}&page=${p ? p[1] : 1}&autoplay=0&high_quality=1` };
+        embed: `https://player.bilibili.com/player.html?${q}&page=${p ? p[1] : 1}&autoplay=0&high_quality=1${startSeconds(s) ? `&t=${startSeconds(s)}` : ''}` };
     }
     if ((m = s.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([\w-]+)/))) {
       return { kind: 'embed', src: s, remote, provider: 'Google Drive', embed: `https://drive.google.com/file/d/${m[1]}/preview` };
     }
     if ((m = s.match(/vimeo\.com\/(?:video\/)?(\d+)/))) {
-      return { kind: 'embed', src: s, remote, provider: 'Vimeo', embed: `https://player.vimeo.com/video/${m[1]}` };
+      return { kind: 'embed', src: s, remote, provider: 'Vimeo', embed: `https://player.vimeo.com/video/${m[1]}${startSeconds(s) ? `#t=${startSeconds(s)}s` : ''}` };
     }
     // 互動網頁:CodePen 的作品(顯示執行結果)、GitHub Pages 上的網頁
     if ((m = s.match(/^https:\/\/codepen\.io\/([\w-]+)\/(?:pen|full|details|embed)\/([\w-]+)/i))) {
@@ -2684,7 +2725,7 @@ function resolveMediaPath(src, { projectPath, filePath }) {
   }
   return parts.join('/');
 }
-return { classifyMedia, resolveMediaPath };
+return { startSeconds, classifyMedia, resolveMediaPath };
 })();
 
 // ───────── app/core/slide.js ─────────
@@ -4608,6 +4649,12 @@ function fileKind(file) {
   return 'other';
 }
 
+/** PDF 卡從第幾頁開始:JSON Canvas 的 subpath 欄位寫 "#page=3"(和 Obsidian 相同);沒有或不合法就是 0。 */
+function pdfPage(node) {
+  const m = String(node?.subpath || '').match(/^#page=(\d{1,5})$/);
+  return m && +m[1] > 0 ? +m[1] : 0;
+}
+
 /** 使用者貼上的可能是整段 <iframe ...>(Google 簡報的嵌入碼):取出 src。 */
 function extractURL(input) {
   const s = String(input || '').trim();
@@ -4666,7 +4713,7 @@ function boardsWith(boards, path) {
   const p = norm(path);
   return boards.filter(b => b.board.nodes.some(n => n.type === 'file' && norm(String(n.file || '').replace(/^\/+/, '')) === p)).map(b => b.name);
 }
-return { NODE_TYPES, SIDES, PRESET_COLORS, canvasColor, parseCanvas, serializeCanvas, emptyCanvas, newId, anchor, edgePath, bounds, resolveFile, missingFiles, boardFileName, IMAGE_EXT, fileKind, extractURL, embedFor, slideOrder, textToNote, boardsWith };
+return { NODE_TYPES, SIDES, PRESET_COLORS, canvasColor, parseCanvas, serializeCanvas, emptyCanvas, newId, anchor, edgePath, bounds, resolveFile, missingFiles, boardFileName, IMAGE_EXT, fileKind, pdfPage, extractURL, embedFor, slideOrder, textToNote, boardsWith };
 })();
 
 // ───────── app/core/check.js ─────────
