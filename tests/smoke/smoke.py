@@ -51,6 +51,13 @@ def main():
         assert page.locator('.sn-sys [aria-current=page][data-view=table]').count() == 1, '切到表格後側邊欄沒有標示「表格」'
         page.click('.note-table [data-sort=title]'); page.wait_for_timeout(200)
         assert page.locator('.note-table th[aria-sort=ascending]').count() == 1, '表格沒有依標題排序'
+        page.select_option('.group-by', 'topic'); page.wait_for_timeout(300)  # 分組與折疊
+        assert page.locator('.note-table tbody.grp').count() >= 2, '表格沒有依主題分組'
+        first = page.locator('.note-table tbody.grp').first
+        n = first.locator('tr:not(.g-head)').count()
+        first.locator('.g-toggle').click(); page.wait_for_timeout(200)
+        assert n >= 1 and first.locator('tr:not(.g-head):visible').count() == 0 and first.locator('.g-toggle[aria-expanded=false]').count() == 1, '分組沒有折疊'
+        page.select_option('.group-by', ''); page.wait_for_timeout(200)
         page.click('.seg-mini [data-mode=topics]'); page.wait_for_timeout(300)  # 主題清單(內建範例是唯讀:沒有編輯鈕)
         assert page.locator('.topic-table tbody tr').count() >= 5, '表格的主題模式沒有列出主題'
         assert page.locator('.tm-edit').count() == 0, '唯讀書庫不該有編輯主題的按鈕'
