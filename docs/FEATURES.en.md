@@ -272,6 +272,8 @@ Public or private is decided in this order: the note's `public` → the notebook
 
 **I opened a folder but can't save?** Only Chrome and Edge can write to a local folder, and you must click "Allow" when the browser asks.
 
+**Keep being asked to "save changes", or see "No write permission"?** The browser is asking whether Leafpile may write into your folder. Press Leafpile's **Allow**, then choose "Save changes" or "Allow" in the browser's prompt. If you cancel, the board pauses auto-save and stops asking; press **Retry save** in the toolbar or Ctrl+S when you want to save.
+
 **It says "the file was changed by another program"?** Obsidian or another program edited the same file while Leafpile had it open. Reload and edit again; the other change is never overwritten.
 
 **A note is missing from the sidebar?** The sidebar lists notes under categories and topics; reload once if the note is new or hasn't been read yet. Guest view lists public notes only.

@@ -294,7 +294,9 @@ button.ro-chip { border: 0; font: inherit; font-size: 13px; }
 .board-bar { position: absolute; top: 10px; left: 10px; z-index: 21; width: max-content; max-width: calc(100% - 20px); display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(10px); box-shadow: 0 8px 26px rgb(var(--shadow) / .2); }
 .board-bar h1 { font-size: 18px; margin: 0; }
 .board-status { font-size: 12px; color: var(--muted); }
-.board-status[data-s="board.stale"], .board-status[data-s="board.saveFailed"] { color: var(--danger); }
+.board-status[data-s="board.stale"], .board-status[data-s="board.saveFailed"], .board-status[data-s="board.denied"] { color: var(--danger); }
+.board-retry { font-size: 12px; padding: 3px 10px; }
+.board-retry[hidden] { display: none; }
 .board-tools { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
 .board-tools .btn { padding: 5px 12px; font-size: 13px; }
 .board-tools .zoom { min-width: 64px; }

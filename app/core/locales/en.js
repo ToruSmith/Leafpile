@@ -155,6 +155,9 @@ export const LOCALE_EN = {
   'home.guidePath': 'docs/SPEC.md',
   'perm.title': 'Reconnect "{name}"',
   'perm.text': 'To protect your files, the browser asks for read permission again each time.<br>If it is on a USB drive, make sure it is connected.',
+  'perm.writeTitle': 'Write permission needed',
+  'perm.writeText': 'To save changes into your folder, the browser needs your permission once. After you press “Allow”, the browser will ask again; choose “Save changes” or “Allow”.',
+  'perm.writeAllow': 'Allow',
   'perm.grant': 'Allow access',
 
   // ---------- Library page ----------
@@ -722,6 +725,9 @@ export const LOCALE_EN = {
   'board.unsaved': 'Unsaved',
   'board.saving': 'Saving…',
   'board.saved': 'Saved',
+  'board.denied': 'No write permission; auto-save paused',
+  'board.deniedLong': 'No write permission, so nothing was saved and auto-save is paused (you won’t be asked again and again). When you want to save, press “Retry save” or Ctrl+S, then “Allow”.',
+  'board.retrySave': 'Retry save',
   'board.saveFailed': 'Save failed',
   'board.stale': 'Changed elsewhere; autosave stopped',
   'board.staleLong': 'This board was changed somewhere else. To avoid overwriting those changes, autosave has stopped; reload the page before editing.',
