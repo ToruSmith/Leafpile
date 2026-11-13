@@ -1222,19 +1222,22 @@ function downloadBytes(bytes, name, type = 'application/zip') {
 const packName = (title, publicOnly) => `${String(title || 'leafpile').replace(/[\\/:*?"<>|\s]+/g, '-').replace(/^-+|-+$/g, '') || 'leafpile'}-${new Date().toISOString().slice(0, 10)}${publicOnly ? '-public' : ''}.zip`;
 const packError = e => (e instanceof UserError ? e.message : /^zip:/.test(e?.message || '') ? t('pack.zipError') : e?.message === 'denied' ? t('ne.denied') : t('pack.failed', { error: e?.message || e }));
 
-/** 選一個檔案(或資料夾裡的所有檔案)。取消就回傳 null。 */
+/**
+ * 選一個檔案(或資料夾裡的所有檔案)。使用者取消時這個 Promise 不會結束(呼叫端就什麼都不做)。
+ * 不在「cancel」事件時結束:有些環境(例如自動化測試的 Firefox)會先送 cancel 再送 change。
+ */
 function pickFiles({ accept = '', dir = false } = {}) {
+  document.querySelectorAll('input.lp-picker').forEach(el => el.remove()); // 上次取消留下的
   return new Promise(resolve => {
     const input = document.createElement('input');
     input.type = 'file';
+    input.className = 'lp-picker';
     input.hidden = true;
     if (accept) input.accept = accept;
     if (dir) { input.webkitdirectory = true; input.multiple = true; }
     // 放進頁面裡:有些瀏覽器(例如 iOS Safari)對不在頁面上的輸入框不一定會觸發 change
     document.body.append(input);
-    const done = v => { input.remove(); resolve(v); };
-    input.addEventListener('change', () => done(input.files?.length ? [...input.files] : null), { once: true });
-    input.addEventListener('cancel', () => done(null), { once: true });
+    input.addEventListener('change', () => { if (!input.files?.length) return; input.remove(); resolve([...input.files]); });
     input.click();
   });
 }
