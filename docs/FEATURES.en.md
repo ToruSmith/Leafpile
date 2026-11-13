@@ -21,6 +21,9 @@ Start here when you forget what Leafpile can do. For file formats and rules see 
 | Read without distraction | Press **F** on a note (focus reading) |
 | Change the text size | A− / A+ at the top right of a note, or press **+** / **−** (ten steps, 0.8× to 2.2×) |
 | See every note, sorted by date or tag | **Table** on the library page |
+| Fold many notes by topic or month | **Table** → **Group by** |
+| Change colors, use dark mode | **Appearance** in the top bar |
+| Let an AI understand the whole library first | `node leafpile-check.mjs <library> --index` |
 | Find my way across many topics | The sidebar on the left (see below) |
 | Rename a topic, change its category or color | **Table** → **Topics** → **Edit** |
 | Play a note as a deck for a moment | Press **P** on a note (flash play); no file is created |
@@ -67,6 +70,8 @@ Note: pins, recents and whether the sidebar is collapsed are stored **only in th
 
 - **Notes**: title, topic, notebook, date, tags, plus any fields you define in front matter (such as `status` or `rating`, up to 6 columns). Click a column heading to sort; filter at the top.
 - **Topics**: each topic's folder, category, note count, deck count and default visibility.
+
+**Grouping and folding**: the **Group by** menu groups rows by category, topic, notebook, year, month, tag, or any custom field (such as `status`). Each group has a heading row; click it to collapse or expand, or use **Collapse all / Expand all**. When grouping by tags or a list field, a note appears once per tag. The **Topics** mode can group by category. The grouping and which groups are collapsed are remembered in this browser.
 
 ### Topic management
 
@@ -237,11 +242,21 @@ More ▾ → "▶ Present": zooms into one group at a time (or one card at a tim
 
 Phones have a full-screen button too (when the browser can't do real full screen, the board simply fills the whole window). The toolbar hides itself; tap the ☰ at the top right to bring it back. Pinch to zoom and drag with one finger to pan.
 
+## Appearance
+
+The round swatch button next to 中/EN in the top bar is **Appearance**: Automatic, Paper, Ink, Slate, Sepia, Nord.
+
+- **Automatic** uses `theme` from the library's `_site.yml`, or Ink when your computer is in dark mode.
+- Any other choice changes the library, notes and boards. **Decks keep the `theme` in their own `deck.yml`** (press T while playing to try others). Sepia and Nord can be used in `deck.yml` too.
+- The choice is stored in this browser only. You can also step through themes with Ctrl+K → "Switch appearance".
+- Text contrast in every theme is checked by tests, so no combination is hard to read.
+
 ## Checking and publishing
 
 | Feature | Where | Notes |
 |---|---|---|
 | ✓ Check | Library page | Finds broken links, duplicate names, and settings or decks that break the rules; from the command line: `node leafpile-check.mjs <folder>` |
+| Library index | Command line | `node leafpile-check.mjs <folder> --index` lists every note (path, date, tags, fields, sections), what it links to, what links to it and which boards it is on. Hand it to an AI first so it sees the whole library; `--index=json` prints JSON and `--public` lists public notes only. Usage and prompts: [`AI_PROMPTS.md`](AI_PROMPTS.md) |
 | 🔒 Pre-publish check | Library page | Lists which notes will be public and flags possible personal data (email, phone numbers starting 09xx, Taiwan ID numbers; it only warns, never blocks). Switch to "guest view" to browse and confirm private content doesn't show |
 
 Public or private is decided in this order: the note's `public` → the notebook's `_book.yml` → the topic's `_topic.yml` → if none says so, private.
@@ -251,7 +266,7 @@ Public or private is decided in this order: the note's `public` → the notebook
 | Setting | Stored in | Follows you to another computer? |
 |---|---|---|
 | Notes, decks, boards, topics, categories | Files in the library folder | Yes (with the folder) |
-| Language, text size, view (All / Table), sidebar collapsed, pins, recents, board toolbar and minimap preferences | This browser's local storage | No |
+| Language, appearance, text size, view (All / Table), table grouping and folding, sidebar collapsed, pins, recents, board toolbar and minimap preferences | This browser's local storage | No |
 
 ## FAQ
 

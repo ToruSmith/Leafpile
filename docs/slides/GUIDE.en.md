@@ -82,7 +82,7 @@ author: Toru
 event: Taipei Book Club
 date: 2026-11-20
 size: small                    # smaller text for the whole deck (data-heavy reports; optional)
-theme: paper                   # paper / ink (dark) / slate
+theme: paper                   # paper / ink (dark) / slate / sepia / nord (dark)
 lang: en                       # language of generated text (Thank you, Agenda…): zh-Hant / en; detected from the title when omitted
 accent: "#b4654a"              # accent color when a section has none
 cover_image: media/cover.jpg   # image on the right of the title slide (optional)

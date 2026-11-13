@@ -51,6 +51,13 @@ def main():
         assert page.locator('.sn-sys [aria-current=page][data-view=table]').count() == 1, '切到表格後側邊欄沒有標示「表格」'
         page.click('.note-table [data-sort=title]'); page.wait_for_timeout(200)
         assert page.locator('.note-table th[aria-sort=ascending]').count() == 1, '表格沒有依標題排序'
+        page.select_option('.group-by', 'topic'); page.wait_for_timeout(300)  # 分組與折疊
+        assert page.locator('.note-table tbody.grp').count() >= 2, '表格沒有依主題分組'
+        first = page.locator('.note-table tbody.grp').first
+        n = first.locator('tr:not(.g-head)').count()
+        first.locator('.g-toggle').click(); page.wait_for_timeout(200)
+        assert n >= 1 and first.locator('tr:not(.g-head):visible').count() == 0 and first.locator('.g-toggle[aria-expanded=false]').count() == 1, '分組沒有折疊'
+        page.select_option('.group-by', ''); page.wait_for_timeout(200)
         page.click('.seg-mini [data-mode=topics]'); page.wait_for_timeout(300)  # 主題清單(內建範例是唯讀:沒有編輯鈕)
         assert page.locator('.topic-table tbody tr').count() >= 5, '表格的主題模式沒有列出主題'
         assert page.locator('.tm-edit').count() == 0, '唯讀書庫不該有編輯主題的按鈕'
@@ -270,6 +277,18 @@ def main():
             ctx.set_offline(False)
         else:
             errors.append('service worker 沒有接手頁面')
+        # 外觀選單:選了會套用、重新整理後還在、選「自動」回到書庫設定
+        page.goto(BASE + '#/repo'); page.wait_for_timeout(1500)
+        page.click('.theme-toggle'); page.wait_for_timeout(200)
+        assert page.locator('.theme-pop [role=menuitemradio]').count() >= 6, '外觀選單的項目不對'
+        assert page.evaluate("[...document.querySelectorAll('.theme-pop button')].filter(b => !b.textContent.trim()).length") == 0, '外觀選單有沒有名稱的項目'
+        page.click('[data-theme-pick=sepia]'); page.wait_for_timeout(200)
+        assert page.evaluate('document.documentElement.dataset.theme') == 'sepia', '外觀沒有套用'
+        page.reload(); page.wait_for_timeout(1500)
+        assert page.evaluate('document.documentElement.dataset.theme') == 'sepia', '重新整理後外觀沒有保留'
+        page.click('.theme-toggle'); page.click('[data-theme-pick=""]'); page.wait_for_timeout(200)
+        assert page.evaluate("localStorage.getItem('leafpile-theme')") is None, '選「自動」後應該清掉偏好'
+
         errors.extend('csp: ' + v for v in page.evaluate('window.__csp'))
 
         # 無障礙基本檢查:看得到的按鈕、連結、輸入框都要有名稱(文字、aria-label 或 title),

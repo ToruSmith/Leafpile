@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Leafpile 書庫檢查工具(單檔版 v0.9.2)
+// Leafpile 書庫檢查工具(單檔版 v0.10.0)
 // 由 scripts/bundle-check.mjs 自動產生,請不要手動修改。原始碼:https://github.com/ToruSmith/Leafpile
 //
 // 用法(需要 Node.js 18 以上):
@@ -7,6 +7,8 @@
 //   node leafpile-check.mjs <資料夾>         檢查指定的書庫(Leafpile 或 Mdslide Pile)、主題或單一簡報
 //   node leafpile-check.mjs <資料夾> --slides 連每張投影片都列出來
 //   node leafpile-check.mjs <資料夾> --lang en  英文輸出(預設依作業系統語言)
+//   node leafpile-check.mjs <資料夾> --index    書庫索引:所有筆記、簡報、畫布與連結(給 AI 先看全貌)
+//                                             --index=json 輸出 JSON;加 --public 只列公開的筆記
 // Windows 也可以直接雙擊 check-library.cmd,Mac 雙擊 check-library.command。
 
 import * as fsp from 'node:fs/promises';
@@ -190,7 +192,33 @@ const LOCALE_ZH_HANT = {
   'check.report.auto': '  (自動)',
   'check.report.problems': '⚠ {n} 個問題:',
   'check.report.ok': '✓ 沒有發現問題',
-  'check.usage': '用法:node scripts/check.mjs <資料夾> [--slides] [--lang en|zh-Hant]',
+  'check.usage': '用法:node scripts/check.mjs <資料夾> [--slides] [--index[=json]] [--public] [--lang en|zh-Hant]',
+  'index.title': '書庫索引:{title}',
+  'index.summary': '{topics} 個主題 · {notes} 篇筆記 · {decks} 份簡報 · {boards} 張畫布 · 產生於 {date}(UTC)',
+  'index.publicOnly': '> 只列公開的筆記(--public)。',
+  'index.howto': '> 給 AI:這份索引列出每篇筆記的路徑、日期、標籤、章節與連結。先從這裡找到要的檔案,再打開原檔;改了檔案之後重新產生(node leafpile-check.mjs <書庫> --index)。規則見 docs/SPEC.md。',
+  'index.sep': '、',
+  'index.more': '…還有 {n} 個',
+  'index.topicPublic': '預設公開',
+  'index.localOnly': '只留本機',
+  'index.public': '公開',
+  'index.private': '私人',
+  'index.pinned': '急件(到 {date})',
+  'index.book': '筆記本:{title}',
+  'index.aliases': '別名:{list}',
+  'index.fields': '欄位:{list}',
+  'index.headings': '章節:{list}',
+  'index.links': '連到:{list}',
+  'index.missing': '找不到:{list}',
+  'index.backlinks': '被連:{list}',
+  'index.onBoards': '畫布:{list}',
+  'index.fromDeck': '講後筆記,來自 {path}',
+  'index.deck': '[簡報]',
+  'index.source': '升級自 {path}',
+  'index.boards': '畫布',
+  'index.boardStats': '{cards} 張筆記或簡報卡、{texts} 張文字卡',
+  'index.groups': '群組:{list}',
+  'index.cards': '卡片:{list}',
   'catalog.done': 'catalog.json:{topics} 個主題、{notes} 篇筆記、{decks} 份簡報、{slides} 張投影片',
 
   // ---------- 資料來源 ----------
@@ -208,6 +236,12 @@ const LOCALE_ZH_HANT = {
   'theme.paper': '紙張',
   'theme.ink': '深色',
   'theme.slate': '石板',
+  'theme.sepia': '棕褐',
+  'theme.nord': '北極',
+  'theme.auto': '自動',
+  'theme.menu': '外觀',
+  'theme.hint': '只改這個瀏覽器的書庫、筆記與畫布;簡報照自己的設定。「自動」用書庫設定,電腦是深色模式時用深色。',
+  'theme.now': '外觀:{name}',
   'stage.pile': '牌堆',
   'stage.coverflow': '封面流',
   'stage.carousel': '圓柱',
@@ -716,6 +750,17 @@ const LOCALE_ZH_HANT = {
   'table.count': '{n} / {total} 篇',
   'table.clearTag': '取消標籤篩選',
   'table.readonly': '唯讀:欄位來自每篇筆記開頭的 front matter,要改請開筆記編輯',
+  'table.groupBy': '分組',
+  'table.group.none': '不分組',
+  'table.group.category': '分類',
+  'table.group.topic': '主題',
+  'table.group.book': '筆記本',
+  'table.group.year': '年',
+  'table.group.month': '月',
+  'table.group.tags': '標籤',
+  'table.groupEmpty': '(未設定)',
+  'table.foldAll': '全部收起',
+  'table.unfoldAll': '全部展開',
   'table.empty': '沒有符合的筆記',
   'table.private': '不公開',
   'shelf.otherCategory': '其他',
@@ -1023,6 +1068,7 @@ const LOCALE_ZH_HANT = {
   'palette.repo': '看內建範例',
   'palette.home': '回首頁',
   'palette.lang': '切換語言(中文 / English)',
+  'palette.theme': '切換外觀(下一個主題)',
   'promote.noteHint': '(升級自筆記;請補上這一張要講的話)',
   'promote.opening': '開場',
   'promote.end': '謝謝聆聽',
@@ -1137,7 +1183,33 @@ const LOCALE_EN = {
   'check.report.auto': '  (auto)',
   'check.report.problems': '⚠ {n} problems:',
   'check.report.ok': '✓ No problems found',
-  'check.usage': 'Usage: node scripts/check.mjs <folder> [--slides] [--lang en|zh-Hant]',
+  'check.usage': 'Usage: node scripts/check.mjs <folder> [--slides] [--index[=json]] [--public] [--lang en|zh-Hant]',
+  'index.title': 'Library index: {title}',
+  'index.summary': 'topics: {topics} · notes: {notes} · decks: {decks} · boards: {boards} · generated {date} (UTC)',
+  'index.publicOnly': '> Public notes only (--public).',
+  'index.howto': '> For AI: this index lists every note with its path, date, tags, sections and links. Find the files you need here, then open the originals; regenerate after changing files (node leafpile-check.mjs <library> --index). Rules: docs/SPEC.md.',
+  'index.sep': ', ',
+  'index.more': '…and {n} more',
+  'index.topicPublic': 'public by default',
+  'index.localOnly': 'local only',
+  'index.public': 'public',
+  'index.private': 'private',
+  'index.pinned': 'urgent (until {date})',
+  'index.book': 'notebook: {title}',
+  'index.aliases': 'Aliases: {list}',
+  'index.fields': 'Fields: {list}',
+  'index.headings': 'Sections: {list}',
+  'index.links': 'Links to: {list}',
+  'index.missing': 'Not found: {list}',
+  'index.backlinks': 'Linked from: {list}',
+  'index.onBoards': 'Boards: {list}',
+  'index.fromDeck': 'After-talk note from {path}',
+  'index.deck': '[deck]',
+  'index.source': 'Upgraded from {path}',
+  'index.boards': 'Boards',
+  'index.boardStats': 'note or deck cards: {cards} · text cards: {texts}',
+  'index.groups': 'Groups: {list}',
+  'index.cards': 'Cards: {list}',
   'catalog.done': 'catalog.json: {topics} topics, {notes} notes, {decks} decks, {slides} slides',
 
   // ---------- Sources ----------
@@ -1155,6 +1227,12 @@ const LOCALE_EN = {
   'theme.paper': 'Paper',
   'theme.ink': 'Ink',
   'theme.slate': 'Slate',
+  'theme.sepia': 'Sepia',
+  'theme.nord': 'Nord',
+  'theme.auto': 'Automatic',
+  'theme.menu': 'Appearance',
+  'theme.hint': 'Changes the library, notes and boards in this browser only; decks keep their own theme. Automatic uses the library setting, or dark when your computer is in dark mode.',
+  'theme.now': 'Appearance: {name}',
   'stage.pile': 'Pile',
   'stage.coverflow': 'Cover flow',
   'stage.carousel': 'Carousel',
@@ -1663,6 +1741,17 @@ const LOCALE_EN = {
   'table.count': '{n} / {total} notes',
   'table.clearTag': 'Clear tag filter',
   'table.readonly': 'Read-only: columns come from each note’s front matter; edit the note to change them',
+  'table.groupBy': 'Group by',
+  'table.group.none': 'No grouping',
+  'table.group.category': 'Category',
+  'table.group.topic': 'Topic',
+  'table.group.book': 'Notebook',
+  'table.group.year': 'Year',
+  'table.group.month': 'Month',
+  'table.group.tags': 'Tag',
+  'table.groupEmpty': '(none)',
+  'table.foldAll': 'Collapse all',
+  'table.unfoldAll': 'Expand all',
   'table.empty': 'No matching notes',
   'table.private': 'Not public',
   'shelf.otherCategory': 'Other',
@@ -1970,6 +2059,7 @@ const LOCALE_EN = {
   'palette.repo': 'Browse built-in examples',
   'palette.home': 'Home',
   'palette.lang': 'Switch language (中文 / English)',
+  'palette.theme': 'Switch appearance (next theme)',
   'promote.noteHint': '(Promoted from a note; add what you will say on this slide.)',
   'promote.opening': 'Opening',
   'promote.end': 'Thank you',
@@ -3952,7 +4042,55 @@ function filterRows(rows, { words = [], tag = '', keep = null } = {}) {
     return words.every(w => hay.includes(w));
   });
 }
-return { noteFields, tableColumns, cellText, valueOf, compareCells, sortRows, filterRows };
+
+// ---------- 分組 ----------
+// 依某個欄位把列分成幾組(每組可以在畫面上折疊)。組內保留傳進來的順序(先排序再分組)。
+// 標籤或清單欄位:一列可以同時出現在好幾組。沒有值的列放在最後一組(id 為 '')。
+
+/** 內建的分組依據;另外任何自訂欄位名稱都可以。 */
+const GROUP_KEYS = ['category', 'topic', 'book', 'year', 'month', 'tags'];
+
+/** 一列在某個分組依據下屬於哪些組(id 清單)。 */
+function groupIdsOf(row, key) {
+  if (key === 'category') return [row.category || ''];
+  if (key === 'topic') return [row.topicId || ''];
+  if (key === 'year') return [/^\d{4}/.test(row.date || '') ? row.date.slice(0, 4) : ''];
+  if (key === 'month') return [/^\d{4}-\d{2}/.test(row.date || '') ? row.date.slice(0, 7) : ''];
+  const v = key === 'tags' ? row.tags : key === 'book' ? row.book : row.fields?.[key];
+  if (Array.isArray(v)) return v.length ? [...new Set(v.map(cellText))] : [''];
+  return [isEmpty(v) ? '' : cellText(v)];
+}
+
+/**
+ * 分組。
+ * @param {object[]} rows 已經排序、篩選過的列
+ * @param {string} key 分組依據('' = 不分組)
+ * @param {{ order?: string[], labels?: Map<string,string>|object }} [opts]
+ *   order:這些 id 依給定順序排在前面(分類、主題用書庫的順序);其餘:年、月由新到舊,其他依名稱
+ *   labels:id → 顯示名稱(分類 id → 分類名稱)
+ * @returns {{ id: string, label: string, rows: object[] }[]}
+ */
+function groupRows(rows, key, { order = [], labels = {} } = {}) {
+  if (!key) return [{ id: '*', label: '', rows: [...rows] }];
+  const lab = id => (labels instanceof Map ? labels.get(id) : labels[id]) || id;
+  const groups = new Map();
+  for (const r of rows) {
+    for (const id of groupIdsOf(r, key)) {
+      if (!groups.has(id)) groups.set(id, []);
+      groups.get(id).push(r);
+    }
+  }
+  const pos = new Map(order.map((id, i) => [id, i]));
+  const desc = key === 'year' || key === 'month';
+  const ids = [...groups.keys()].sort((a, b) => {
+    if (!a || !b) return a === b ? 0 : a ? -1 : 1; // 沒有值的放最後
+    const pa = pos.get(a), pb = pos.get(b);
+    if (pa != null || pb != null) return pa == null ? 1 : pb == null ? -1 : pa - pb;
+    return desc ? b.localeCompare(a) : lab(a).localeCompare(lab(b), undefined, { numeric: true, sensitivity: 'base' });
+  });
+  return ids.map(id => ({ id, label: id ? lab(id) : '', rows: groups.get(id) }));
+}
+return { noteFields, tableColumns, cellText, valueOf, compareCells, sortRows, filterRows, GROUP_KEYS, groupIdsOf, groupRows };
 })();
 
 // ───────── app/core/graph.js ─────────
@@ -4563,6 +4701,184 @@ function formatReport(report, { verbose = false } = {}) {
 return { MAX_SLIDES, prefixProblems, checkDeck, checkLibrary, EMBED_MAX_CHARS, checkVault, formatReport };
 })();
 
+// ───────── app/core/index.js ─────────
+__m["app/core/index.js"] = (() => {
+// 書庫索引:一次列出所有筆記、簡報、畫布,以及它們之間的連結,給 AI(與人)先看全貌再動手。
+// 用的時候才產生、不存檔,所以不會有「索引過期」的問題。
+// 網站的關聯圖(graph.js)與檢查工具共用同一套資料,這裡只是換一種輸出。
+//
+//   node leafpile-check.mjs <書庫> --index          Markdown(給 AI 讀)
+//   node leafpile-check.mjs <書庫> --index=json     JSON(給程式讀)
+//   加上 --public 只列公開的筆記(要把索引交給外部服務時用)
+
+const { openVault } = __m["app/core/vault.js"];
+const { buildGraph } = __m["app/core/graph.js"];
+const { parseCanvas, resolveFile } = __m["app/core/canvas.js"];
+const { cellText } = __m["app/core/table.js"];
+const { t } = __m["app/core/i18n.js"];
+/** 主題 id → 筆記本路徑 → 筆記本標題 */
+function bookTitles(vault) {
+  const out = new Map();
+  for (const tp of vault.notes?.topics || []) for (const i of tp.items || []) if (i.kind === 'book') out.set(i.path, i.title || i.path);
+  return out;
+}
+
+/**
+ * 組出索引資料(純資料,JSON 直接輸出;Markdown 由 indexMarkdown 排版)。
+ * @param {{ vault: object, graph: object, boards?: { name: string, path: string, board: object }[] }} input
+ * @param {{ publicOnly?: boolean, now?: string }} [opts]
+ */
+function buildIndex({ vault, graph, boards = [] }, { publicOnly = false, now = new Date().toISOString() } = {}) {
+  const books = bookTitles(vault);
+  const keep = rec => rec.kind !== 'note' || !publicOnly || rec.public;
+  const ref = rec => ({ kind: rec.kind, path: rec.path, title: rec.title });
+
+  const linksOf = rec => {
+    const out = [], missing = [], seen = new Set();
+    for (const l of rec.links || []) {
+      const res = graph.resolver.resolve(l, { fromTopic: rec.topicId, fromPath: rec.path });
+      const target = res.status === 'self' ? null : res.target;
+      if (target) {
+        if (!keep(target) || seen.has(target.path)) continue;
+        seen.add(target.path);
+        out.push({ ...ref(target), ...(l.embed ? { embed: true } : {}) });
+      } else if (res.status === 'missing' || res.status === 'ambiguous') missing.push(l.raw);
+    }
+    return { links: out, missing: [...new Set(missing)] };
+  };
+  const backOf = rec => (graph.backlinks.get(rec.path) || []).filter(b => keep(b.from)).map(b => ({ ...ref(b.from), via: b.via }));
+
+  const boardRefs = new Map(); // 筆記或簡報的路徑 → 出現在哪些畫布
+  const boardList = boards.map(b => {
+    const cards = [];
+    for (const n of b.board.nodes || []) {
+      if (n.type !== 'file') continue;
+      const r = resolveFile(n.file, graph);
+      if (r.kind === 'missing' || !keep(r.rec)) continue;
+      if (!cards.some(c => c.path === r.rec.path)) cards.push(ref(r.rec));
+      if (!boardRefs.has(r.rec.path)) boardRefs.set(r.rec.path, []);
+      if (!boardRefs.get(r.rec.path).includes(b.name)) boardRefs.get(r.rec.path).push(b.name);
+    }
+    const texts = (b.board.nodes || []).filter(n => n.type === 'text').length;
+    const groups = (b.board.nodes || []).filter(n => n.type === 'group').map(n => String(n.label || '')).filter(Boolean);
+    return { name: b.name, path: b.path, cards, texts, groups };
+  });
+
+  const notes = [...graph.notes.values()].filter(keep).map(n => ({
+    path: n.path, title: n.title, topic: n.topicId,
+    book: n.bookPath ? { path: n.bookPath, title: books.get(n.bookPath) || n.bookPath } : null,
+    date: n.date || '', tags: n.tags || [], aliases: n.aliases || [],
+    public: !!n.public, ...(n.localOnly ? { localOnly: true } : {}),
+    ...(n.pinned ? { pinned: true, expires: n.expires || '' } : {}),
+    ...(n.fromDeck ? { fromDeck: n.fromDeck } : {}),
+    fields: n.fields || {},
+    headings: (n.headings || []).map(h => ({ level: h.level, text: h.text })),
+    excerpt: n.excerpt || '',
+    ...linksOf(n),
+    backlinks: backOf(n),
+    boards: boardRefs.get(n.path) || [],
+  }));
+  const decks = [...graph.decks.values()].map(d => ({
+    path: d.path, title: d.title, topic: d.topicId, date: d.date || '',
+    source: d.source || '', ...linksOf(d), backlinks: backOf(d), boards: boardRefs.get(d.path) || [],
+  }));
+
+  const catOf = new Map();
+  for (const c of vault.categories || []) for (const tp of c.topics) catOf.set(tp.id, c.id);
+  const topics = (vault.topics || []).map(tp => ({
+    id: tp.id, title: tp.title, description: tp.description || '', category: catOf.get(tp.id) ?? tp.category ?? '',
+    public: tp.conf?.public === true, ...(tp.conf?.local_only === true ? { localOnly: true } : {}),
+    notes: notes.filter(n => n.topic === tp.id).length, decks: decks.filter(d => d.topic === tp.id).length,
+  }));
+
+  return {
+    leafpileIndex: 1,
+    generated: now,
+    library: { title: vault.title || '', kind: vault.kind, publicOnly },
+    counts: { topics: topics.length, notes: notes.length, decks: decks.length, boards: boardList.length },
+    categories: (vault.categories || []).map(c => ({ id: c.id, name: c.name, topics: c.topics.map(tp => tp.id) })),
+    topics, notes, decks, boards: boardList,
+  };
+}
+
+const code = s => '`' + String(s).replace(/`/g, "'") + '`';
+const list = (items, max = 12) => (items.length > max ? [...items.slice(0, max), t('index.more', { n: items.length - max })] : items).join(t('index.sep'));
+const name = r => `${r.title} ${code(r.path)}`;
+
+/** 把索引排成 Markdown:依分類 → 主題分段,每篇一行,有內容的細節才往下縮排。 */
+function indexMarkdown(idx) {
+  const out = [];
+  const c = idx.counts;
+  out.push(`# ${t('index.title', { title: idx.library.title })}`, '');
+  out.push(t('index.summary', { topics: c.topics, notes: c.notes, decks: c.decks, boards: c.boards, date: idx.generated.slice(0, 16).replace('T', ' ') }));
+  if (idx.library.publicOnly) out.push('', t('index.publicOnly'));
+  out.push('', t('index.howto'), '');
+
+  const topicById = new Map(idx.topics.map(tp => [tp.id, tp]));
+  const catName = new Map(idx.categories.map(x => [x.id, x.name]));
+  const ordered = [...idx.categories.flatMap(x => x.topics), ...idx.topics.map(tp => tp.id)].filter((id, i, a) => a.indexOf(id) === i);
+
+  for (const id of ordered) {
+    const tp = topicById.get(id);
+    if (!tp) continue;
+    const notes = idx.notes.filter(n => n.topic === id), decks = idx.decks.filter(d => d.topic === id);
+    if (!notes.length && !decks.length) continue;
+    const cat = catName.get(tp.category);
+    const flags = [tp.public ? t('index.topicPublic') : '', tp.localOnly ? t('index.localOnly') : ''].filter(Boolean);
+    out.push(`## ${cat ? cat + ' › ' : ''}${tp.title} ${code(tp.id)}${flags.length ? ' · ' + flags.join(' · ') : ''}`);
+    if (tp.description) out.push('', tp.description);
+    out.push('');
+    for (const n of notes) {
+      const meta = [n.date, n.tags.map(x => '#' + x).join(' '), n.public ? t('index.public') : t('index.private'), n.pinned ? t('index.pinned', { date: n.expires }) : '', n.book ? t('index.book', { title: n.book.title }) : ''].filter(Boolean);
+      out.push(`- **${n.title}** ${code(n.path)} · ${meta.join(' · ')}`);
+      const sub = [];
+      const fields = Object.entries(n.fields).map(([k, v]) => `${k}: ${cellText(v)}`);
+      if (n.aliases.length) sub.push(t('index.aliases', { list: n.aliases.join(t('index.sep')) }));
+      if (fields.length) sub.push(t('index.fields', { list: fields.join(t('index.sep')) }));
+      const hs = n.headings.filter(h => h.level <= 2 && h.text !== n.title).map(h => h.text);
+      if (hs.length) sub.push(t('index.headings', { list: list(hs, 10) }));
+      if (n.links.length) sub.push(t('index.links', { list: list(n.links.map(name)) }));
+      if (n.missing.length) sub.push(t('index.missing', { list: n.missing.join(t('index.sep')) }));
+      if (n.backlinks.length) sub.push(t('index.backlinks', { list: list(n.backlinks.map(name)) }));
+      if (n.boards.length) sub.push(t('index.onBoards', { list: n.boards.join(t('index.sep')) }));
+      if (n.fromDeck) sub.push(t('index.fromDeck', { path: code(n.fromDeck) }));
+      for (const s of sub) out.push(`  - ${s}`);
+    }
+    for (const d of decks) {
+      out.push(`- ${t('index.deck')} **${d.title}** ${code(d.path)}${d.date ? ' · ' + d.date : ''}`);
+      if (d.source) out.push(`  - ${t('index.source', { path: code(d.source) })}`);
+      if (d.links.length) out.push(`  - ${t('index.links', { list: list(d.links.map(name)) })}`);
+      if (d.missing.length) out.push(`  - ${t('index.missing', { list: d.missing.join(t('index.sep')) })}`);
+      if (d.boards.length) out.push(`  - ${t('index.onBoards', { list: d.boards.join(t('index.sep')) })}`);
+    }
+    out.push('');
+  }
+
+  if (idx.boards.length) {
+    out.push(`## ${t('index.boards')}`, '');
+    for (const b of idx.boards) {
+      out.push(`- **${b.name}** ${code(b.path)} · ${t('index.boardStats', { cards: b.cards.length, texts: b.texts })}`);
+      if (b.groups.length) out.push(`  - ${t('index.groups', { list: b.groups.join(t('index.sep')) })}`);
+      if (b.cards.length) out.push(`  - ${t('index.cards', { list: list(b.cards.map(name), 20) })}`);
+    }
+    out.push('');
+  }
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd() + '\n';
+}
+
+/** 從資料來源產生索引(命令列用;網站已經有圖譜時可以直接呼叫 buildIndex)。 */
+async function libraryIndex(source, opts = {}) {
+  const vault = await openVault(source);
+  const graph = await buildGraph(vault);
+  const boards = [];
+  for (const b of vault.boards || []) {
+    try { boards.push({ ...b, board: parseCanvas(await source.readText(b.path)) }); } catch { /* 壞掉的畫布由檢查工具回報 */ }
+  }
+  return buildIndex({ vault, graph, boards }, opts);
+}
+return { buildIndex, indexMarkdown, libraryIndex };
+})();
+
 // ───────── scripts/node-source.mjs ─────────
 __m["scripts/node-source.mjs"] = (() => {
 // Node 版資料來源:讓建置腳本與檢查工具使用和瀏覽器完全相同的解析器(app/core)。
@@ -4619,6 +4935,13 @@ const { nodeSource, detectNodeLang } = __m['scripts/node-source.mjs'];
 setLang(detectNodeLang());
 const __args = process.argv.slice(2);
 const __dir = __args.find((a, i) => !a.startsWith('--') && __args[i - 1] !== '--lang') || __toPath(new URL('.', import.meta.url));
-const __report = await checkVault(nodeSource(__dir));
-console.log(formatReport(__report, { verbose: process.argv.includes('--slides') }));
-if (__report.problems.length) process.exitCode = 1;
+const __index = __args.find(a => a === '--index' || a.startsWith('--index='));
+if (__index) {
+  const { libraryIndex, indexMarkdown } = __m['app/core/index.js'];
+  const __idx = await libraryIndex(nodeSource(__dir), { publicOnly: __args.includes('--public') });
+  console.log(__index === '--index=json' ? JSON.stringify(__idx, null, 2) : indexMarkdown(__idx));
+} else {
+  const __report = await checkVault(nodeSource(__dir));
+  console.log(formatReport(__report, { verbose: process.argv.includes('--slides') }));
+  if (__report.problems.length) process.exitCode = 1;
+}

@@ -386,7 +386,7 @@ More examples are in [section 5 of the guide](GUIDE.en.md#5-layouts) and in the 
 
 | Theme | Headings | Body |
 |---|---|---|
-| `paper`, `ink` | Serif (Noto Serif TC → Source Han Serif → PMingLiU) | Sans (Noto Sans TC → PingFang → Microsoft JhengHei) |
+| `paper`, `ink`, `sepia`, `nord` | Serif (Noto Serif TC → Source Han Serif → PMingLiU) | Sans (Noto Sans TC → PingFang → Microsoft JhengHei) |
 | `slate` | Sans | Sans |
 
 English decks (`lang: en`) put Latin fonts first. The tool **never downloads fonts**; it uses fonts already on the computer, falling back down the list when one is missing.
@@ -420,7 +420,7 @@ The accent color is used for bold text, title rules, bullets, timelines, charts 
 
 ### Themes
 
-Set `theme: paper` (warm off-white), `ink` (dark) or `slate` (white and blue-gray) in `deck.yml`. Press `T` while presenting to try them.
+Set `theme: paper` (warm off-white), `ink` (dark), `slate` (white and blue-gray), `sepia` (warm yellowed paper) or `nord` (blue-gray dark) in `deck.yml`. Press `T` while presenting to try them.
 
 ### Color formats
 

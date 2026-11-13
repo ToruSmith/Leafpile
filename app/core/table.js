@@ -70,3 +70,51 @@ export function filterRows(rows, { words = [], tag = '', keep = null } = {}) {
     return words.every(w => hay.includes(w));
   });
 }
+
+// ---------- 分組 ----------
+// 依某個欄位把列分成幾組(每組可以在畫面上折疊)。組內保留傳進來的順序(先排序再分組)。
+// 標籤或清單欄位:一列可以同時出現在好幾組。沒有值的列放在最後一組(id 為 '')。
+
+/** 內建的分組依據;另外任何自訂欄位名稱都可以。 */
+export const GROUP_KEYS = ['category', 'topic', 'book', 'year', 'month', 'tags'];
+
+/** 一列在某個分組依據下屬於哪些組(id 清單)。 */
+export function groupIdsOf(row, key) {
+  if (key === 'category') return [row.category || ''];
+  if (key === 'topic') return [row.topicId || ''];
+  if (key === 'year') return [/^\d{4}/.test(row.date || '') ? row.date.slice(0, 4) : ''];
+  if (key === 'month') return [/^\d{4}-\d{2}/.test(row.date || '') ? row.date.slice(0, 7) : ''];
+  const v = key === 'tags' ? row.tags : key === 'book' ? row.book : row.fields?.[key];
+  if (Array.isArray(v)) return v.length ? [...new Set(v.map(cellText))] : [''];
+  return [isEmpty(v) ? '' : cellText(v)];
+}
+
+/**
+ * 分組。
+ * @param {object[]} rows 已經排序、篩選過的列
+ * @param {string} key 分組依據('' = 不分組)
+ * @param {{ order?: string[], labels?: Map<string,string>|object }} [opts]
+ *   order:這些 id 依給定順序排在前面(分類、主題用書庫的順序);其餘:年、月由新到舊,其他依名稱
+ *   labels:id → 顯示名稱(分類 id → 分類名稱)
+ * @returns {{ id: string, label: string, rows: object[] }[]}
+ */
+export function groupRows(rows, key, { order = [], labels = {} } = {}) {
+  if (!key) return [{ id: '*', label: '', rows: [...rows] }];
+  const lab = id => (labels instanceof Map ? labels.get(id) : labels[id]) || id;
+  const groups = new Map();
+  for (const r of rows) {
+    for (const id of groupIdsOf(r, key)) {
+      if (!groups.has(id)) groups.set(id, []);
+      groups.get(id).push(r);
+    }
+  }
+  const pos = new Map(order.map((id, i) => [id, i]));
+  const desc = key === 'year' || key === 'month';
+  const ids = [...groups.keys()].sort((a, b) => {
+    if (!a || !b) return a === b ? 0 : a ? -1 : 1; // 沒有值的放最後
+    const pa = pos.get(a), pb = pos.get(b);
+    if (pa != null || pb != null) return pa == null ? 1 : pb == null ? -1 : pa - pb;
+    return desc ? b.localeCompare(a) : lab(a).localeCompare(lab(b), undefined, { numeric: true, sensitivity: 'base' });
+  });
+  return ids.map(id => ({ id, label: id ? lab(id) : '', rows: groups.get(id) }));
+}

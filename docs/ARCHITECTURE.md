@@ -33,6 +33,7 @@ Leafpile 沿用 Mdslide Pile 的分層：資料只往下流，**來源 → `core
 | `core/privacy.js` | `resolvePublic()`、`isLocalOnly()`、`scanPII()`：網站與守門腳本共用 |
 | `core/bridge.js` | `expandEmbeds()`、`promoteNote()`、`promoteBook()`、`distillDeck()` |
 | `core/check.js` | `checkVault()`：簡報規則（沿用）＋筆記與互通規則；錯誤與警告分開 |
+| `core/index.js` | `buildIndex()`、`indexMarkdown()`、`libraryIndex()`：書庫索引（`--index`），所有筆記、簡報、畫布與連結的一覽，給 AI 先看全貌；用時才產生、不存檔。`--public` 用 `graph` 裡的公開判斷過濾 |
 | `player/flash.js` | `noteToDeck()`：筆記 → 播放器要的 deck 物件 |
 | `ui/shelf.js` | 書架：分類、主題、筆記本、散篇、簡報卡片、急件、全文搜尋 |
 | `ui/notes/reader.js`、`editor.js` | 閱讀（目錄、反向連結）與編輯（即時預覽、草稿保護、`[[` 自動完成） |

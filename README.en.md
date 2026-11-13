@@ -6,7 +6,7 @@ English · [繁體中文](README.md)
 
 Leafpile connects two things that are usually done twice: you collect notes in Markdown, promote them into a 3D card-pile slide deck when it is time to share, and save the Q&A back into your notes afterwards. Files stay on your computer or USB drive; the website only reads them. Nothing to install, nothing uploaded.
 
-**Live site: <https://torusmith.github.io/Leafpile/>** · current version v0.9.2 · [Join the public beta](docs/BETA.en.md)
+**Live site: <https://torusmith.github.io/Leafpile/>** · current version v0.10.0 · [Join the public beta](docs/BETA.en.md)
 
 ![Shelf: notes and decks under the same topic](docs/images/shelf.en.webp)
 
@@ -67,7 +67,8 @@ Full rules: [`docs/INTEROP.md`](docs/INTEROP.md) (Traditional Chinese). Deck for
 | Before publishing to GitHub | **🔒 Pre-publish check** on the library page: what will be public, possible personal data, and a visitor view |
 | Focus on one note | Press **F** on a note for immersive reading (full screen, floating buttons); A− / A+ give ten font sizes |
 | Find your way across many topics | The sidebar on wide screens: a category → topic → notebook → note tree, with pins and recently opened |
-| See all notes at once | **Table** on the library page: sort and filter by title, topic, tags and dates (read-only) |
+| See all notes at once | **Table** on the library page: sort and filter by title, topic, tags and dates, and group by category, topic, month, tag and more with collapsible groups (read-only) |
+| Change the look | **Appearance** in the top bar: Automatic, Paper, Ink, Slate, Sepia, Nord |
 | Rename a topic, change its category or color | **Table** → **Topics** → **Edit**, or **Manage categories**. You preview the exact lines first, can undo after writing, and your YAML comments are kept (needs a local folder opened in Chrome/Edge) |
 | Check the library | **✓ Check** on the library page, or `node leafpile-check.mjs` |
 
@@ -75,6 +76,7 @@ A Mdslide Pile library opens as it is (a folder without `notes/` and `slides/` i
 
 ```bash
 node scripts/check.mjs <library>                           # notes, decks and links
+node scripts/check.mjs <library> --index                   # library index for AI: every note, deck, board and link (--index=json, --public)
 node scripts/promote.mjs <library> notes/<topic>/<note>.md  # note → new deck skeleton
 node scripts/after-talk.mjs <library> slides/<topic>/<deck>  # deck → after-talk note (--qa qa.json adds the Q&A)
 node scripts/source-sync.mjs <library>                    # which decks have a changed source note

@@ -11,12 +11,14 @@ import { hydrate } from '../player/hydrate.js';
 import { resolveMediaPath } from '../core/media.js';
 import { canPickDirectory } from '../sources/sources.js';
 import { readPref, writePref, readJSON, writeJSON } from './prefs.js';
-import { tableColumns, cellText, sortRows, filterRows, valueOf } from '../core/table.js';
+import { tableColumns, cellText, sortRows, filterRows, valueOf, groupRows } from '../core/table.js';
 
 const VIEW_KEY = 'leafpile-shelf-view';
 const VIEWS = ['all', 'notes', 'slides', 'table'];
 const SORT_KEY = 'leafpile-table-sort';
 const MODE_KEY = 'leafpile-table-mode'; // 表格看的是「筆記」還是「主題」
+const GROUP_KEY = 'leafpile-table-group'; // 表格的分組依據:{ notes: 'category', topics: 'category' }
+const FOLD_KEY = 'leafpile-table-fold'; // 收起來的組:{ '<模式>:<分組依據>': [組 id] }
 
 function savedView() {
   const v = readPref(VIEW_KEY); return VIEWS.includes(v) ? v : 'all';
@@ -62,7 +64,7 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
       <p class="ro-note" role="status" hidden></p>
       <div class="shelf-bar">
         ${hasNotes ? `<div class="segmented" role="tablist" aria-label="${esc(t('shelf.viewLabel'))}">${VIEWS.map(v => `<button role="tab" data-view="${v}" aria-selected="${v === view}">${esc(t('shelf.view.' + v))}<small>${v === 'notes' || v === 'table' ? noteCount : v === 'slides' ? deckCount : noteCount + deckCount}</small></button>`).join('')}</div>` : ''}
-        ${chipsOf.length ? `<nav class="chips"><button class="chip on" data-filter="*">${esc(t('lib.all'))}</button>${chipsOf.map(c => `<button class="chip${c.n ? '' : ' zero'}" data-filter="${esc(c.id)}" style="--c:${esc(c.color || 'var(--ink)')}">${esc(c.name)}<small>${c.n}</small></button>`).join('')}</nav>` : ''}
+        ${chipsOf.length ? `<nav class="chips"><button class="chip on" data-filter="*">${esc(t('lib.all'))}</button>${chipsOf.map(c => `<button class="chip${c.n ? '' : ' zero'}" data-filter="${esc(c.id)}" style="${c.color ? `--c:${esc(c.color)};--on:#fff` : ''}">${esc(c.name)}<small>${c.n}</small></button>`).join('')}</nav>` : ''}
       </div>
       ${vault.issues.length ? `<details class="lib-issues"><summary>${esc(t('lib.issues', { n: vault.issues.length }))}</summary><ul>${vault.issues.map(i => `<li><code>${esc(i.path)}</code>${esc(i.message)}</li>`).join('')}</ul></details>` : ''}
       <section class="note-table" hidden aria-live="polite"></section>
@@ -136,19 +138,46 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
   });
   let mode = readPref(MODE_KEY) === 'topics' ? 'topics' : 'notes';
   const modeBar = () => `<span class="seg-mini" role="group" aria-label="${esc(t('table.modeLabel'))}">${['notes', 'topics'].map(m => `<button data-mode="${m}" aria-pressed="${mode === m}">${esc(t('table.mode.' + m))}</button>`).join('')}</span>`;
+  // ---------- 分組與折疊(兩種模式共用) ----------
+  const groupPref = { notes: '', topics: '', ...(readJSON(GROUP_KEY) || {}) };
+  const folds = readJSON(FOLD_KEY) || {};
+  const foldId = () => `${mode}:${groupPref[mode]}`;
+  const isFolded = id => (folds[foldId()] || []).includes(id);
+  const saveFold = (id, on) => {
+    const set = new Set(folds[foldId()] || []);
+    if (on) set.add(id); else set.delete(id);
+    folds[foldId()] = [...set];
+    writeJSON(FOLD_KEY, folds);
+  };
+  const catName = new Map(vault.categories.map(c => [c.id, c.name]));
+  const topicName = new Map(vault.topics.map(tp => [tp.id, tp.title]));
+  const groupLabel = key => (key === 'category' || key === 'topic' || key === 'book' || key === 'year' || key === 'month' || key === 'tags' ? t('table.group.' + key) : key);
+  const groupBar = options => {
+    const cur = options.includes(groupPref[mode]) ? groupPref[mode] : '';
+    return `<label class="tb-group"><span>${esc(t('table.groupBy'))}</span><select class="group-by">${['', ...options].map(k => `<option value="${esc(k)}"${k === cur ? ' selected' : ''}>${esc(k ? groupLabel(k) : t('table.group.none'))}</option>`).join('')}</select></label>
+      ${cur ? `<button class="btn ghost fold-all" data-fold="close">${esc(t('table.foldAll'))}</button><button class="btn ghost fold-all" data-fold="open">${esc(t('table.unfoldAll'))}</button>` : ''}`;
+  };
+  /** 每組一個 <tbody>:第一列是可以折疊的標題列。不分組時只有一個沒有標題的 <tbody>。 */
+  const groupBodies = (groups, span, rowHTML) => groups.map(g => {
+    if (g.id === '*') return `<tbody>${g.rows.map(rowHTML).join('')}</tbody>`;
+    const folded = isFolded(g.id);
+    return `<tbody class="grp${folded ? ' folded' : ''}" data-g="${esc(g.id)}"><tr class="g-head"><th colspan="${span}" scope="rowgroup"><button class="g-toggle" aria-expanded="${!folded}"><i aria-hidden="true">\u25BE</i>${esc(g.label || t('table.groupEmpty'))}<span class="g-n">${g.rows.length}</span></button></th></tr>${g.rows.map(rowHTML).join('')}</tbody>`;
+  }).join('');
+  const groupOpts = key => ({
+    order: key === 'category' ? vault.categories.map(c => c.id) : key === 'topic' ? vault.topics.map(tp => tp.id) : [],
+    labels: key === 'category' ? catName : key === 'topic' ? topicName : {},
+  });
+
   // 主題清單:不用等圖譜,書庫目錄就有
   const renderTopics = box => {
     const cats = new Map(vault.categories.map(c => [c.id, c.name]));
     const keep = filter === '*' ? () => true : tp => (filter.startsWith('c:') ? catOf.get(tp.id) === filter.slice(2) : tp.id === filter.slice(2));
     const list = vault.topics.filter(tp => tp.id !== '_' && keep(tp) && (!words.length || words.every(w => `${tp.title} ${tp.id} ${tp.description}`.toLowerCase().includes(w))));
     const pub = tp => (typeof tp.conf?.public === 'boolean' ? t(tp.conf.public ? 'tm.publicYes' : 'tm.publicNo') : '');
-    box.innerHTML = `<div class="table-head">${modeBar()}<span class="n">${esc(t('table.topicCount', { n: list.length }))}</span>
-        ${onTopicNew ? `<button class="btn ghost tm-new">${esc(t('tm.newBtn'))}</button>` : ''}
-        ${onCategories ? `<button class="btn ghost tm-cats-btn">${esc(t('tm.catsBtn'))}</button>` : ''}
-        <span class="hint">${esc(onTopicEdit ? t('table.topicsHint') : t('table.topicsReadonly'))}</span></div>
-      <div class="table-wrap"><table class="topic-table">
-        <thead><tr><th scope="col"><span>${esc(t('table.topic'))}</span></th><th scope="col"><span>${esc(t('tm.folder'))}</span></th><th scope="col"><span>${esc(t('tm.category'))}</span></th><th scope="col"><span>${esc(t('table.notes'))}</span></th><th scope="col"><span>${esc(t('table.decks'))}</span></th><th scope="col"><span>${esc(t('tm.public'))}</span></th>${onTopicEdit ? '<th scope="col"></th>' : ''}</tr></thead>
-        <tbody>${list.map(tp => `<tr>
+    const gkey = groupPref.topics === 'category' ? 'category' : '';
+    const groups = groupRows(list.map(tp => ({ ...tp, topicId: tp.id, category: catOf.get(tp.id) || '' })), gkey, groupOpts(gkey));
+    const span = onTopicEdit ? 7 : 6;
+    const rowHTML = tp => `<tr>
           <td class="c-title"><span class="tm-head"><i class="tm-dot" style="background:${esc(tp.color)}"></i>${esc(tp.title)}</span>${tp.description ? `<small>${esc(tp.description)}</small>` : ''}</td>
           <td class="c-f"><code>${esc(tp.id)}</code></td>
           <td class="c-f">${esc(cats.get(tp.category) || tp.category || '')}</td>
@@ -156,7 +185,14 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
           <td class="c-num">${tp.decks.length}</td>
           <td class="c-f">${esc(pub(tp))}</td>
           ${onTopicEdit ? `<td class="c-act"><button class="btn ghost tm-edit" data-topic="${esc(tp.id)}">${esc(t('tm.editBtn'))}</button></td>` : ''}
-        </tr>`).join('')}</tbody>
+        </tr>`;
+    box.innerHTML = `<div class="table-head">${modeBar()}<span class="n">${esc(t('table.topicCount', { n: list.length }))}</span>${groupBar(['category'])}
+        ${onTopicNew ? `<button class="btn ghost tm-new">${esc(t('tm.newBtn'))}</button>` : ''}
+        ${onCategories ? `<button class="btn ghost tm-cats-btn">${esc(t('tm.catsBtn'))}</button>` : ''}
+        <span class="hint">${esc(onTopicEdit ? t('table.topicsHint') : t('table.topicsReadonly'))}</span></div>
+      <div class="table-wrap"><table class="topic-table">
+        <thead><tr><th scope="col"><span>${esc(t('table.topic'))}</span></th><th scope="col"><span>${esc(t('tm.folder'))}</span></th><th scope="col"><span>${esc(t('tm.category'))}</span></th><th scope="col"><span>${esc(t('table.notes'))}</span></th><th scope="col"><span>${esc(t('table.decks'))}</span></th><th scope="col"><span>${esc(t('tm.public'))}</span></th>${onTopicEdit ? '<th scope="col"></th>' : ''}</tr></thead>
+        ${groupBodies(groups, span, rowHTML)}
       </table></div>`;
   };
   const renderTable = () => {
@@ -171,6 +207,9 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
     if (!cols.some(([k]) => k === sort.key)) sort = { key: 'date', dir: 'desc' };
     const keep = filter === '*' ? null : r => (filter.startsWith('c:') ? r.category === filter.slice(2) : r.topicId === filter.slice(2));
     const list = sortRows(filterRows(tableRows, { words, tag: tagFilter, keep }), sort.key, sort.dir);
+    const gOptions = ['category', 'topic', ...(tableRows.some(r => r.book) ? ['book'] : []), 'year', 'month', 'tags', ...extra];
+    const gkey = gOptions.includes(groupPref.notes) ? groupPref.notes : '';
+    const groups = groupRows(list, gkey, groupOpts(gkey));
     const cell = (r, k) => {
       if (k === 'title') return `<a href="${href.note(r.rel)}">${esc(r.title)}</a>${r.private ? `<span class="lock" title="${esc(t('table.private'))}" aria-label="${esc(t('table.private'))}">\u{1F512}</span>` : ''}`;
       if (k === 'tags') return r.tags.map(x => `<button class="tag" data-tag="${esc(x)}">#${esc(x)}</button>`).join(' ');
@@ -178,14 +217,36 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
     };
     box.innerHTML = `<div class="table-head">${modeBar()}<span class="n">${esc(t('table.count', { n: list.length, total: tableRows.length }))}</span>
         ${tagFilter ? `<button class="tag on clear-tag" title="${esc(t('table.clearTag'))}">#${esc(tagFilter)} \u2715</button>` : ''}
+        ${groupBar(gOptions)}
         <span class="hint">${esc(t('table.readonly'))}</span></div>
       <div class="table-wrap"><table>
         <thead><tr>${cols.map(([k, label]) => `<th scope="col" aria-sort="${sort.key === k ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}"><button data-sort="${esc(k)}">${esc(label)}<i>${sort.key === k ? (sort.dir === 'asc' ? '\u25B2' : '\u25BC') : ''}</i></button></th>`).join('')}</tr></thead>
-        <tbody>${list.map(r => `<tr>${cols.map(([k]) => `<td class="c-${k === 'title' || k === 'tags' || k === 'date' ? k : 'f'}">${cell(r, k)}</td>`).join('')}</tr>`).join('')}</tbody>
+        ${groupBodies(groups, cols.length, r => `<tr>${cols.map(([k]) => `<td class="c-${k === 'title' || k === 'tags' || k === 'date' ? k : 'f'}">${cell(r, k)}</td>`).join('')}</tr>`)}
       </table></div>
       ${list.length ? '' : `<p class="table-empty">${esc(t('table.empty'))}</p>`}`;
   };
+  $('.note-table').addEventListener('change', e => {
+    if (!e.target.closest('.group-by')) return;
+    groupPref[mode] = e.target.value;
+    writeJSON(GROUP_KEY, groupPref);
+    renderTable();
+  });
   $('.note-table').addEventListener('click', e => {
+    const gt = e.target.closest('.g-toggle');
+    if (gt) {
+      const body = gt.closest('tbody');
+      const on = !body.classList.contains('folded');
+      body.classList.toggle('folded', on);
+      gt.setAttribute('aria-expanded', String(!on));
+      return saveFold(body.dataset.g, on);
+    }
+    const fa = e.target.closest('.fold-all');
+    if (fa) {
+      const close = fa.dataset.fold === 'close';
+      folds[foldId()] = close ? [...$('.note-table').querySelectorAll('tbody.grp')].map(b => b.dataset.g) : [];
+      writeJSON(FOLD_KEY, folds);
+      return renderTable();
+    }
     const m = e.target.closest('[data-mode]');
     if (m) { mode = m.dataset.mode; writePref(MODE_KEY, mode); return renderTable(); }
     const ed = e.target.closest('.tm-edit');
