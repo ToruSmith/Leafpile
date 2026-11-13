@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 // 入口:從這兩個檔案開始,依 import 自動找出所有需要的模組並排好順序(不用手動維護清單)
-const ENTRIES = ['app/core/check.js', 'app/core/i18n.js', 'scripts/node-source.mjs'];
+const ENTRIES = ['app/core/check.js', 'app/core/index.js', 'app/core/i18n.js', 'scripts/node-source.mjs'];
 
 async function collect() {
   const order = [], seen = new Set();
@@ -68,6 +68,8 @@ export async function bundle() {
 //   node leafpile-check.mjs <資料夾>         檢查指定的書庫(Leafpile 或 Mdslide Pile)、主題或單一簡報
 //   node leafpile-check.mjs <資料夾> --slides 連每張投影片都列出來
 //   node leafpile-check.mjs <資料夾> --lang en  英文輸出(預設依作業系統語言)
+//   node leafpile-check.mjs <資料夾> --index    書庫索引:所有筆記、簡報、畫布與連結(給 AI 先看全貌)
+//                                             --index=json 輸出 JSON;加 --public 只列公開的筆記
 // Windows 也可以直接雙擊 check-library.cmd,Mac 雙擊 check-library.command。
 
 ${[...nodeImports].sort().join('\n')}
@@ -82,9 +84,16 @@ const { nodeSource, detectNodeLang } = __m['scripts/node-source.mjs'];
 setLang(detectNodeLang());
 const __args = process.argv.slice(2);
 const __dir = __args.find((a, i) => !a.startsWith('--') && __args[i - 1] !== '--lang') || __toPath(new URL('.', import.meta.url));
-const __report = await checkVault(nodeSource(__dir));
-console.log(formatReport(__report, { verbose: process.argv.includes('--slides') }));
-if (__report.problems.length) process.exitCode = 1;
+const __index = __args.find(a => a === '--index' || a.startsWith('--index='));
+if (__index) {
+  const { libraryIndex, indexMarkdown } = __m['app/core/index.js'];
+  const __idx = await libraryIndex(nodeSource(__dir), { publicOnly: __args.includes('--public') });
+  console.log(__index === '--index=json' ? JSON.stringify(__idx, null, 2) : indexMarkdown(__idx));
+} else {
+  const __report = await checkVault(nodeSource(__dir));
+  console.log(formatReport(__report, { verbose: process.argv.includes('--slides') }));
+  if (__report.problems.length) process.exitCode = 1;
+}
 `;
 }
 

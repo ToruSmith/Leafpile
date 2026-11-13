@@ -1,6 +1,6 @@
 # AGENTS.md：給維護這個倉庫的 AI（與人）
 
-> 任務是**做內容**（筆記、簡報、講後筆記）：讀 [`docs/SPEC.md`](docs/SPEC.md)、[`docs/INTEROP.md`](docs/INTEROP.md)，現成提示詞在 [`docs/AI_PROMPTS.md`](docs/AI_PROMPTS.md)。
+> 任務是**做內容**（筆記、簡報、講後筆記）：讀 [`docs/SPEC.md`](docs/SPEC.md)、[`docs/INTEROP.md`](docs/INTEROP.md)，現成提示詞在 [`docs/AI_PROMPTS.md`](docs/AI_PROMPTS.md)。動手前先跑 `node scripts/check.mjs <書庫> --index`（或書庫裡的 `node leafpile-check.mjs --index`）看全貌，不必逐檔翻找。
 > 任務是**改工具本身**：讀完這份，再讀 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)。
 
 ## 這個專案是什麼

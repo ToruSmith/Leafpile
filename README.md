@@ -97,6 +97,7 @@ Leafpile 的答案是：**同一個書庫、兩個渠道、中間一座橋。**
 
 ```bash
 node scripts/check.mjs <書庫>                          # 檢查筆記、簡報與連結（--slides 列出每一張）
+node scripts/check.mjs <書庫> --index                  # 書庫索引：所有筆記、簡報、畫布與連結，給 AI 先看全貌（--index=json、--public）
 node scripts/promote.mjs <書庫> notes/<主題>/<筆記>.md   # 筆記 → 新簡報骨架（整本筆記本也可以）
 node scripts/after-talk.mjs <書庫> slides/<主題>/<簡報>  # 簡報 → 講後筆記（--qa 問答.json 帶入現場問答）
 node scripts/source-sync.mjs <書庫>                    # 哪些簡報的來源筆記在升級後改過了

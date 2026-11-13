@@ -6,6 +6,26 @@
 
 驗收時看四件事：數字有沒有來源、檔案路徑對不對、front matter 有沒有亂加版型、交付格式能不能直接放進書庫。
 
+## 0. 讓 AI 先看懂你的書庫（書庫索引）
+
+書庫很大時，先產生一份索引交給 AI，它就不用一個檔案一個檔案翻：
+
+```bash
+node leafpile-check.mjs <書庫> --index > 索引.md          # Markdown，給 AI 讀
+node leafpile-check.mjs <書庫> --index=json > 索引.json   # JSON，給程式讀
+node leafpile-check.mjs <書庫> --index --public          # 只列公開的筆記（要交給外部 AI 服務時用）
+```
+
+索引列出每篇筆記的路徑、日期、標籤、自訂欄位、章節、連到誰、被誰連、出現在哪些畫布；簡報的來源與摘錄；每張畫布放了哪些卡片。它是用的時候才產生的，改了檔案就重跑一次，**不要把索引檔放進書庫或 GitHub**（私人筆記的標題也在裡面，除非加 `--public`）。
+
+```text
+這是我的 Leafpile 書庫索引（附件）。請先讀它掌握全貌，需要細節時再請我提供原檔，或直接打開索引裡列出的路徑。
+規則：https://raw.githubusercontent.com/ToruSmith/leafpile/main/docs/SPEC.md
+我想做的事：<例如找出三個月沒動、也沒被連到的筆記；或整理「習慣」相關的筆記成一個大綱>
+```
+
+能直接讀資料夾的 AI（例如在你電腦上執行的程式助理），請它在動手前先跑一次 `node leafpile-check.mjs <書庫> --index`。
+
 ## 1. 整理讀書筆記
 
 ```text

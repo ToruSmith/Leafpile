@@ -75,6 +75,7 @@ A Mdslide Pile library opens as it is (a folder without `notes/` and `slides/` i
 
 ```bash
 node scripts/check.mjs <library>                           # notes, decks and links
+node scripts/check.mjs <library> --index                   # library index for AI: every note, deck, board and link (--index=json, --public)
 node scripts/promote.mjs <library> notes/<topic>/<note>.md  # note → new deck skeleton
 node scripts/after-talk.mjs <library> slides/<topic>/<deck>  # deck → after-talk note (--qa qa.json adds the Q&A)
 node scripts/source-sync.mjs <library>                    # which decks have a changed source note
