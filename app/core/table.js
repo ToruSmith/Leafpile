@@ -118,3 +118,63 @@ export function groupRows(rows, key, { order = [], labels = {} } = {}) {
   });
   return ids.map(id => ({ id, label: id ? lab(id) : '', rows: groups.get(id) }));
 }
+
+// ---------- 月曆 ----------
+// 依筆記的 date 欄位排進月曆。月份用 'YYYY-MM' 字串表示;週日開始。
+
+const pad2 = n => String(n).padStart(2, '0');
+
+/** 'YYYY-MM' 往前後移 n 個月。 */
+export function shiftMonth(ym, n) {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + n, 1));
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}`;
+}
+
+/**
+ * 一個月的月曆格子:幾週,每週 7 天(週日開始),前後補上個月、下個月的日子。
+ * @returns {{ date: string, day: number, inMonth: boolean }[][]}
+ */
+export function monthGrid(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  const first = new Date(Date.UTC(y, m - 1, 1));
+  const start = new Date(first); start.setUTCDate(1 - first.getUTCDay());
+  const weeks = [];
+  for (let d = new Date(start); weeks.length < 6; ) {
+    const week = [];
+    for (let i = 0; i < 7; i++) {
+      week.push({ date: d.toISOString().slice(0, 10), day: d.getUTCDate(), inMonth: d.getUTCMonth() === m - 1 });
+      d.setUTCDate(d.getUTCDate() + 1);
+    }
+    weeks.push(week);
+    if (d.getUTCMonth() !== m - 1) break;
+  }
+  return weeks;
+}
+
+/** 依日期(date 的前 10 個字)分好的筆記;沒有合法日期的略過。 */
+export function rowsByDay(rows) {
+  const out = new Map();
+  for (const r of rows) {
+    const d = String(r.date || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+    if (!out.has(d)) out.set(d, []);
+    out.get(d).push(r);
+  }
+  return out;
+}
+
+/** 一開始顯示哪個月:這個月有筆記就是這個月,否則是最近一個有筆記的月份(都沒有就是這個月)。 */
+export function defaultMonth(rows, today) {
+  const now = String(today).slice(0, 7);
+  const months = [...new Set(rows.map(r => String(r.date || '').slice(0, 7)).filter(x => /^\d{4}-\d{2}$/.test(x)))].sort();
+  if (!months.length || months.includes(now)) return now;
+  const past = months.filter(x => x <= now);
+  return past.length ? past.at(-1) : months[0];
+}
+
+/** 看板的欄:沒選分組依據時,有 status 欄位就用它,否則用主題。 */
+export function kanbanKey(chosen, fieldKeys) {
+  if (chosen) return chosen;
+  return fieldKeys.includes('status') ? 'status' : 'topic';
+}

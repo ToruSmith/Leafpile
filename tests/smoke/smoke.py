@@ -330,6 +330,12 @@ def main():
             for v in ['notes', 'table'] if h == '#/repo' else ['']:
                 if v: page.click(f'.segmented [data-view={v}]'); page.wait_for_timeout(400)
                 errors.extend(f'沒有名稱({h or "首頁"} {v}):{x}' for x in page.evaluate(unnamed))
+            if h == '#/repo':  # 看板與月曆
+                for lay, sel in (('kanban', '.kb-card'), ('calendar', '.cal-note')):
+                    page.click(f'[data-layout={lay}]'); page.wait_for_timeout(400)
+                    if not page.locator(sel).count(): errors.append(f'{lay} 沒有顯示筆記')
+                    errors.extend(f'沒有名稱({lay}):{x}' for x in page.evaluate(unnamed))
+                page.click('[data-layout=table]'); page.wait_for_timeout(300)
             if '/b/' in h:  # 大綱檢視:按 O 打開,列出卡片,點一項會選取那張卡片
                 page.locator('.board-view').click(position={'x': 5, 'y': 300}); page.keyboard.press('o'); page.wait_for_timeout(500)
                 if not page.locator('.board-outline .bo-list button').count(): errors.append('大綱檢視沒有列出卡片')
