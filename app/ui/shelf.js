@@ -64,7 +64,7 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
       <p class="ro-note" role="status" hidden></p>
       <div class="shelf-bar">
         ${hasNotes ? `<div class="segmented" role="tablist" aria-label="${esc(t('shelf.viewLabel'))}">${VIEWS.map(v => `<button role="tab" data-view="${v}" aria-selected="${v === view}">${esc(t('shelf.view.' + v))}<small>${v === 'notes' || v === 'table' ? noteCount : v === 'slides' ? deckCount : noteCount + deckCount}</small></button>`).join('')}</div>` : ''}
-        ${chipsOf.length ? `<nav class="chips"><button class="chip on" data-filter="*">${esc(t('lib.all'))}</button>${chipsOf.map(c => `<button class="chip${c.n ? '' : ' zero'}" data-filter="${esc(c.id)}" style="--c:${esc(c.color || 'var(--ink)')}">${esc(c.name)}<small>${c.n}</small></button>`).join('')}</nav>` : ''}
+        ${chipsOf.length ? `<nav class="chips"><button class="chip on" data-filter="*">${esc(t('lib.all'))}</button>${chipsOf.map(c => `<button class="chip${c.n ? '' : ' zero'}" data-filter="${esc(c.id)}" style="${c.color ? `--c:${esc(c.color)};--on:#fff` : ''}">${esc(c.name)}<small>${c.n}</small></button>`).join('')}</nav>` : ''}
       </div>
       ${vault.issues.length ? `<details class="lib-issues"><summary>${esc(t('lib.issues', { n: vault.issues.length }))}</summary><ul>${vault.issues.map(i => `<li><code>${esc(i.path)}</code>${esc(i.message)}</li>`).join('')}</ul></details>` : ''}
       <section class="note-table" hidden aria-live="polite"></section>

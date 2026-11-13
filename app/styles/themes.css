@@ -1,4 +1,5 @@
-/* 主題:只定義變數。新增主題 = 複製一段 [data-theme] 改顏色,再到 app/player/themes.js 登記名稱。 */
+/* 主題:只定義變數。新增主題 = 複製一段 [data-theme] 改顏色,再到 app/player/themes.js 登記名稱(深色主題也登記在 DARK)。
+   tests/themes.test.mjs 會檢查每個主題都有全部的變數,而且文字對比夠(內文 ≥ 7、語意色 ≥ 4.5、次要文字、強調色與強調色底上的字 ≥ 3)。 */
 
 :root, [data-theme="paper"] {
   color-scheme: light;
@@ -19,6 +20,13 @@
   --font-body: "Noto Sans TC", "Source Han Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   --bar: 12px;
+  /* 語意色:公開/完成、私人/危險、警告、資訊、螢光筆(背景用) */
+  --ok: #3a7245;
+  --danger: #a8435c;
+  --warn: #8a5a10;
+  --info: #3d649b;
+  --mark: #e6c04a;
+  --on-accent: #ffffff;            /* 強調色底上的字 */
 }
 
 [data-theme="ink"] {
@@ -37,6 +45,12 @@
   --slide-muted: #8f8c86;
   --slide-soft: #20242d;
   --bar: 6px;
+  --ok: #7fbf86;
+  --danger: #ef8fa4;
+  --warn: #e0b060;
+  --info: #8db1e6;
+  --mark: #b8902a;
+  --on-accent: #14161c;            /* 強調色底上的字 */
 }
 
 [data-theme="slate"] {
@@ -56,6 +70,60 @@
   --slide-soft: #f1f4f8;
   --font-display: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
   --bar: 0px;
+  --ok: #2b7040;
+  --danger: #b0304f;
+  --warn: #8a5a00;
+  --info: #2f5fa7;
+  --mark: #f2d35b;
+  --on-accent: #ffffff;            /* 強調色底上的字 */
+}
+
+[data-theme="sepia"] {
+  color-scheme: light;
+  --bg: #f4ecd8;
+  --bg-deep: #eadfc4;
+  --surface: #fbf6e9;
+  --ink: #3b2f22;
+  --muted: #75644d;
+  --line: #d9c9a6;
+  --shadow: 90 60 20;
+  --accent: #9a5424;
+  --vignette: rgba(110, 80, 40, .16);
+  --slide-bg: #fbf6e9;
+  --slide-ink: #3b2f22;
+  --slide-muted: #75644d;
+  --slide-soft: #f1e7cf;
+  --ok: #4a6b2e;
+  --danger: #9c3b2c;
+  --warn: #85520c;
+  --info: #3c5f8a;
+  --mark: #e3c463;
+  --on-accent: #ffffff;            /* 強調色底上的字 */
+  --bar: 12px;
+}
+
+[data-theme="nord"] {
+  color-scheme: dark;
+  --bg: #2e3440;
+  --bg-deep: #272c36;
+  --surface: #3b4252;
+  --ink: #eceff4;
+  --muted: #aab3c2;
+  --line: #4c566a;
+  --shadow: 0 0 0;
+  --accent: #88c0d0;
+  --vignette: rgba(0, 0, 0, .45);
+  --slide-bg: #3b4252;
+  --slide-ink: #eceff4;
+  --slide-muted: #b0b8c6;
+  --slide-soft: #434c5e;
+  --ok: #a3be8c;
+  --danger: #f0a3ab;
+  --warn: #ebcb8b;
+  --info: #9fc1e0;
+  --mark: #8a7440;
+  --on-accent: #2e3440;            /* 強調色底上的字 */
+  --bar: 6px;
 }
 
 /* 英文簡報:拉丁字型優先(只作用在 lang="en" 的投影片,中文簡報外觀不變;不載入外部字型) */

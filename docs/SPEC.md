@@ -64,7 +64,7 @@ YAML，只支援常用語法：`名稱: 值`、縮排巢狀、`- 清單`、`[a, 
 leafpile: 1                    # 規則版本
 title: Toru 的頁堆
 description: 一句話說明
-theme: paper                   # paper / ink / slate
+theme: paper                   # paper / ink / slate / sepia / nord(書庫與筆記的預設外觀;讀者可以在「外觀」選單改)
 lang: zh-Hant
 categories:                    # 分類（首頁書架的分組與順序）
   - id: learning

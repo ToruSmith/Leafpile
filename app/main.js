@@ -38,7 +38,8 @@ import { noteToDeck } from './player/flash.js';
 import { openExportDialog } from './player/export.js';
 import { startPresenter } from './player/presenter.js';
 import { loadQA, saveQA } from './player/qa-store.js';
-import { applyUITheme } from './player/themes.js';
+import { applyUITheme, setUIChoice, uiChoiceNow, THEMES, themeName } from './player/themes.js';
+import { readPref, writePref } from './ui/prefs.js';
 import { t, setLang, getLang, normalizeLang } from './core/i18n.js';
 
 export const VERSION = '0.9.2';
@@ -64,6 +65,8 @@ function applyLang(lang) {
   document.body.dataset.drop = t('drop.hint');
 }
 applyLang(pickLang());
+const THEME_KEY = 'leafpile-theme';
+setUIChoice(readPref(THEME_KEY) || ''); // 「外觀」選單的選擇(只存在這個瀏覽器)
 
 const state = {
   sources: new Map(), vaults: new Map(), graphs: new Map(), sourceWarned: new Set(), visitor: false,
@@ -323,6 +326,7 @@ function header(active = '') {
       <a href="#/repo" class="${active === 'repo' ? 'on' : ''}">${t('nav.repo')}</a>
       <a href="#/" class="${active === 'home' ? 'on' : ''}">${t('nav.home')}</a>
       <a href="${REPO_URL}" target="_blank" rel="noopener">GitHub</a>
+      <span class="theme-menu"><button class="theme-toggle" aria-haspopup="true" aria-expanded="false" aria-label="${esc(t('theme.menu'))}" title="${esc(t('theme.menu'))}"><i class="sw" aria-hidden="true"></i></button></span>
       <button class="lang-toggle" aria-label="${esc(t('lang.label'))}" title="${esc(t('lang.label'))}"><b class="${getLang() === 'zh-Hant' ? 'on' : ''}">${t('lang.zhShort')}</b> / <b class="${getLang() === 'en' ? 'on' : ''}">EN</b></button>
     </nav>
   </header>`;
@@ -489,6 +493,7 @@ async function showBoard(key, name) {
   try {
     const vault = await getVault(key);
     if (!vault) return;
+    applyUITheme(vault.theme || 'paper');
     const info = (vault.boards || []).find(b => b.name === name);
     if (!info) throw new UserError(t('board.notFound', { name }));
     const src = state.sources.get(key);
@@ -1106,6 +1111,11 @@ async function paletteItems() {
   act(t('palette.repo'), () => { location.hash = '#/repo'; });
   act(t('palette.home'), () => { location.hash = '#/'; });
   act(t('palette.lang'), toggleLang);
+  act(t('palette.theme'), () => {
+    const list = ['', ...THEMES], next = list[(list.indexOf(uiChoiceNow()) + 1) % list.length];
+    chooseTheme(next);
+    toast(t('theme.now', { name: next ? themeName(next) : t('theme.auto') }));
+  });
   return items;
 }
 
@@ -1137,6 +1147,49 @@ function toggleLang() {
   route();
 }
 document.addEventListener('click', e => { if (e.target.closest('.lang-toggle')) toggleLang(); });
+
+// ---------------- 外觀(介面主題) ----------------
+// 只影響書庫、筆記、畫布等介面;簡報照自己的 deck.yml。選擇存在這個瀏覽器,不寫進書庫。
+function chooseTheme(name) {
+  writePref(THEME_KEY, name || null);
+  setUIChoice(name);
+  document.querySelectorAll('.theme-pop [role=menuitemradio]').forEach(b => b.setAttribute('aria-checked', String(b.dataset.themePick === (name || ''))));
+}
+function closeThemeMenu() {
+  document.querySelector('.theme-pop')?.remove();
+  document.querySelectorAll('.theme-toggle[aria-expanded=true]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+}
+function openThemeMenu(btn) {
+  closeThemeMenu();
+  const cur = uiChoiceNow();
+  const item = (id, label) => `<button role="menuitemradio" aria-checked="${cur === id}" data-theme-pick="${esc(id)}"><i class="sw" ${id ? `data-theme="${esc(id)}"` : 'data-auto'} aria-hidden="true"></i>${esc(label)}</button>`;
+  const pop = document.createElement('div');
+  pop.className = 'theme-pop';
+  pop.setAttribute('role', 'menu');
+  pop.setAttribute('aria-label', t('theme.menu'));
+  pop.innerHTML = item('', t('theme.auto')) + THEMES.map(id => item(id, themeName(id))).join('') + `<p>${esc(t('theme.hint'))}</p>`;
+  btn.parentElement.append(pop);
+  btn.setAttribute('aria-expanded', 'true');
+  pop.querySelector('[aria-checked=true]')?.focus();
+}
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.theme-toggle');
+  if (btn) return btn.getAttribute('aria-expanded') === 'true' ? closeThemeMenu() : openThemeMenu(btn);
+  const pick = e.target.closest('[data-theme-pick]');
+  if (pick) { chooseTheme(pick.dataset.themePick); return closeThemeMenu(); }
+  if (!e.target.closest('.theme-pop')) closeThemeMenu();
+});
+document.addEventListener('keydown', e => {
+  const pop = document.querySelector('.theme-pop');
+  if (!pop) return;
+  if (e.key === 'Escape') { e.stopPropagation(); const b = pop.parentElement.querySelector('.theme-toggle'); closeThemeMenu(); b?.focus(); return; }
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    const items = [...pop.querySelectorAll('[role=menuitemradio]')];
+    const i = items.indexOf(document.activeElement);
+    items[(i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus();
+  }
+}, true);
 
 // ---------------- 拖放資料夾 ----------------
 window.addEventListener('dragover', e => { e.preventDefault(); document.body.classList.add('dragging'); });

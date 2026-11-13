@@ -4,6 +4,7 @@
 //
 // 目前用到的鍵(新增時請補在這裡):
 //   leafpile-lang              介面語言(main.js、presenter.js、standalone.js)
+//   leafpile-theme             「外觀」選單選的介面主題;沒有 = 自動(main.js)
 //   leafpile-note-scale        筆記字級(reader.js)
 //   leafpile-shelf-view        書庫顯示:全部／筆記／簡報／表格(shelf.js)
 //   leafpile-table-sort        表格排序(shelf.js)

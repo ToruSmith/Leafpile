@@ -277,6 +277,18 @@ def main():
             ctx.set_offline(False)
         else:
             errors.append('service worker 沒有接手頁面')
+        # 外觀選單:選了會套用、重新整理後還在、選「自動」回到書庫設定
+        page.goto(BASE + '#/repo'); page.wait_for_timeout(1500)
+        page.click('.theme-toggle'); page.wait_for_timeout(200)
+        assert page.locator('.theme-pop [role=menuitemradio]').count() >= 6, '外觀選單的項目不對'
+        assert page.evaluate("[...document.querySelectorAll('.theme-pop button')].filter(b => !b.textContent.trim()).length") == 0, '外觀選單有沒有名稱的項目'
+        page.click('[data-theme-pick=sepia]'); page.wait_for_timeout(200)
+        assert page.evaluate('document.documentElement.dataset.theme') == 'sepia', '外觀沒有套用'
+        page.reload(); page.wait_for_timeout(1500)
+        assert page.evaluate('document.documentElement.dataset.theme') == 'sepia', '重新整理後外觀沒有保留'
+        page.click('.theme-toggle'); page.click('[data-theme-pick=""]'); page.wait_for_timeout(200)
+        assert page.evaluate("localStorage.getItem('leafpile-theme')") is None, '選「自動」後應該清掉偏好'
+
         errors.extend('csp: ' + v for v in page.evaluate('window.__csp'))
 
         # 無障礙基本檢查:看得到的按鈕、連結、輸入框都要有名稱(文字、aria-label 或 title),

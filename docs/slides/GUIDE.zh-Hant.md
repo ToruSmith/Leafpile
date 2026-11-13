@@ -82,7 +82,7 @@ author: Toru
 event: 台北讀書會
 date: 2026-11-20
 size: small                    # 整份用小一號的字(資料多的報告;可省略)
-theme: paper                   # paper(紙張)/ ink(深色)/ slate(石板)
+theme: paper                   # paper(紙張)/ ink(深色)/ slate(石板)/ sepia(棕褐)/ nord(北極,深色)
 lang: zh-Hant                  # 自動產生文字(謝謝、大綱…)的語言:zh-Hant / en;省略時依標題等文字判斷
 accent: "#b4654a"              # 沒有章節顏色時用的強調色
 cover_image: media/cover.jpg   # 標題頁右側的圖(可省略)

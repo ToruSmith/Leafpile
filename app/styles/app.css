@@ -25,6 +25,16 @@ kbd { font: inherit; font-size: 12px; border: 1px solid var(--line); border-bott
 .lang-toggle { border: 1px solid var(--line); background: none; border-radius: 8px; padding: 6px 10px; margin-left: 6px; cursor: pointer; font-size: 13px; color: var(--muted); }
 .lang-toggle b { font-weight: 400; }
 .lang-toggle b.on { font-weight: 700; color: var(--ink); }
+/* 外觀選單:色票用 data-theme 取該主題自己的變數,不必另外記顏色 */
+.theme-menu { position: relative; display: inline-flex; margin-left: 6px; }
+.theme-toggle { display: grid; place-items: center; width: 34px; height: 32px; border: 1px solid var(--line); background: none; border-radius: 8px; cursor: pointer; padding: 0; }
+.theme-toggle .sw, .theme-pop .sw { display: inline-block; width: 16px; height: 16px; border-radius: 50%; background: linear-gradient(135deg, var(--bg) 0 50%, var(--accent) 50% 100%); box-shadow: inset 0 0 0 1px var(--line); }
+.theme-pop { position: absolute; top: calc(100% + 6px); right: 0; z-index: 80; width: 230px; padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); box-shadow: 0 12px 32px rgb(var(--shadow) / .22); }
+.theme-pop button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: inherit; font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
+.theme-pop button:hover, .theme-pop button:focus-visible { background: color-mix(in srgb, var(--accent) 12%, transparent); outline: none; }
+.theme-pop button[aria-checked=true]::after { content: "\2713"; margin-left: auto; color: var(--accent); }
+.theme-pop .sw[data-auto] { background: linear-gradient(135deg, #f3eee4 0 50%, #0f1116 50% 100%); }
+.theme-pop p { margin: 6px 10px 4px; font-size: 12px; line-height: 1.5; color: var(--muted); }
 .topbar nav a:hover, .topbar nav a.on { color: var(--ink); background: color-mix(in srgb, var(--line) 45%, transparent); }
 
 /* ---------- 首頁 ---------- */
@@ -73,9 +83,9 @@ kbd { font: inherit; font-size: 12px; border: 1px solid var(--line); border-bott
 .lib-tools { display: flex; gap: 10px; }
 .search { font: inherit; font-size: 14px; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); width: 260px; }
 .chips { max-width: 1240px; margin: 18px auto 0; padding: 0 40px; display: flex; gap: 8px; flex-wrap: wrap; }
-.chip { --c: var(--ink); padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-size: 14px; color: var(--muted); transition: all .2s; }
+.chip { --c: var(--ink); --on: var(--surface); padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-size: 14px; color: var(--muted); transition: all .2s; }
 .chip small { margin-left: 6px; opacity: .6; }
-.chip.on { background: var(--c); border-color: var(--c); color: #fff; }
+.chip.on { background: var(--c); border-color: var(--c); color: var(--on); }
 .chip.zero:not(.on) { opacity: .5; }
 .lib-issues, .issues details { max-width: 1160px; margin: 16px auto 0; padding: 12px 16px; border-radius: 10px; background: color-mix(in srgb, #d9a55b 14%, var(--surface)); border: 1px solid color-mix(in srgb, #d9a55b 40%, transparent); font-size: 13px; }
 .lib-issues summary, .issues summary { cursor: pointer; font-weight: 600; }
@@ -123,12 +133,12 @@ body.dragging::after { content: attr(data-drop); position: fixed; inset: 16px; z
 /* ---------- 播放器 ---------- */
 .player { position: fixed; inset: 0; overflow: hidden; background: radial-gradient(ellipse at 50% 45%, var(--bg) 40%, var(--bg-deep)); }
 .player::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 50%, transparent 55%, var(--vignette)); z-index: 1; }
-[data-theme="ink"] .player { background: radial-gradient(ellipse at 50% 38%, #1b1f2a 0%, var(--bg) 55%, var(--bg-deep)); }
+:is([data-theme="ink"], [data-theme="nord"]) .player { background: radial-gradient(ellipse at 50% 38%, #1b1f2a 0%, var(--bg) 55%, var(--bg-deep)); }
 .stage { touch-action: pinch-zoom; position: absolute; inset: 0; perspective: 1600px; perspective-origin: 50% 42%; }
 .world { position: absolute; left: 50%; top: 53%; transform-style: preserve-3d; }
 .card { position: absolute; width: 288px; height: 162px; left: -144px; top: -81px; border-radius: 6px; overflow: hidden; cursor: pointer; background: var(--slide-bg);
   box-shadow: 0 1px 2px rgb(var(--shadow) / .12), 0 10px 28px rgb(var(--shadow) / .16); backface-visibility: hidden; outline: 3px solid transparent; outline-offset: 4px; transition: outline-color .25s; }
-[data-theme="ink"] .card { box-shadow: 0 0 0 1px rgba(255, 255, 255, .06), 0 14px 40px rgba(0, 0, 0, .5); }
+:is([data-theme="ink"], [data-theme="nord"]) .card { box-shadow: 0 0 0 1px rgba(255, 255, 255, .06), 0 14px 40px rgba(0, 0, 0, .5); }
 .card.focus { outline-color: var(--c, var(--accent)); }
 .card .slide { transform: scale(.225); transform-origin: 0 0; pointer-events: none; backface-visibility: hidden; }
 .card::after { content: ""; position: absolute; inset: 0; background: var(--slide-soft); transform: rotateY(180deg); backface-visibility: hidden; } /* 卡片背面:轉到背後時顯示素色,不顯示鏡像文字 */
@@ -155,7 +165,7 @@ body.dragging::after { content: attr(data-drop); position: fixed; inset: 16px; z
 
 .viewer { position: absolute; inset: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 0%, transparent); pointer-events: none; transition: background .45s; }
 .viewer.on { background: color-mix(in srgb, var(--bg) 95%, transparent); pointer-events: auto; }
-[data-theme="ink"] .viewer.on { background: color-mix(in srgb, var(--bg-deep) 96%, transparent); }
+:is([data-theme="ink"], [data-theme="nord"]) .viewer.on { background: color-mix(in srgb, var(--bg-deep) 96%, transparent); }
 .frame { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; transform-origin: 0 0; opacity: 0; border-radius: 8px; overflow: hidden; cursor: pointer;
   box-shadow: 0 2px 4px rgb(var(--shadow) / .08), 0 30px 90px rgb(var(--shadow) / .22); }
 .black { position: absolute; inset: 0; z-index: 50; background: #000; opacity: 0; pointer-events: none; transition: opacity .4s; }
@@ -309,12 +319,12 @@ body.dragging::after { content: attr(data-drop); position: fixed; inset: 16px; z
 .player.inking .ink-bar { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
 .ink-bar button { font: inherit; font-size: 13px; padding: 7px 12px; border: 0; border-radius: 999px; background: none; color: var(--ink); cursor: pointer; white-space: nowrap; }
 .ink-bar button:hover { background: var(--bg-deep); }
-.ink-bar button.on { background: var(--accent); color: #fff; }
+.ink-bar button.on { background: var(--accent); color: var(--on-accent); }
 .ink-bar button:disabled { opacity: .35; cursor: default; }
 .ink-bar .ink-color { padding: 7px 9px; }
 .ink-bar .ink-color i { display: block; width: 16px; height: 16px; border-radius: 50%; box-shadow: inset 0 0 0 2px rgb(255 255 255 / .6); }
 .ink-sep { width: 1px; height: 20px; background: var(--line); margin: 0 4px; }
-.pbtn[data-act="ink"].on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.pbtn[data-act="ink"].on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .player.inking .frame { cursor: default; }
 .player.inking .pfoot { opacity: 0; pointer-events: none; } /* 畫畫時收起進度條,不和工具列重疊 */
 @media (max-width: 600px) { .ink-bar { bottom: 10px; max-width: 96vw; overflow-x: auto; } .ink-bar button { padding: 7px 9px; } }
@@ -322,7 +332,7 @@ body.dragging::after { content: attr(data-drop); position: fixed; inset: 16px; z
 .pv-ink-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .pv-ink { display: flex; gap: 4px; flex-wrap: wrap; }
 .pv-ink button { font: inherit; font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
-.pv-ink button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.pv-ink button.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .pv-ink-hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
 
 /* ---------- 點圖片放大 ---------- */
@@ -389,8 +399,8 @@ body.dragging::after { content: attr(data-drop); position: fixed; inset: 16px; z
 .ebar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--line); }
 .ebar .efile { font-size: 13px; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ebar .egrow { flex: 1; }
-.pbtn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.pbtn.primary:hover { color: #fff; filter: brightness(1.06); }
+.pbtn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.pbtn.primary:hover { color: var(--on-accent); filter: brightness(1.06); }
 .enav { display: flex; align-items: center; gap: 4px; }
 .enav .pbtn { min-width: 34px; justify-content: center; }
 .enav .pbtn:disabled { opacity: .35; cursor: default; }

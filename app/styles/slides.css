@@ -170,7 +170,7 @@
 .l-section h1 { font-family: var(--fd); font-size: 80px; margin: 22px 0 0; line-height: 1.2; }
 .l-section .sub { font-size: 32px; margin-top: 22px; opacity: .85; }
 .l-section .foot { color: rgba(255, 253, 248, .7); }
-[data-theme="ink"] .l-section { background: linear-gradient(135deg, color-mix(in srgb, var(--c) 78%, #000), color-mix(in srgb, var(--c) 40%, #000)); }
+:is([data-theme="ink"], [data-theme="nord"]) .l-section { background: linear-gradient(135deg, color-mix(in srgb, var(--c) 78%, #000), color-mix(in srgb, var(--c) 40%, #000)); }
 
 .l-end { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
 .l-end h1 { font-family: var(--fd); font-size: 112px; margin: 0 0 24px; }
