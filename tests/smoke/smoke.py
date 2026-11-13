@@ -290,8 +290,11 @@ def main():
         page.goto(BASE); page.wait_for_timeout(1000)
         with page.expect_file_chooser() as fc:
             page.click('.open-zip')
-        fc.value.set_files(zpath); page.wait_for_timeout(2500)
-        assert '#/session' in page.url and page.locator('.note-row, .book-card').count() >= 2, '開啟 zip 書庫包後沒有顯示筆記'
+        fc.value.set_files(zpath)
+        for _ in range(40):
+            if '#/session' in page.url and page.locator('.note-row, .book-card').count() >= 2: break
+            page.wait_for_timeout(250)
+        assert '#/session' in page.url and page.locator('.note-row, .book-card').count() >= 2, f'開啟 zip 書庫包後沒有顯示筆記:{page.url} {page.inner_text("body")[:300]!r}'
 
         # 外觀選單:選了會套用、重新整理後還在、選「自動」回到書庫設定
         page.goto(BASE + '#/repo'); page.wait_for_timeout(1500)

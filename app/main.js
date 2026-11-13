@@ -1227,10 +1227,14 @@ function pickFiles({ accept = '', dir = false } = {}) {
   return new Promise(resolve => {
     const input = document.createElement('input');
     input.type = 'file';
+    input.hidden = true;
     if (accept) input.accept = accept;
     if (dir) { input.webkitdirectory = true; input.multiple = true; }
-    input.addEventListener('change', () => resolve(input.files?.length ? [...input.files] : null), { once: true });
-    input.addEventListener('cancel', () => resolve(null), { once: true });
+    // 放進頁面裡:有些瀏覽器(例如 iOS Safari)對不在頁面上的輸入框不一定會觸發 change
+    document.body.append(input);
+    const done = v => { input.remove(); resolve(v); };
+    input.addEventListener('change', () => done(input.files?.length ? [...input.files] : null), { once: true });
+    input.addEventListener('cancel', () => done(null), { once: true });
     input.click();
   });
 }
