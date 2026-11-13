@@ -194,7 +194,7 @@ a.wikilink.missing { color: var(--muted); border-bottom-color: var(--muted); }
 .lp-dialog-card h2 { font-family: var(--font-display); font-size: 21px; }
 .lp-dialog-card p { color: var(--muted); line-height: 1.7; font-size: 15px; }
 .lp-dialog-card label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
-.lp-dialog-card input, .lp-dialog-card select { font: inherit; font-size: 15px; padding: 10px 12px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+.lp-dialog-card input, .lp-dialog-card select, .lp-dialog-card textarea { font: inherit; font-size: 15px; padding: 10px 12px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
 .lp-dialog-buttons { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 6px; }
 .lp-dialog-buttons .btn { padding: 9px 16px; font-size: 14px; }
 .lp-toast { position: fixed; right: 24px; bottom: 24px; z-index: 220; padding: 12px 18px; border-radius: 12px; background: var(--ink); color: var(--bg); font-size: 14px; box-shadow: 0 12px 30px rgb(var(--shadow) / .3); opacity: 0; transform: translateY(8px); transition: opacity .25s, transform .25s; max-width: min(420px, calc(100vw - 48px)); }
@@ -696,3 +696,6 @@ body.immersive .side-nav, body.immersive .side-btn, body.immersive .sn-backdrop 
   .tm-cat-fields input { width: 100%; }
   .tm-cat-fields .tm-color, .tm-cat-fields .tm-id { width: calc(50% - 4px); }
 }
+.lp-dialog-card textarea { font-family: var(--font-mono); font-size: 13px; line-height: 1.5; resize: vertical; min-height: 160px; }
+.lp-dialog-card .lp-dialog-list { max-height: 40vh; overflow: auto; }
+.lp-dialog-buttons.wrap { flex-wrap: wrap; }

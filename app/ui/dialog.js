@@ -4,7 +4,7 @@ import { escapeHTML as esc } from '../core/markdown.js';
 import { t } from '../core/i18n.js';
 
 /**
- * @param {{ title?: string, message?: string, fields?: { name, label, value?, type?: 'text'|'select', options?: {value,label}[] }[], buttons: { label, value, primary? }[] }} opts
+ * @param {{ title?: string, message?: string, fields?: { name, label, value?, type?: 'text'|'select'|'textarea', rows?, options?: {value,label}[] }[], buttons: { label, value, primary? }[] }} opts
  * @returns {Promise<{ value: any, fields: Record<string,string> } | null>} 按 Esc 或點外面 = null
  */
 export function dialog({ title = '', message = '', list = [], note = '', error = '', fields = [], buttons }) {
@@ -17,7 +17,9 @@ export function dialog({ title = '', message = '', list = [], note = '', error =
       ${list.length ? `<ul class="lp-dialog-list">${list.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
       ${note ? `<p class="lp-dialog-note">${esc(note)}</p>` : ''}
       ${error ? `<p class="lp-dialog-error" role="alert">${esc(error)}</p>` : ''}
-      ${fields.map(f => `<label><span>${esc(f.label)}</span>${f.type === 'select'
+      ${fields.map(f => `<label><span>${esc(f.label)}</span>${f.type === 'textarea'
+        ? `<textarea name="${esc(f.name)}" rows="${f.rows || 8}" spellcheck="false"${f.placeholder ? ` placeholder="${esc(f.placeholder)}"` : ''}>${esc(f.value || '')}</textarea>`
+        : f.type === 'select'
         ? `<select name="${esc(f.name)}">${f.options.map(o => `<option value="${esc(o.value)}"${o.value === f.value ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}</select>`
         : `<input name="${esc(f.name)}" value="${esc(f.value || '')}" autocomplete="off"${f.placeholder ? ` placeholder="${esc(f.placeholder)}"` : ''}>`}</label>`).join('')}
       <div class="lp-dialog-buttons">${buttons.map((b, i) => `<button type="${b.primary ? 'submit' : 'button'}" class="btn ${b.primary ? 'primary' : 'ghost'}" data-i="${i}">${esc(b.label)}</button>`).join('')}</div>

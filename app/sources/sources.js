@@ -6,6 +6,7 @@
 //   readText(path)        → string
 //   mediaURL(path)        → 可放進 <img>/<video> 的網址
 //   releaseMedia()        釋放 mediaURL 產生的暫存網址(離開簡報時呼叫)
+//   readBytes(path)       → Uint8Array(書庫包匯出、匯入時讀圖片與 PDF)
 //
 // 本機來源讀到的清單都會快取:同一個資料夾只列一次,減少隨身碟讀取。
 
@@ -37,6 +38,11 @@ export class HttpSource {
     const res = await fetch(this.base + enc(path));
     if (!res.ok) throw new Error(`${res.status} ${path}`);
     return res.text();
+  }
+  async readBytes(path) {
+    const res = await fetch(this.base + enc(path));
+    if (!res.ok) throw new Error(`${res.status} ${path}`);
+    return new Uint8Array(await res.arrayBuffer());
   }
   async mediaURL(path) { return this.base + enc(path); }
   releaseMedia() {}
@@ -78,6 +84,7 @@ export class HandleSource {
     return (await d.getFileHandle(path.slice(i + 1))).getFile();
   }
   async readText(path) { return (await this.file(path)).text(); }
+  async readBytes(path) { return new Uint8Array(await (await this.file(path)).arrayBuffer()); }
   async mediaURL(path) {
     if (!this.urls.has(path)) this.urls.set(path, this.file(path).then(f => URL.createObjectURL(f)));
     return this.urls.get(path);
@@ -151,6 +158,26 @@ export class HandleSource {
   }
 
   /**
+   * 寫入圖片、PDF、HTML(書庫包匯入用)。規則與 writeText 相同:只在書庫裡、expect 不符就停下來;
+   * 另外只收這幾種副檔名、有大小上限。新檔案請傳 expect: null(已經有同名檔就不覆蓋)。
+   */
+  async writeFile(path, data, { expect = undefined } = {}) {
+    checkPath(path, true);
+    if (!BINARY_EXT.test(path)) throw new Error('bad type');
+    const size = data.size ?? data.length;
+    if (size > (/\.html?$/i.test(path) ? HTML_LIMIT : FILE_LIMIT)) throw new Error('too large');
+    if (!(await this.ensureWritable())) throw new Error('denied');
+    if (expect !== undefined && (await this.stat(path)) !== expect) throw new Error('stale');
+    const i = path.lastIndexOf('/');
+    let d = this.handle;
+    for (const part of (i < 0 ? '' : path.slice(0, i)).split('/').filter(Boolean)) d = await d.getDirectoryHandle(part, { create: true });
+    const w = await (await d.getFileHandle(path.slice(i + 1), { create: true })).createWritable();
+    try { await w.write(data); } finally { await w.close(); }
+    this.refresh();
+    return this.stat(path);
+  }
+
+  /**
    * 改名／搬移一個檔案:先把(可能改過的)內容寫到新位置、讀回來確認一致,才移除舊檔。
    * 這是 Leafpile 唯一會移除檔案的地方,而且內容一定已經在新位置。
    *   expect:舊檔打開時的狀態,不一致(被別的程式改過)就停下來。
@@ -193,8 +220,9 @@ export class HandleSource {
 
   /** 搬到同一個簡報資料夾下的 _封存/(不真的刪檔)。回傳新位置。 */
   async archive(path, archiveDir) {
-    checkPath(path);
-    const text = await this.readText(path);
+    checkPath(path, true);
+    const binary = !TEXT_EXT.test(path);
+    const text = binary ? await this.readBytes(path) : await this.readText(path); // 圖片等二進位檔照位元組搬
     const name = path.slice(path.lastIndexOf('/') + 1);
     if (!(await this.ensureWritable())) throw new Error('denied');
     const parts = archiveDir.split('/').filter(Boolean);
@@ -205,7 +233,8 @@ export class HandleSource {
     const w = await (await d.getFileHandle(target, { create: true })).createWritable();
     try { await w.write(text); } finally { await w.close(); }
     // 和 move() 一樣:讀回來確認封存的副本完整,才移除原檔
-    if ((await (await d.getFileHandle(target)).getFile().then(f => f.text())) !== text) throw new Error('verify');
+    const back = await (await d.getFileHandle(target)).getFile();
+    if (binary ? !sameBytes(new Uint8Array(await back.arrayBuffer()), text) : (await back.text()) !== text) throw new Error('verify');
     const i = path.lastIndexOf('/');
     await (await this.dir(i < 0 ? '' : path.slice(0, i))).removeEntry(name);
     this.refresh();
@@ -247,9 +276,20 @@ export class HandleSource {
 }
 
 /** 只允許寫入書庫資料夾裡的 .md / .yml,路徑不能跳出去。 */
-function checkPath(path) {
+const TEXT_EXT = /\.(md|ya?ml|canvas)$/i; // 筆記、設定、畫布
+const BINARY_EXT = /\.(png|jpe?g|webp|gif|svg|avif|pdf|html?)$/i; // 圖片、PDF、HTML(只有 writeFile、archive 收)
+const FILE_LIMIT = 10 * 1024 * 1024, HTML_LIMIT = 1024 * 1024;
+
+/** 路徑檢查:只能在書庫裡;預設只收文字檔,binary = true 時也收圖片、PDF、HTML。 */
+function checkPath(path, binary = false) {
   if (!/^[^/][^\0]*$/.test(path) || path.split('/').some(p => !p || p === '.' || p === '..')) throw new Error('bad path');
-  if (!/\.(md|ya?ml|canvas)$/i.test(path)) throw new Error('bad type'); // 只寫文字檔:筆記、設定、畫布
+  if (!TEXT_EXT.test(path) && !(binary && BINARY_EXT.test(path))) throw new Error('bad type');
+}
+
+function sameBytes(a, b) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
 }
 
 async function exists(dir, name) {
@@ -289,6 +329,11 @@ export class FileListSource {
     const f = this.files.get(path);
     if (!f) throw new Error('not found: ' + path);
     return f.text();
+  }
+  async readBytes(path) {
+    const f = this.files.get(path);
+    if (!f) throw new Error('not found: ' + path);
+    return new Uint8Array(await f.arrayBuffer());
   }
   async mediaURL(path) {
     if (!this.urls.has(path)) {

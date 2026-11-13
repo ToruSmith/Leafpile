@@ -45,6 +45,7 @@ export function subSource(parent, prefix) {
     base: parent.base ? parent.base + prefix + '/' : undefined,
     list: path => parent.list(p(path)),
     readText: path => parent.readText(p(path)),
+    ...(parent.readBytes ? { readBytes: path => parent.readBytes(p(path)) } : {}),
     mediaURL: path => parent.mediaURL(p(path)),
     releaseMedia: () => parent.releaseMedia?.(),
   };
