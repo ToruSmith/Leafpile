@@ -42,7 +42,7 @@ import { applyUITheme, setUIChoice, uiChoiceNow, THEMES, themeName } from './pla
 import { readPref, writePref } from './ui/prefs.js';
 import { t, setLang, getLang, normalizeLang } from './core/i18n.js';
 
-export const VERSION = '0.10.0';
+export const VERSION = '0.10.1';
 const REPO_URL = 'https://github.com/ToruSmith/Leafpile';
 const MDSLIDE_URL = 'https://github.com/ToruSmith/Mdslide-Pile';
 
@@ -66,6 +66,11 @@ function applyLang(lang) {
 }
 applyLang(pickLang());
 const THEME_KEY = 'leafpile-theme';
+// 需要寫入、但瀏覽器還沒給權限,而且當下不是剛按下按鈕時:先請使用者按一下「允許」(見 HandleSource.ensureWritable)
+HandleSource.askPermission = () => dialog({
+  title: t('perm.writeTitle'), message: t('perm.writeText'),
+  buttons: [{ label: t('dialog.cancel'), value: false }, { label: t('perm.writeAllow'), value: true, primary: true }],
+}).then(r => !!r?.value);
 setUIChoice(readPref(THEME_KEY) || ''); // 「外觀」選單的選擇(只存在這個瀏覽器)
 
 const state = {

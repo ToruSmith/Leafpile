@@ -97,11 +97,24 @@ export class HandleSource {
   //   4. 刪除一律改成搬到 _封存/,不真的刪檔。
   get canWrite() { return true; }
 
-  /** 要求寫入權限;使用者沒答應就回傳 false。 */
+  /**
+   * 要求寫入權限;使用者沒答應就回傳 false。
+   * Chrome 只在「使用者剛按下按鈕」的當下才肯跳出詢問(選完檔案之後、自動儲存的計時器裡都不算),
+   * 否則直接拒絕。這時先用 HandleSource.askPermission(由 main.js 設定的小對話框)請使用者按一下「允許」,
+   * 那一下就是真正的點擊,再向瀏覽器要權限。同時有好幾個寫入時只問一次。
+   */
   async ensureWritable() {
     const q = await this.handle.queryPermission?.({ mode: 'readwrite' });
-    if (q === 'granted') return true;
-    return (await this.handle.requestPermission?.({ mode: 'readwrite' })) === 'granted';
+    if (q === 'granted' || !this.handle.requestPermission) return q === 'granted' || q === undefined;
+    this.asking ||= (async () => {
+      try {
+        if (globalThis.navigator?.userActivation && !navigator.userActivation.isActive && HandleSource.askPermission) {
+          if (!(await HandleSource.askPermission())) return false;
+        }
+        return (await this.handle.requestPermission({ mode: 'readwrite' })) === 'granted';
+      } catch { return false; /* 沒有使用者操作時瀏覽器會丟出錯誤:當成沒答應 */ } finally { this.asking = null; }
+    })();
+    return this.asking;
   }
 
   /** 檔案目前的狀態(修改時間與大小),用來判斷有沒有被別的程式改過。 */

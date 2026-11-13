@@ -51,6 +51,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
         <a class="btn ghost" href="${href.shelf}">‹ ${esc(t('nav.backShelf'))}</a>
         <h1>${esc(name)}</h1>
         <span class="board-status" aria-live="polite">${esc(canEdit ? '' : t('board.readonly'))}</span>
+        ${canEdit ? `<button class="btn ghost board-retry" hidden>${esc(t('board.retrySave'))}</button>` : ''}
         <span class="board-tools">
           ${canEdit ? `<button class="btn ghost" data-b="text" title="${esc(t('board.addTextTitle'))}">${esc(t('board.addText'))}</button>
           <button class="btn ghost wide-only" data-b="card" title="${esc(t('board.addCardTitle'))}">${esc(t('board.addCard'))}</button>
@@ -99,7 +100,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   const nodesEl = $('.nodes'), edgesEl = $('.edges'), inkEl = $('.ink'), pop = $('.board-pop'), marquee = $('.board-marquee');
   const status = $('.board-status'), zoomBtn = $('.zoom'), fileInput = $('.board-file'), searchBox = $('.board-search'), drawBar = $('.board-draw-bar');
   let cam = { x: 0, y: 0, z: 1 }, sel = null, editing = null, g = null, alive = true, present = null, drawing = null, search = null;
-  let dirty = false, saving = false, saveTimer = null, broken = false, clip = null;
+  let dirty = false, saving = false, saveTimer = null, broken = false, denied = false, clip = null; // denied:使用者沒給寫入權限,暫停自動儲存(不再一直跳出詢問)
   const history = [serializeCanvas(board)], future = [];
   const els = new Map();   // id → { el, sig }
   const live = [];         // 載入中的嵌入卡 id(最舊的在前)
@@ -430,23 +431,38 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   }
   function queueSave() {
     if (!canEdit || broken) return;
-    dirty = true; setStatus('board.unsaved');
+    dirty = true;
+    if (denied) return setStatus('board.denied');
+    setStatus('board.unsaved');
     clearTimeout(saveTimer);
     saveTimer = setTimeout(flush, 800);
   }
   async function flush() {
     clearTimeout(saveTimer);
-    if (!dirty || saving || broken) return;
+    if (!dirty || saving || broken || denied) return;
     saving = true; setStatus('board.saving');
     try {
       await save(serializeCanvas(board));
       dirty = false; setStatus('board.saved');
     } catch (e) {
-      broken = e.message === 'stale';
-      setStatus(broken ? 'board.stale' : 'board.saveFailed');
-      toast(broken ? t('board.staleLong') : t('ne.saveFailed', { error: e.message || e }), { ms: 8000 });
+      if (e.message === 'denied') {
+        denied = true; setStatus('board.denied');
+        $('.board-retry').hidden = false;
+        toast(t('board.deniedLong'), { ms: 8000 });
+      } else {
+        broken = e.message === 'stale';
+        setStatus(broken ? 'board.stale' : 'board.saveFailed');
+        toast(broken ? t('board.staleLong') : t('ne.saveFailed', { error: e.message || e }), { ms: 8000 });
+      }
     } finally { saving = false; }
-    if (dirty && !broken) queueSave();
+    if (dirty && !broken && !denied) queueSave();
+  }
+  /** 按「重試儲存」或 Ctrl+S:這一下是真正的點擊,可以再向瀏覽器要一次寫入權限。 */
+  function retrySave() {
+    denied = false;
+    const r = $('.board-retry');
+    if (r) r.hidden = true;
+    return flush();
   }
   function restore(text) {
     const data = JSON.parse(text);
@@ -549,6 +565,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
         board.nodes.push(node); added.push(node.id);
         p = { x: p.x + 40, y: p.y + 40 };
       } catch (e) {
+        if (e.message === 'denied') { toast(t('board.deniedLong'), { ms: 8000 }); break; } // 沒給權限:其餘的檔案也不用再試
         toast(e.message === 'type' ? t('board.fileType', { name: f.name }) : e.message === 'too large' ? t('board.fileTooLarge', { name: f.name }) : t('ne.saveFailed', { error: e.message || e }), { ms: 6000 });
       }
     }
@@ -755,6 +772,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     fb.setAttribute('aria-pressed', on ? 'true' : 'false');
     fb.title = fb.ariaLabel = t(on ? 'board.fullExit' : 'board.full');
   }
+  $('.board-retry')?.addEventListener('click', retrySave);
   $('.board-fab').addEventListener('click', () => barAuto.toggle());
   $('.board-hot').addEventListener('mouseenter', () => { if (hideable() && !present) barAuto.show(); });
   syncHide();
@@ -1124,7 +1142,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     if (mod && k === 'f') { e.preventDefault(); return openSearch(); }
     if (mod && k === 'z') { e.preventDefault(); return e.shiftKey ? redo() : undo(); }
     if (mod && k === 'y') { e.preventDefault(); return redo(); }
-    if (mod && k === 's') { e.preventDefault(); return flush(); }
+    if (mod && k === 's') { e.preventDefault(); return retrySave(); }
     if (mod && k === 'a' && canEdit) { e.preventDefault(); return select({ ids: board.nodes.map(n => n.id) }); }
     if (mod && k === 'c' && canEdit) { if (copySelection()) e.preventDefault(); return; }
     if (mod && k === 'x' && canEdit) { if (copySelection(true)) e.preventDefault(); return; }

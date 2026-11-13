@@ -155,6 +155,9 @@ export const LOCALE_ZH_HANT = {
   'home.guidePath': 'docs/SPEC.md',
   'perm.title': '重新連線「{name}」',
   'perm.text': '為了保護你的檔案,瀏覽器每次重新開啟都需要再確認一次讀取權限。<br>如果是隨身碟,請先確認已經插上。',
+  'perm.writeTitle': '需要寫入權限',
+  'perm.writeText': '要把變更存進你的資料夾,瀏覽器需要你同意一次。按「允許」後,瀏覽器會再問一次,請選「儲存變更」或「允許」。',
+  'perm.writeAllow': '允許',
   'perm.grant': '允許讀取',
 
   // ---------- 目錄頁 ----------
@@ -722,6 +725,9 @@ export const LOCALE_ZH_HANT = {
   'board.unsaved': '尚未儲存',
   'board.saving': '儲存中…',
   'board.saved': '已儲存',
+  'board.denied': '沒有寫入權限,已暫停自動儲存',
+  'board.deniedLong': '沒有寫入權限,所以沒有存檔,也暫停了自動儲存(不會再一直詢問)。要存的時候按「重試儲存」或 Ctrl+S,再按「允許」。',
+  'board.retrySave': '重試儲存',
   'board.saveFailed': '沒有存成功',
   'board.stale': '檔案被別的程式改過,已停止自動儲存',
   'board.staleLong': '這張畫布在別的地方被改過了。為了不覆蓋那些修改,已停止自動儲存;請重新整理頁面再編輯。',

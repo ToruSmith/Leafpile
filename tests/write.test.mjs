@@ -101,3 +101,27 @@ test('archive:封存的副本讀回來不一致就停下來,原檔保留', async
   await assert.rejects(() => s.archive('deck/01-sec/01-x.md', 'deck/_封存'), /verify/);
   assert.equal(sec.files['01-x.md'], '# x', '原檔不能被移除');
 });
+
+test('ensureWritable:不是剛按下按鈕時先問使用者;同時好幾個寫入只問一次;拒絕就不寫', async () => {
+  const had = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  Object.defineProperty(globalThis, 'navigator', { value: { userActivation: { isActive: false } }, configurable: true });
+  const prev = HandleSource.askPermission;
+  try {
+    let asks = 0, requests = 0, answer = false;
+    HandleSource.askPermission = async () => { asks++; return answer; };
+    const root = fakeDir('lib', { 'a.md': '# a' });
+    root.requestPermission = async () => { requests++; return (root.perm = 'granted'); };
+    const s = new HandleSource(root);
+    await assert.rejects(() => s.writeText('a.md', 'x'), /denied/);
+    assert.equal(asks, 1); assert.equal(requests, 0, '使用者按取消:不該向瀏覽器要權限');
+    assert.equal(root.files['a.md'], '# a');
+    answer = true;
+    await Promise.all([s.writeText('a.md', '1'), s.writeText('b.md', '2'), s.writeText('c.md', '3')]);
+    assert.equal(asks, 2, '同時三個寫入只問一次'); assert.equal(requests, 1);
+    await s.writeText('a.md', '4');
+    assert.equal(asks, 2, '已經有權限就不再問');
+  } finally {
+    HandleSource.askPermission = prev;
+    if (had) Object.defineProperty(globalThis, 'navigator', had); else delete globalThis.navigator;
+  }
+});
