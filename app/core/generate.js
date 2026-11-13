@@ -1,6 +1,6 @@
 // 用 AI 生成筆記、簡報、畫布:組提示詞、AI 網址,以及把 AI 的回覆組成可以匯入的檔案。
-// 原則:AI 只寫內容(Markdown 大綱),檔名、日期、資料夾、front matter、deck.yml、畫布座標都由這裡補上;
-// 這樣提示詞短、省 token,也不怕 AI 把格式寫錯。品質取決於使用者給的資料。
+// 原則:提示詞只請 AI 先讀 docs/AI_PACK.md(書庫包規格)再交完整的書庫包(zip 或文字書庫包);規則都在規格裡。
+// AI 沒照規格、只回 Markdown 時,這裡仍會補上檔名、日期、front matter、deck.yml、畫布座標(退路)。品質取決於使用者給的資料。
 // 產生的檔案交給 core/pack.js 的 planImport 合併(絕不覆蓋既有檔案)。
 
 import { t } from './i18n.js';
@@ -26,10 +26,23 @@ export function aiURL(id, prompt, max = PREFILL_MAX) {
   return a.param && prompt.length <= max ? `${a.url}?${a.param}=${encodeURIComponent(prompt)}` : a.url;
 }
 
-/** 組提示詞。每種一份精簡的規則(在語言檔),加上標題、主題、補充要求與資料。 */
-export function buildPrompt({ kind, title, topic = '', extra = '', data = '' }) {
+/** 給 AI 讀的書庫包規格(docs/AI_PACK.md):放在 GitHub,AI 可以直接開網址;網站上也有一份(「複製規格全文」用)。 */
+export const SPEC_URLS = {
+  'zh-Hant': 'https://raw.githubusercontent.com/ToruSmith/Leafpile/main/docs/AI_PACK.md',
+  en: 'https://raw.githubusercontent.com/ToruSmith/Leafpile/main/docs/AI_PACK.en.md',
+};
+export const specPath = lang => (lang === 'en' ? 'docs/AI_PACK.en.md' : 'docs/AI_PACK.md');
+
+/**
+ * 組提示詞:請 AI 先讀規格,再照規格交一個完整的書庫包(zip,或文字書庫包)。
+ * 規則都在規格裡,提示詞本身很短;資料留空時改指向附件。
+ */
+export function buildPrompt({ kind, title, topic = '', topicId = '01-inbox', extra = '', data = '', lang = 'zh-Hant' }) {
   if (!GEN_KINDS.includes(kind)) throw new Error('kind');
-  return t('gen.prompt.' + kind, {
+  return t('gen.prompt', {
+    spec: SPEC_URLS[lang] || SPEC_URLS['zh-Hant'],
+    what: t('gen.what.' + kind),
+    topicId: String(topicId).trim() || '01-inbox',
     title: String(title).trim(),
     topic: String(topic).trim(),
     extra: String(extra).trim() ? t('gen.extraLine', { extra: String(extra).trim() }) : '',

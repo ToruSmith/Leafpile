@@ -214,7 +214,7 @@ from_deck: slides/10-reading/2026-11-x
 
 ## 8.5 書庫包
 
-書庫包是 zip（UTF-8 檔名），內容就是書庫的 `notes/`、`slides/`、`boards/` 與 `_site.yml`；外面可以多包一層資料夾。只收 `.md`、`.yml`、`.yaml`、`.canvas` 與圖片、PDF、HTML（單檔 10 MB、HTML 1 MB）；略過 `_archive/`、書庫根目錄的工具檔、`.` 開頭的檔案與不安全的路徑。合併規則（絕不覆蓋）見 `docs/FEATURES.md`「書庫包」與 `app/core/pack.js`。
+書庫包是 zip（UTF-8 檔名），內容就是書庫的 `notes/`、`slides/`、`boards/` 與 `_site.yml`；外面可以多包一層資料夾。只收 `.md`、`.yml`、`.yaml`、`.canvas` 與圖片、PDF、HTML（單檔 10 MB、HTML 1 MB）；略過 `_archive/`、書庫根目錄的工具檔、`.` 開頭的檔案與不安全的路徑。合併規則（絕不覆蓋）見 `docs/FEATURES.md`「書庫包」與 `app/core/pack.js`。給 AI 的精簡版規格（怎麼做出好的書庫包）在 [`AI_PACK.md`](AI_PACK.md)。
 
 **文字書庫包**（給 AI 輸出、貼回來匯入）：每個檔案以一行 `=== FILE: 路徑 ===` 開頭、一行 `=== END ===` 結尾，前後的說明文字會被忽略；AI 在檔案外多包的 ` ``` ` 會拿掉。路徑以 `notes/`、`slides/`、`boards/` 開頭時照原樣匯入；「AI 生成」精靈收到只有檔名的回覆時，由 Leafpile 放進選定的主題並補上 front matter（`app/core/generate.js`）。
 

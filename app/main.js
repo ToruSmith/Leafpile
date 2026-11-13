@@ -36,7 +36,7 @@ import { dialog, confirmDialog, toast } from './ui/dialog.js';
 import { readZip, writeZip } from './core/zip.js';
 import { fileKind, walkFiles, exportPlan, parsePackText, normalizeIncoming, planImport } from './core/pack.js';
 import { packDialog, importSourceDialog, pasteDialog, previewDialog as packPreview } from './ui/pack.js';
-import { buildPrompt, aiURL, assembleGenerated, AI_TARGETS } from './core/generate.js';
+import { buildPrompt, aiURL, assembleGenerated, AI_TARGETS, specPath } from './core/generate.js';
 import { generateDialog, replyDialog } from './ui/generate.js';
 import { Player } from './player/player.js';
 import { noteToDeck } from './player/flash.js';
@@ -47,7 +47,7 @@ import { applyUITheme, setUIChoice, uiChoiceNow, THEMES, themeName } from './pla
 import { readPref, writePref } from './ui/prefs.js';
 import { t, setLang, getLang, normalizeLang } from './core/i18n.js';
 
-export const VERSION = '0.11.0';
+export const VERSION = '0.12.0';
 const REPO_URL = 'https://github.com/ToruSmith/Leafpile';
 const MDSLIDE_URL = 'https://github.com/ToruSmith/Mdslide-Pile';
 
@@ -1237,7 +1237,11 @@ function pickFiles({ accept = '', dir = false } = {}) {
     if (dir) { input.webkitdirectory = true; input.multiple = true; }
     // 放進頁面裡:有些瀏覽器(例如 iOS Safari)對不在頁面上的輸入框不一定會觸發 change
     document.body.append(input);
-    input.addEventListener('change', () => { if (!input.files?.length) return; input.remove(); resolve([...input.files]); });
+    let done = false;
+    const finish = list => { if (done) return; done = true; input.remove(); resolve(list); };
+    input.addEventListener('change', () => { if (input.files?.length) finish([...input.files]); });
+    // 取消:有些瀏覽器(Firefox 在自動化測試下)會先送 cancel 再送 change,所以等一下再當成取消
+    input.addEventListener('cancel', () => setTimeout(() => finish([]), 1500));
     input.click();
   });
 }
@@ -1304,7 +1308,7 @@ async function pickFolderFiles() {
     src = new HandleSource(h); label = h.name;
   } else {
     const list = await pickFiles({ dir: true });
-    if (!list) return null;
+    if (!list.length) return null;
     src = FileListSource.fromInput(list); label = src.label;
   }
   const raw = await walkFiles(src);
@@ -1376,6 +1380,16 @@ async function openZip(file) {
 
 // ---------------- 用 AI 生成(筆記、簡報、畫布) ----------------
 // 填資料 → 複製提示詞並開啟 AI → 貼回回覆 → 組成檔案(core/generate.js)→ 匯入預覽(importFiles)。
+/** 把網站上的書庫包規格(docs/AI_PACK.md)複製到剪貼簿:AI 打不開 GitHub 網址時用。 */
+async function copySpec() {
+  try {
+    const res = await fetch(specPath(getLang()), { cache: 'no-cache' });
+    if (!res.ok) throw new Error(res.status);
+    await navigator.clipboard.writeText(await res.text());
+    toast(t('gen.specCopied'), { ms: 5000 });
+  } catch { toast(t('gen.specFailed'), { ms: 8000 }); }
+}
+
 async function generateFlow(key) {
   try {
     const vault = await getVault(key);
@@ -1385,14 +1399,25 @@ async function generateFlow(key) {
     const newTopic = !g.topicId;
     const topicId = g.topicId || '01-inbox';
     const topicName = newTopic ? t('gen.inboxName') : vault.topics.find(tp => tp.id === topicId)?.title || topicId;
-    const prompt = buildPrompt({ kind: g.kind, title: g.title, topic: topicName, extra: g.extra, data: g.data });
+    const prompt = buildPrompt({ kind: g.kind, title: g.title, topic: topicName, topicId, extra: g.extra, data: g.data, lang: getLang() });
     let copied = false;
     try { await navigator.clipboard.writeText(prompt); copied = true; } catch { /* 沒有權限:下一步的方框裡可以手動複製 */ }
     const target = AI_TARGETS.find(a => a.id === g.target);
     if (target) window.open(aiURL(target.id, prompt), '_blank', 'noopener');
     toast(t(copied ? 'gen.copied' : 'gen.copyFailed'), { ms: copied ? 3000 : 7000 });
-    const reply = await replyDialog({ prompt, opened: target?.name || '' });
-    if (reply == null) return;
+    let reply = '';
+    for (;;) {
+      const r = await replyDialog({ prompt, opened: target?.name || '', reply });
+      if (!r) return;
+      if (r.spec) { reply = r.reply || ''; await copySpec(); continue; }
+      if (r.zip) {
+        const [zip] = await pickFiles({ accept: '.zip,application/zip' });
+        if (!zip) continue;
+        return await importFiles(key, (await zipToFiles(zip)).files, zip.name);
+      }
+      reply = r.text || '';
+      break;
+    }
     const files = assembleGenerated({ kind: g.kind, text: reply, title: g.title, topicId, topicName, newTopic, theme: vault.theme || 'paper', lang: getLang() });
     if (!files.length) return toast(t('gen.empty'), { ms: 6000 });
     await importFiles(key, files, t('gen.labelAI'));
