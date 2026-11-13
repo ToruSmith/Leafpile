@@ -224,7 +224,7 @@ a.wikilink.missing { color: var(--muted); border-bottom-color: var(--muted); }
   .note-side section { order: 2; display: block; padding: 0 4px; }
   .note-side section[hidden] { display: none; }
   .note-article { padding: 30px 22px 28px; }
-  .crumbs, .category, .shelf-bar, .urgent, .results, .empty-topics { padding-left: 16px; padding-right: 16px; }
+  .crumbs, .category, .shelf-bar, .urgent, .results, .empty-topics, .boards-row { padding-left: 16px; padding-right: 16px; }
   .notes-col, .decks-col { margin-left: 0; }
   .book-card { width: 100%; }
   .ne-panes { grid-template-columns: 1fr; }
@@ -279,7 +279,7 @@ button.ro-chip { border: 0; font: inherit; font-size: 13px; }
 .hidden-note p { color: var(--muted); line-height: 1.7; }
 
 /* ---------- 畫布 ---------- */
-.boards-row { margin: 28px 0 8px; }
+.boards-row { max-width: 1240px; margin: 28px auto 8px; padding: 0 40px; }
 .boards-row h2 { font-size: 13px; letter-spacing: .2em; color: var(--muted); margin: 0 0 12px; }
 .boards-list { display: flex; flex-wrap: wrap; gap: 12px; }
 .board-card { display: inline-flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); text-decoration: none; font: inherit; font-size: 14px; cursor: pointer; }
@@ -748,7 +748,9 @@ table.calendar td.today .cal-d { background: var(--accent); color: var(--on-acce
 .cal-list h3 { font-size: 14px; margin: 0 0 6px; }
 .cal-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .cal-list li { display: flex; gap: 12px; font-size: 14px; line-height: 1.5; }
-.cal-list time { flex: none; width: 3.2em; color: var(--muted); font-variant-numeric: tabular-nums; }
+.cal-list time { flex: none; width: 3.6em; white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
+.cal-list a { color: var(--ink); text-decoration: none; }
+.cal-list a:hover { color: var(--accent); text-decoration: underline; }
 .cal-list .hint { margin-top: 8px; }
 @media (max-width: 720px) {
   table.calendar td { height: 52px; padding: 3px; }

@@ -6,7 +6,7 @@
 
 Leafpile 把兩件常被分開做的事接起來：用 Markdown 累積筆記，要分享時升級成 3D 牌堆簡報，講完再把問答存回筆記。檔案留在你的電腦或隨身碟，網站只負責讀取，不用安裝、不用上傳。
 
-**線上版：<https://torusmith.github.io/Leafpile/>**　·　目前版本 v0.11.0　·　[參加公開 Beta](docs/BETA.md)
+**線上版：<https://torusmith.github.io/Leafpile/>**　·　目前版本 v0.14.1　·　[參加公開 Beta](docs/BETA.md)
 
 ![書架：筆記與簡報放在同一個主題底下](docs/images/shelf.webp)
 
@@ -14,11 +14,19 @@ Leafpile 把兩件常被分開做的事接起來：用 Markdown 累積筆記，�
 |---|---|
 | ![筆記閱讀頁](docs/images/note.webp) | ![快閃播放](docs/images/flash.webp) |
 
-| 沉浸閱讀：只留內文，浮動按鈕列 | 畫布：小地圖與浮動工具列 |
+| 沉浸閱讀：只留內文，浮動按鈕列 | 畫布：大綱檢視、小地圖與浮動工具列 |
 |---|---|
 | ![沉浸閱讀](docs/images/immersive.webp) | ![畫布](docs/images/board.webp) |
 
 ![表格：全部筆記一次排序與篩選](docs/images/table.webp)
+
+| 看板：依 `status` 等欄位分欄（唯讀） | 月曆：依日期看筆記（唯讀） |
+|---|---|
+| ![看板](docs/images/kanban.webp) | ![月曆](docs/images/calendar.webp) |
+
+| 用 AI 生成：複製提示詞，AI 交回書庫包 | 書庫包：匯出、備份、傳給別人 |
+|---|---|
+| ![用 AI 生成](docs/images/ai-generate.webp) | ![書庫包](docs/images/pack.webp) |
 
 ## 為什麼
 

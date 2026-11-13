@@ -78,6 +78,10 @@ Note: pins, recents and whether the sidebar is collapsed are stored **only in th
 
 **Grouping and folding**: the **Group by** menu groups rows by category, topic, notebook, year, month, tag, or any custom field (such as `status`). Each group has a heading row; click it to collapse or expand, or use **Collapse all / Expand all**. When grouping by tags or a list field, a note appears once per tag. The **Topics** mode can group by category. The grouping and which groups are collapsed are remembered in this browser.
 
+![Kanban](images/kanban.en.webp)
+
+![Calendar](images/calendar.en.webp)
+
 **Kanban and calendar** (Notes mode): switch between **Table | Kanban | Calendar**. Both are read-only; search, category filters and tag filters still apply.
 - **Kanban**: each group of the **Columns** menu is a column (default: `status` if notes have it, otherwise topic); cards follow the table's current sort. For example, write `status: reading` or `status: done` at the top of notes to see reading progress. To move a card, edit the note's front matter.
 - **Calendar**: notes placed by their `date` (weeks start on Sunday); ‹ › change months, **This month** goes back to today; the month's notes are listed below. On phones the cells show dots; use the list. Notes without a date are not on the calendar.
@@ -270,6 +274,8 @@ Phones have a full-screen button too (when the browser can't do real full screen
 
 ## Library pack (backup, sharing, import)
 
+![Library pack](images/pack.en.webp)
+
 **Library pack** on the library page. A library pack is a zip containing `notes/`, `slides/`, `boards/` and `_site.yml`.
 
 | Action | Notes |
@@ -295,6 +301,8 @@ After importing, the toast offers **Undo** (moves the new files to `_archive/imp
 You can also drop a zip onto the site: on your library page it starts an import; elsewhere it opens the pack for viewing.
 
 ## Generate with AI (notes, decks, boards)
+
+![Generate with AI](images/ai-generate.en.webp)
 
 On the library page press **Generate with AI**, or Ctrl+K → "Generate with AI…". One kind at a time.
 
