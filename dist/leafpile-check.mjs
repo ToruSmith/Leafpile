@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Leafpile 書庫檢查工具(單檔版 v0.13.0)
+// Leafpile 書庫檢查工具(單檔版 v0.14.0)
 // 由 scripts/bundle-check.mjs 自動產生,請不要手動修改。原始碼:https://github.com/ToruSmith/Leafpile
 //
 // 用法(需要 Node.js 18 以上):
@@ -754,6 +754,17 @@ const LOCALE_ZH_HANT = {
   'table.clearTag': '取消標籤篩選',
   'table.readonly': '唯讀:欄位來自每篇筆記開頭的 front matter,要改請開筆記編輯',
   'table.groupBy': '分組',
+  'table.layoutLabel': "怎麼看",
+  'table.layout.table': "表格",
+  'table.layout.kanban': "看板",
+  'table.layout.calendar': "月曆",
+  'table.kanbanBy': "欄位",
+  'table.calPrev': "上個月",
+  'table.calNext': "下個月",
+  'table.calToday': "這個月",
+  'table.calMonthList': "這個月的筆記({n} 篇)",
+  'table.calNone': "這個月沒有筆記。用 ‹ › 換月份。",
+  'table.calUndated': "另有 {n} 篇沒有日期,不會出現在月曆上。",
   'table.group.none': '不分組',
   'table.group.category': '分類',
   'table.group.topic': '主題',
@@ -1872,6 +1883,17 @@ const LOCALE_EN = {
   'table.clearTag': 'Clear tag filter',
   'table.readonly': 'Read-only: columns come from each note’s front matter; edit the note to change them',
   'table.groupBy': 'Group by',
+  'table.layoutLabel': "Layout",
+  'table.layout.table': "Table",
+  'table.layout.kanban': "Kanban",
+  'table.layout.calendar': "Calendar",
+  'table.kanbanBy': "Columns",
+  'table.calPrev': "Previous month",
+  'table.calNext': "Next month",
+  'table.calToday': "This month",
+  'table.calMonthList': "Notes this month ({n})",
+  'table.calNone': "No notes this month. Use ‹ › to change months.",
+  'table.calUndated': "{n} more notes have no date and are not on the calendar.",
   'table.group.none': 'No grouping',
   'table.group.category': 'Category',
   'table.group.topic': 'Topic',
@@ -4365,7 +4387,67 @@ function groupRows(rows, key, { order = [], labels = {} } = {}) {
   });
   return ids.map(id => ({ id, label: id ? lab(id) : '', rows: groups.get(id) }));
 }
-return { noteFields, tableColumns, cellText, valueOf, compareCells, sortRows, filterRows, GROUP_KEYS, groupIdsOf, groupRows };
+
+// ---------- 月曆 ----------
+// 依筆記的 date 欄位排進月曆。月份用 'YYYY-MM' 字串表示;週日開始。
+
+const pad2 = n => String(n).padStart(2, '0');
+
+/** 'YYYY-MM' 往前後移 n 個月。 */
+function shiftMonth(ym, n) {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + n, 1));
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}`;
+}
+
+/**
+ * 一個月的月曆格子:幾週,每週 7 天(週日開始),前後補上個月、下個月的日子。
+ * @returns {{ date: string, day: number, inMonth: boolean }[][]}
+ */
+function monthGrid(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  const first = new Date(Date.UTC(y, m - 1, 1));
+  const start = new Date(first); start.setUTCDate(1 - first.getUTCDay());
+  const weeks = [];
+  for (let d = new Date(start); weeks.length < 6; ) {
+    const week = [];
+    for (let i = 0; i < 7; i++) {
+      week.push({ date: d.toISOString().slice(0, 10), day: d.getUTCDate(), inMonth: d.getUTCMonth() === m - 1 });
+      d.setUTCDate(d.getUTCDate() + 1);
+    }
+    weeks.push(week);
+    if (d.getUTCMonth() !== m - 1) break;
+  }
+  return weeks;
+}
+
+/** 依日期(date 的前 10 個字)分好的筆記;沒有合法日期的略過。 */
+function rowsByDay(rows) {
+  const out = new Map();
+  for (const r of rows) {
+    const d = String(r.date || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+    if (!out.has(d)) out.set(d, []);
+    out.get(d).push(r);
+  }
+  return out;
+}
+
+/** 一開始顯示哪個月:這個月有筆記就是這個月,否則是最近一個有筆記的月份(都沒有就是這個月)。 */
+function defaultMonth(rows, today) {
+  const now = String(today).slice(0, 7);
+  const months = [...new Set(rows.map(r => String(r.date || '').slice(0, 7)).filter(x => /^\d{4}-\d{2}$/.test(x)))].sort();
+  if (!months.length || months.includes(now)) return now;
+  const past = months.filter(x => x <= now);
+  return past.length ? past.at(-1) : months[0];
+}
+
+/** 看板的欄:沒選分組依據時,有 status 欄位就用它,否則用主題。 */
+function kanbanKey(chosen, fieldKeys) {
+  if (chosen) return chosen;
+  return fieldKeys.includes('status') ? 'status' : 'topic';
+}
+return { noteFields, tableColumns, cellText, valueOf, compareCells, sortRows, filterRows, GROUP_KEYS, groupIdsOf, groupRows, shiftMonth, monthGrid, rowsByDay, defaultMonth, kanbanKey };
 })();
 
 // ───────── app/core/graph.js ─────────

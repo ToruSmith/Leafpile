@@ -3,7 +3,7 @@
 
 import { escapeHTML as esc } from '../core/markdown.js';
 import { applyUITheme } from '../player/themes.js';
-import { t } from '../core/i18n.js';
+import { t, getLang } from '../core/i18n.js';
 import { notesOfTopic } from '../core/vault.js';
 import { searchGraph } from '../core/graph.js';
 import { deckCardHTML, wireDeckCards } from './library-view.js';
@@ -11,7 +11,7 @@ import { hydrate } from '../player/hydrate.js';
 import { resolveMediaPath } from '../core/media.js';
 import { canPickDirectory } from '../sources/sources.js';
 import { readPref, writePref, readJSON, writeJSON } from './prefs.js';
-import { tableColumns, cellText, sortRows, filterRows, valueOf, groupRows } from '../core/table.js';
+import { tableColumns, cellText, sortRows, filterRows, valueOf, groupRows, monthGrid, rowsByDay, shiftMonth, defaultMonth, kanbanKey } from '../core/table.js';
 
 const VIEW_KEY = 'leafpile-shelf-view';
 const VIEWS = ['all', 'notes', 'slides', 'table'];
@@ -19,6 +19,8 @@ const SORT_KEY = 'leafpile-table-sort';
 const MODE_KEY = 'leafpile-table-mode'; // 表格看的是「筆記」還是「主題」
 const GROUP_KEY = 'leafpile-table-group'; // 表格的分組依據:{ notes: 'category', topics: 'category' }
 const FOLD_KEY = 'leafpile-table-fold'; // 收起來的組:{ '<模式>:<分組依據>': [組 id] }
+const LAYOUT_KEY = 'leafpile-table-layout'; // 筆記用表格、看板還是月曆看
+const LAYOUTS = ['table', 'kanban', 'calendar'];
 
 function savedView() {
   const v = readPref(VIEW_KEY); return VIEWS.includes(v) ? v : 'all';
@@ -139,6 +141,8 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
     return { rel: rec.rel, title: rec.title, topic: tp?.title || '', topicId: rec.topicId, category: catOf.get(rec.topicId) || '', book: book?.title || '', date: rec.date || '', tags: rec.tags || [], fields: rec.fields || {}, private: !rec.public };
   });
   let mode = readPref(MODE_KEY) === 'topics' ? 'topics' : 'notes';
+  let layout = LAYOUTS.includes(readPref(LAYOUT_KEY)) ? readPref(LAYOUT_KEY) : 'table', calMonth = '';
+  const layoutBar = () => `<span class="seg-mini" role="group" aria-label="${esc(t('table.layoutLabel'))}">${LAYOUTS.map(l => `<button data-layout="${l}" aria-pressed="${layout === l}">${esc(t('table.layout.' + l))}</button>`).join('')}</span>`;
   const modeBar = () => `<span class="seg-mini" role="group" aria-label="${esc(t('table.modeLabel'))}">${['notes', 'topics'].map(m => `<button data-mode="${m}" aria-pressed="${mode === m}">${esc(t('table.mode.' + m))}</button>`).join('')}</span>`;
   // ---------- 分組與折疊(兩種模式共用) ----------
   const groupPref = { notes: '', topics: '', ...(readJSON(GROUP_KEY) || {}) };
@@ -211,13 +215,51 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
     const list = sortRows(filterRows(tableRows, { words, tag: tagFilter, keep }), sort.key, sort.dir);
     const gOptions = ['category', 'topic', ...(tableRows.some(r => r.book) ? ['book'] : []), 'year', 'month', 'tags', ...extra];
     const gkey = gOptions.includes(groupPref.notes) ? groupPref.notes : '';
+    const titleLink = r => `<a href="${href.note(r.rel)}">${esc(r.title)}</a>${r.private ? `<span class="lock" title="${esc(t('table.private'))}" aria-label="${esc(t('table.private'))}">\u{1F512}</span>` : ''}`;
+    const head = extraBar => `<div class="table-head">${modeBar()}${layoutBar()}<span class="n">${esc(t('table.count', { n: list.length, total: tableRows.length }))}</span>
+        ${tagFilter ? `<button class="tag on clear-tag" title="${esc(t('table.clearTag'))}">#${esc(tagFilter)} \u2715</button>` : ''}
+        ${extraBar}<span class="hint">${esc(t('table.readonly'))}</span></div>`;
+    if (layout === 'kanban') {
+      // 看板(唯讀):分組依據的每一組是一欄;卡片照目前的排序
+      const key = kanbanKey(gkey, extra);
+      const cols = groupRows(list, key, groupOpts(key));
+      const sel = `<label class="tb-group"><span>${esc(t('table.kanbanBy'))}</span><select class="group-by">${gOptions.map(k => `<option value="${esc(k)}"${k === key ? ' selected' : ''}>${esc(groupLabel(k))}</option>`).join('')}</select></label>`;
+      box.innerHTML = head(sel) + (list.length ? `<div class="kanban" role="list">${cols.map(c => `<section class="kb-col" role="listitem" aria-label="${esc(c.label || t('table.groupEmpty'))}">
+          <h3>${esc(c.label || t('table.groupEmpty'))}<span class="g-n">${c.rows.length}</span></h3>
+          <ul>${c.rows.map(r => `<li class="kb-card">${titleLink(r)}<small>${esc([r.date, key === 'topic' ? '' : r.topic].filter(Boolean).join(' \u00b7 '))}</small>${r.tags.length ? `<span class="kb-tags">${r.tags.map(x => `<button class="tag" data-tag="${esc(x)}">#${esc(x)}</button>`).join(' ')}</span>` : ''}</li>`).join('')}</ul>
+        </section>`).join('')}</div>` : `<p class="table-empty">${esc(t('table.empty'))}</p>`);
+      return;
+    }
+    if (layout === 'calendar') {
+      // 月曆(唯讀):依 date 欄位;格子裡列標題,下面是這個月的清單(手機上格子只顯示點)
+      const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+      calMonth ||= defaultMonth(list, today);
+      const byDay = rowsByDay(list);
+      const [y, m] = calMonth.split('-').map(Number);
+      const lang = getLang();
+      const monthName = new Intl.DateTimeFormat(lang, { year: 'numeric', month: 'long', timeZone: 'UTC' }).format(Date.UTC(y, m - 1, 1));
+      const wd = Array.from({ length: 7 }, (_, i) => new Intl.DateTimeFormat(lang, { weekday: 'short', timeZone: 'UTC' }).format(Date.UTC(2026, 10, 1 + i)));
+      const inMonth = [...byDay.entries()].filter(([d]) => d.startsWith(calMonth)).sort((a, b) => a[0].localeCompare(b[0]));
+      const nav = `<span class="cal-nav"><button class="btn ghost" data-cal="-1" aria-label="${esc(t('table.calPrev'))}">\u2039</button><b class="cal-month" aria-live="polite">${esc(monthName)}</b><button class="btn ghost" data-cal="1" aria-label="${esc(t('table.calNext'))}">\u203a</button><button class="btn ghost" data-cal="today">${esc(t('table.calToday'))}</button></span>`;
+      const undated = list.filter(r => !/^\d{4}-\d{2}-\d{2}/.test(String(r.date || ''))).length;
+      box.innerHTML = head(nav) + `<div class="table-wrap"><table class="calendar">
+          <thead><tr>${wd.map(w => `<th scope="col">${esc(w)}</th>`).join('')}</tr></thead>
+          <tbody>${monthGrid(calMonth).map(w => `<tr>${w.map(d => {
+            const rs = byDay.get(d.date) || [];
+            return `<td class="${d.inMonth ? '' : 'out'}${d.date === today ? ' today' : ''}"><span class="cal-d">${d.day}</span>${rs.map(r => `<a class="cal-note" href="${href.note(r.rel)}" title="${esc(r.title)}">${esc(r.title)}</a>`).join('')}</td>`;
+          }).join('')}</tr>`).join('')}</tbody>
+        </table></div>
+        <div class="cal-list">${inMonth.length ? `<h3>${esc(t('table.calMonthList', { n: inMonth.reduce((a, [, rs]) => a + rs.length, 0) }))}</h3><ul>${inMonth.map(([d, rs]) => `<li><time>${esc(d.slice(5))}</time><span>${rs.map(titleLink).join('<br>')}</span></li>`).join('')}</ul>` : `<p class="table-empty">${esc(t('table.calNone'))}</p>`}
+        ${undated ? `<p class="hint">${esc(t('table.calUndated', { n: undated }))}</p>` : ''}</div>`;
+      return;
+    }
     const groups = groupRows(list, gkey, groupOpts(gkey));
     const cell = (r, k) => {
       if (k === 'title') return `<a href="${href.note(r.rel)}">${esc(r.title)}</a>${r.private ? `<span class="lock" title="${esc(t('table.private'))}" aria-label="${esc(t('table.private'))}">\u{1F512}</span>` : ''}`;
       if (k === 'tags') return r.tags.map(x => `<button class="tag" data-tag="${esc(x)}">#${esc(x)}</button>`).join(' ');
       return esc(cellText(valueOf(r, k)));
     };
-    box.innerHTML = `<div class="table-head">${modeBar()}<span class="n">${esc(t('table.count', { n: list.length, total: tableRows.length }))}</span>
+    box.innerHTML = `<div class="table-head">${modeBar()}${layoutBar()}<span class="n">${esc(t('table.count', { n: list.length, total: tableRows.length }))}</span>
         ${tagFilter ? `<button class="tag on clear-tag" title="${esc(t('table.clearTag'))}">#${esc(tagFilter)} \u2715</button>` : ''}
         ${groupBar(gOptions)}
         <span class="hint">${esc(t('table.readonly'))}</span></div>
@@ -249,6 +291,10 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
       writeJSON(FOLD_KEY, folds);
       return renderTable();
     }
+    const lb = e.target.closest('[data-layout]');
+    if (lb) { layout = lb.dataset.layout; writePref(LAYOUT_KEY, layout); return renderTable(); }
+    const cb = e.target.closest('[data-cal]');
+    if (cb) { calMonth = cb.dataset.cal === 'today' ? new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 7) : shiftMonth(calMonth, Number(cb.dataset.cal)); return renderTable(); }
     const m = e.target.closest('[data-mode]');
     if (m) { mode = m.dataset.mode; writePref(MODE_KEY, mode); return renderTable(); }
     const ed = e.target.closest('.tm-edit');

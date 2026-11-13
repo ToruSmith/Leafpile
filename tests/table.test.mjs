@@ -87,3 +87,37 @@ test('groupRows:組內保留原本的排序', () => {
   const sorted = [G[2], G[0]];
   assert.deepEqual(groupRows(sorted, 'category').find(g => g.id === 'learn').rows.map(r => r.title), ['c', 'a']);
 });
+
+test('月曆:monthGrid 週日開始、前後補齊;shiftMonth 跨年', async () => {
+  const { monthGrid, shiftMonth } = await import('../app/core/table.js');
+  const g = monthGrid('2026-11'); // 2026-11-01 是週日
+  assert.equal(g[0][0].date, '2026-11-01');
+  assert.equal(g.length, 5);
+  assert.equal(g.at(-1)[6].date, '2026-12-05');
+  assert.equal(g.at(-1)[6].inMonth, false);
+  assert.ok(g.every(w => w.length === 7));
+  const f = monthGrid('2026-02'); // 2/1 是週日、28 天:剛好 4 週
+  assert.equal(f.length, 4);
+  const m = monthGrid('2026-08'); // 8/1 是週六:要 6 週
+  assert.equal(m[0][6].date, '2026-08-01'); assert.equal(m.length, 6);
+  assert.equal(shiftMonth('2026-12', 1), '2027-01');
+  assert.equal(shiftMonth('2026-01', -1), '2025-12');
+});
+
+test('月曆:rowsByDay 只收合法日期;defaultMonth 優先這個月,否則最近有筆記的月份', async () => {
+  const { rowsByDay, defaultMonth } = await import('../app/core/table.js');
+  const rows = [{ date: '2026-11-03' }, { date: '2026-11-03T10:00' }, { date: '' }, { date: '2026-09-30' }, { date: 'x' }];
+  const by = rowsByDay(rows);
+  assert.equal(by.get('2026-11-03').length, 2); assert.equal(by.size, 2);
+  assert.equal(defaultMonth(rows, '2026-11-13'), '2026-11');
+  assert.equal(defaultMonth([{ date: '2026-09-30' }, { date: '2027-01-01' }], '2026-11-13'), '2026-09');
+  assert.equal(defaultMonth([{ date: '2027-01-01' }], '2026-11-13'), '2027-01');
+  assert.equal(defaultMonth([], '2026-11-13'), '2026-11');
+});
+
+test('看板:沒選分組時有 status 用 status,否則用主題', async () => {
+  const { kanbanKey } = await import('../app/core/table.js');
+  assert.equal(kanbanKey('', ['rating', 'status']), 'status');
+  assert.equal(kanbanKey('', ['rating']), 'topic');
+  assert.equal(kanbanKey('tags', ['status']), 'tags');
+});

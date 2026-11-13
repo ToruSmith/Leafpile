@@ -78,6 +78,11 @@ Note: pins, recents and whether the sidebar is collapsed are stored **only in th
 
 **Grouping and folding**: the **Group by** menu groups rows by category, topic, notebook, year, month, tag, or any custom field (such as `status`). Each group has a heading row; click it to collapse or expand, or use **Collapse all / Expand all**. When grouping by tags or a list field, a note appears once per tag. The **Topics** mode can group by category. The grouping and which groups are collapsed are remembered in this browser.
 
+**Kanban and calendar** (Notes mode): switch between **Table | Kanban | Calendar**. Both are read-only; search, category filters and tag filters still apply.
+- **Kanban**: each group of the **Columns** menu is a column (default: `status` if notes have it, otherwise topic); cards follow the table's current sort. For example, write `status: reading` or `status: done` at the top of notes to see reading progress. To move a card, edit the note's front matter.
+- **Calendar**: notes placed by their `date` (weeks start on Sunday); ‹ › change months, **This month** goes back to today; the month's notes are listed below. On phones the cells show dots; use the list. Notes without a date are not on the calendar.
+- Your choice is remembered in this browser.
+
 ### Topic management
 
 Under **Table** → **Topics**:
@@ -328,7 +333,7 @@ Public or private is decided in this order: the note's `public` → the notebook
 | Setting | Stored in | Follows you to another computer? |
 |---|---|---|
 | Notes, decks, boards, topics, categories | Files in the library folder | Yes (with the folder) |
-| Language, appearance, text size, view (All / Table), table grouping and folding, sidebar collapsed, pins, recents, board toolbar and minimap preferences | This browser's local storage | No |
+| Language, appearance, text size, view (All / Table), table grouping and folding, table / kanban / calendar, sidebar collapsed, pins, recents, board toolbar and minimap preferences | This browser's local storage | No |
 
 ## FAQ
 
