@@ -212,6 +212,21 @@ from_deck: slides/10-reading/2026-11-x
 
 開啟的是 Mdslide Pile 書庫或單一簡報（沒有 `notes/` 與 `slides/`）時，封存放在該簡報資料夾下的 `_archive/`。
 
+## 8.5 書庫包
+
+書庫包是 zip（UTF-8 檔名），內容就是書庫的 `notes/`、`slides/`、`boards/` 與 `_site.yml`；外面可以多包一層資料夾。只收 `.md`、`.yml`、`.yaml`、`.canvas` 與圖片、PDF、HTML（單檔 10 MB、HTML 1 MB）；略過 `_archive/`、書庫根目錄的工具檔、`.` 開頭的檔案與不安全的路徑。合併規則（絕不覆蓋）見 `docs/FEATURES.md`「書庫包」與 `app/core/pack.js`。
+
+**文字書庫包**（給 AI 輸出、貼回來匯入）：每個檔案以一行 `=== FILE: 路徑 ===` 開頭、一行 `=== END ===` 結尾，前後的說明文字會被忽略；AI 在檔案外多包的 ` ``` ` 會拿掉。路徑以 `notes/`、`slides/`、`boards/` 開頭時照原樣匯入；「AI 生成」精靈收到只有檔名的回覆時，由 Leafpile 放進選定的主題並補上 front matter（`app/core/generate.js`）。
+
+```text
+=== FILE: notes/10-reading/2026-11-13-原子習慣.md ===
+---
+title: 原子習慣
+---
+# 原子習慣
+=== END ===
+```
+
 ## 9. 自動判斷開啟的層級
 
 1. 資料夾裡有 `notes/` 或 `slides/` 子資料夾 → **Leafpile 書庫**（兩個渠道）。

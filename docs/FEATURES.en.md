@@ -24,6 +24,10 @@ Start here when you forget what Leafpile can do. For file formats and rules see 
 | Fold many notes by topic or month | **Table** → **Group by** |
 | Change colors, use dark mode | **Appearance** in the top bar |
 | Let an AI understand the whole library first | `node leafpile-check.mjs <library> --index` |
+| Turn material into a note, deck or board with AI | **Generate with AI** on the library page |
+| Back up or send the library to someone | **Library pack** → Export |
+| View a zip library pack someone gave me | **Open a zip library pack** on the home page (any browser) |
+| Merge a zip, folder or AI reply into my library | **Library pack** → Import (preview first, never overwrites) |
 | Find my way across many topics | The sidebar on the left (see below) |
 | Rename a topic, change its category or color | **Table** → **Topics** → **Edit** |
 | Play a note as a deck for a moment | Press **P** on a note (flash play); no file is created |
@@ -41,6 +45,7 @@ Start here when you forget what Leafpile can do. For file formats and rules see 
 - **My library**: "Open local folder" on the home page. Only **Chrome and Edge** can save; other browsers can read and play but not edit.
 - Next time, click the library under "Recent libraries" on the home page. The browser may ask for write permission again.
 - The site installs as an app and works offline once installed.
+- **Zip library packs**: **Open a zip library pack** on the home page views a pack without unzipping, read-only, in any browser including phones. You can also drop a zip onto the site.
 
 ## Library page
 
@@ -241,6 +246,46 @@ More ▾ → "▶ Present": zooms into one group at a time (or one card at a tim
 ### Phones
 
 Phones have a full-screen button too (when the browser can't do real full screen, the board simply fills the whole window). The toolbar hides itself; tap the ☰ at the top right to bring it back. Pinch to zoom and drag with one finger to pan.
+
+## Library pack (backup, sharing, import)
+
+**Library pack** on the library page. A library pack is a zip containing `notes/`, `slides/`, `boards/` and `_site.yml`.
+
+| Action | Notes |
+|---|---|
+| Export the whole library | For backup. Leaves out `_archive/` and the tool files at the library root |
+| Export the public part | For others. Only notes judged public (plus their topic and notebook settings and images their text mentions); decks follow the topic's default (`public: true` in `_topic.yml`); `local_only` topics and boards are left out. Run the pre-publish check before sharing |
+| Import | From a zip, a folder, or text pasted from an AI. Only a local library opened in Chrome/Edge can import |
+
+**Import always previews and never overwrites**:
+
+| Case | What happens |
+|---|---|
+| New file | Added |
+| Same path, same content | Skipped |
+| Same path, different content | Saved as "name-2" |
+| Same deck name, different content | The whole deck is saved to "folder-2", never mixed with your slides |
+| Existing `_topic.yml`, `_book.yml` | Yours are kept |
+| `_site.yml` | Only categories you don't have are added; your title and other settings stay |
+| Tool files, `_archive/`, unsupported types, unsafe paths | Left out |
+
+After importing, the toast offers **Undo** (moves the new files to `_archive/import-date-time/` and restores `_site.yml`) and **✓ Check**.
+
+You can also drop a zip onto the site: on your library page it starts an import; elsewhere it opens the pack for viewing.
+
+## Generate with AI (notes, decks, boards)
+
+**Generate with AI** on the library page, or Ctrl+K → "Generate … with AI". One kind at a time.
+
+1. Choose what to generate (note / deck / board), the topic and title, paste your material (highlights, summaries, meeting notes…), and optionally add one extra request.
+2. Press **Open Claude**, **Open ChatGPT**, **Open Gemini** or **Copy prompt only**. The prompt is copied and a new tab opens; paste it with Ctrl+V and send (Claude and ChatGPT get it prefilled when it is short).
+3. Paste the AI's whole reply back → import preview → confirm.
+
+- The AI writes only the content (a Markdown outline); Leafpile adds file names, dates, front matter, deck section folders and `deck.yml`, and the board layout, so the prompt stays short and cheap in tokens.
+- The prompt tells the AI to use only your material and to mark anything uncertain. **The result is only as good as the material.**
+- Your material goes only to the AI you choose; Leafpile sends it nowhere.
+- Any reply with `=== FILE: … ===` blocks can be imported; plain Markdown works too (treated as one file).
+- Decks: `##` is a section and `###` a slide. Boards: `##` is a group, `-` a card, and under `## Links` write "Card A -> Card B : relation".
 
 ## Appearance
 
