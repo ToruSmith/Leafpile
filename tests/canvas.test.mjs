@@ -78,8 +78,8 @@ test('檢查工具:畫布壞掉是錯誤,卡片指到不存在的檔案是提醒
   assert.ok(parseCanvas(readFileSync(new URL('../content/boards/00-examples-overview.canvas', import.meta.url), 'utf8')).nodes.length > 3);
 });
 
-import { fileKind, extractURL, embedFor, slideOrder, textToNote, boardsWith } from '../app/core/canvas.js';
-import { classifyMedia } from '../app/core/media.js';
+import { fileKind, extractURL, embedFor, slideOrder, textToNote, boardsWith, pdfPage } from '../app/core/canvas.js';
+import { classifyMedia, startSeconds } from '../app/core/media.js';
 
 test('fileKind / extractURL', () => {
   assert.deepEqual(['boards/media/a.WEBP', 'x/p.html', 'x/d.pdf', 'notes/a.md', 'slides/t/x/deck.yml', 'a.zip'].map(fileKind), ['image', 'html', 'pdf', 'note', 'deck', 'other']);
@@ -109,4 +109,24 @@ test('textToNote / boardsWith', () => {
   assert.deepEqual(textToNote('  '), { title: '', body: '' });
   const boards = [{ name: 'A', board: { nodes: [{ type: 'file', file: 'notes/x.md' }] } }, { name: 'B', board: { nodes: [{ type: 'text', text: 'notes/x.md' }] } }];
   assert.deepEqual(boardsWith(boards, 'notes/x.md'), ['A']);
+});
+
+test('影片開始時間:t=90、90s、1m30s、1h2m3s、start=;嵌入網址帶上秒數', () => {
+  assert.equal(startSeconds('https://youtu.be/dQw4w9WgXcQ?t=90'), 90);
+  assert.equal(startSeconds('https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=1m30s'), 90);
+  assert.equal(startSeconds('https://youtu.be/x?t=1h2m3s'), 3723);
+  assert.equal(startSeconds('https://vimeo.com/123#t=45s'), 45);
+  assert.equal(startSeconds('https://youtu.be/x'), 0);
+  assert.equal(startSeconds('https://youtu.be/x?t=abc'), 0);
+  assert.match(classifyMedia('https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=1m30s').embed, /&start=90$/);
+  assert.match(classifyMedia('https://vimeo.com/76979871#t=45s').embed, /\/76979871#t=45s$/);
+  assert.match(classifyMedia('https://www.bilibili.com/video/BV1xx411c7mD?t=30').embed, /&t=30$/);
+  assert.doesNotMatch(classifyMedia('https://vimeo.com/76979871').embed, /#t=/);
+});
+
+test('PDF 卡的頁碼:subpath "#page=N"(和 Obsidian 相同),其他寫法一律當沒有;存檔保留欄位', () => {
+  assert.equal(pdfPage({ subpath: '#page=3' }), 3);
+  for (const s of [undefined, '', '#page=0', '#page=x', '#heading', 'page=3', '#page=3; x']) assert.equal(pdfPage({ subpath: s }), 0, String(s));
+  const b = parseCanvas('{"nodes":[{"id":"p","type":"file","file":"a.pdf","subpath":"#page=7","x":0,"y":0,"width":100,"height":100}],"edges":[]}');
+  assert.match(serializeCanvas(b), /"subpath": "#page=7"/);
 });

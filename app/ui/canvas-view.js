@@ -16,8 +16,8 @@
 import { escapeHTML as esc, renderMarkdown } from '../core/markdown.js';
 import { t } from '../core/i18n.js';
 import { classifyMedia } from '../core/media.js';
-import { serializeCanvas, canvasColor, edgePath, bounds, resolveFile, newId, SIDES, PRESET_COLORS, fileKind, embedFor, extractURL, slideOrder } from '../core/canvas.js';
-import { reorderNodes, minimapFrame, withMembers, alignNodes, distribute, snapLines, snapMove, copyFragment, parseFragment, pasteFragment, searchNodes, groupOutline, buildBoardSvg, strokesToSvg } from '../core/canvas-ops.js';
+import { serializeCanvas, canvasColor, edgePath, bounds, resolveFile, newId, SIDES, PRESET_COLORS, fileKind, embedFor, extractURL, slideOrder, pdfPage } from '../core/canvas.js';
+import { reorderNodes, minimapFrame, withMembers, alignNodes, distribute, snapLines, snapMove, copyFragment, parseFragment, pasteFragment, searchNodes, groupOutline, boardOutline, buildBoardSvg, strokesToSvg } from '../core/canvas-ops.js';
 import { hydrate, mountPage, openPageTab } from '../player/hydrate.js';
 import { prepareMedia } from './media-import.js';
 import { dialog, toast } from './dialog.js';
@@ -69,6 +69,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
               <hr>` : ''}
               <button role="menuitem" data-b="present" title="${esc(t('board.presentTitle'))}">${esc(t('board.present'))}</button>
               <button role="menuitem" data-b="export" title="${esc(t('board.exportTitle'))}">${esc(t('board.export'))}</button>
+              <button role="menuitem" data-b="outline" data-keep aria-pressed="false" title="${esc(t('board.outlineViewTitle'))}">${esc(t('board.outlineView'))}<kbd>O</kbd></button>
               <button role="menuitem" data-b="minimap" data-keep aria-pressed="false">${esc(t('board.minimap'))}<kbd>M</kbd></button>
               <button role="menuitem" data-b="pin" data-keep aria-pressed="false">${esc(t('board.pin'))}</button>
               <hr>
@@ -88,6 +89,10 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
         <p class="board-hint">${esc(t(canEdit ? 'board.hintEdit' : 'board.hint'))}</p>
         <div class="board-mini" hidden><svg aria-label="${esc(t('board.minimap'))}" role="img"></svg></div>
         <button class="board-mini-btn" aria-pressed="false" title="${esc(t('board.minimapTitle'))}" aria-label="${esc(t('board.minimap'))}"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><rect x="7.5" y="7.5" width="5" height="4" fill="currentColor" stroke="none" opacity=".55"/></svg></button>
+        <aside class="board-outline" hidden aria-label="${esc(t('board.outlineView'))}">
+          <div class="bo-head"><b>${esc(t('board.outlineView'))}</b><span class="bo-tools">${toNote ? `<button type="button" data-o="save" title="${esc(t('board.outlineSaveTitle'))}">${esc(t('board.outlineSave'))}</button>` : ''}<button type="button" data-o="copy" title="${esc(t('board.outlineCopyTitle'))}">${esc(t('board.outlineCopy'))}</button><button type="button" data-o="close" aria-label="${esc(t('checkp.close'))}">×</button></span></div>
+          <ol class="bo-list"></ol>
+        </aside>
         <div class="board-ctx" role="menu" hidden></div>
         <div class="board-hot" aria-hidden="true"></div>
         <button class="board-fab" data-b="menu" aria-label="${esc(t('board.menu'))}" title="${esc(t('board.menu'))}">☰</button>
@@ -194,6 +199,53 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   miniBtn.addEventListener('pointerdown', e => e.stopPropagation());
   miniBtn.addEventListener('click', () => setMini(!miniOn));
 
+  // ---------- 大綱檢視:群組、卡片、連線排成清單(唯讀也能用);點一項就跳到那張卡片 ----------
+  const OUTLINE_KEY = 'leafpile-board-outline';
+  const outline = $('.board-outline'), outlineList = outline.querySelector('.bo-list');
+  let outlineOn = false, outlineRaf = 0, outlineHTML = '';
+  const outlineData = () => boardOutline(board, describe, { title: name, loose: t('board.outlineLoose') });
+  function drawOutline() {
+    if (!outlineOn || !alive) return;
+    const { items } = outlineData();
+    const html = items.length ? items.map(it => {
+      const label = esc(it.text || '—');
+      const head = it.type === 'loose' ? `<span class="bo-loose">${label}</span>` : `<button type="button" data-id="${esc(it.id)}" class="bo-${esc(it.type)}${isSel(it.id) ? ' on' : ''}">${label}</button>`;
+      const edges = it.edges.map(e => `<li class="bo-edge"><button type="button" data-id="${esc(e.id)}">→ ${esc(e.text || '—')}${e.label ? ` <i>${esc(e.label)}</i>` : ''}</button></li>`).join('');
+      return `<li style="--d:${it.depth}">${head}${edges ? `<ul>${edges}</ul>` : ''}</li>`;
+    }).join('') : `<li class="bo-empty">${esc(t('board.outlineEmpty'))}</li>`;
+    if (html !== outlineHTML) { outlineList.innerHTML = html; outlineHTML = html; }
+  }
+  function queueOutline() { if (outlineOn && !outlineRaf) outlineRaf = requestAnimationFrame(() => { outlineRaf = 0; drawOutline(); }); }
+  function setOutline(on) {
+    outlineOn = on;
+    writeFlag(OUTLINE_KEY, on);
+    outline.hidden = !on;
+    $('[data-b=outline]')?.setAttribute('aria-pressed', on ? 'true' : 'false');
+    if (on) { outlineHTML = ''; drawOutline(); }
+  }
+  outline.addEventListener('wheel', e => e.stopPropagation(), { passive: true });
+  outline.addEventListener('pointerdown', e => e.stopPropagation());
+  outline.addEventListener('click', async e => {
+    const o = e.target.closest('[data-o]')?.dataset.o;
+    if (o === 'close') return setOutline(false);
+    if (o === 'copy') {
+      try { await navigator.clipboard.writeText(outlineData().markdown); toast(t('board.outlineCopied')); } catch { toast(t('board.outlineCopyFailed'), { ms: 5000 }); }
+      return;
+    }
+    if (o === 'save' && toNote) {
+      const path = await toNote(outlineData().markdown);
+      if (path) toast(t('board.outlineSaved'));
+      return;
+    }
+    const id = e.target.closest('[data-id]')?.dataset.id, n = id && byId(id);
+    if (!n) return;
+    select({ ids: [n.id] });
+    centerOn(n);
+    // 手機上大綱在下半部:把卡片移到上半部,才不會被擋住
+    const ob = outline.getBoundingClientRect(), v = view.getBoundingClientRect();
+    if (ob.top > v.top + v.height / 3) { cam.y -= (v.bottom - ob.top) / 2; applyCam(); }
+  });
+
   // ---------- 卡片 ----------
   const embedOf = n => (n.type === 'link' ? embedFor(n, classifyMedia) : null);
   const kindOf = n => (n.type === 'file' ? fileKind(n.file) : n.type);
@@ -216,7 +268,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     const k = kindOf(n), file = String(n.file || ''), base = file.split('/').pop();
     if (k === 'image') return `<img data-media="${esc(file)}" alt="${esc(base)}" draggable="false">`;
     if (k === 'html') return `<span class="kind">HTML${n['x-scripts'] === true ? ` · ${esc(t('board.scriptsOn'))}` : ''}</span><b>${esc(base)}</b><div class="embed-box"><button class="embed-load">▶ ${esc(t('board.loadEmbed'))}</button></div>${toolsHTML()}`;
-    if (k === 'pdf') return `<span class="kind">PDF</span><b>${esc(base)}</b><div class="embed-box"><button class="embed-load">▶ ${esc(t('board.loadEmbed'))}</button></div>${toolsHTML()}`;
+    if (k === 'pdf') return `<span class="kind">PDF${pdfPage(n) ? ` · ${esc(t('board.pdfPageN', { n: pdfPage(n) }))}` : ''}</span><b>${esc(base)}</b><div class="embed-box"><button class="embed-load">▶ ${esc(t('board.loadEmbed'))}</button></div>${toolsHTML()}`;
     const r = g ? resolveFile(file, g) : null;
     if (!r) return `<span class="kind">…</span><b>${esc(base)}</b>`;
     if (r.kind === 'note') return `<span class="kind" style="--kc:${esc(colorOf(r.rec.topicId))}">${esc(t('board.kindNote'))}</span><a class="open" href="${href.note(r.rec.rel)}">${esc(r.rec.title)}</a><p>${esc(String(r.rec.excerpt || r.rec.body || '').replace(/[#>*_`[\]]/g, '').replace(/\s+/g, ' ').slice(0, 160))}</p>`;
@@ -276,7 +328,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     edgesEl.innerHTML = parts.join('');
   }
 
-  function draw() { drawNodes(); drawEdges(); drawPop(); queueMini(); }
+  function draw() { drawNodes(); drawEdges(); drawPop(); queueMini(); queueOutline(); }
 
   // ---------- 選取後的小工具列 ----------
   const ALIGN = [['left', '⇤'], ['hcenter', '↔'], ['right', '⇥'], ['top', '⤒'], ['vcenter', '↕'], ['bottom', '⤓']];
@@ -296,6 +348,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
       if (n.type === 'group') items += `<button data-pop="glabel">✎ ${esc(t('board.groupLabel'))}</button>${toNote ? `<button data-pop="outline" title="${esc(t('board.outlineTitle'))}">${esc(t('board.outline'))}</button>` : ''}`;
       if (n.type === 'link' && !embedOf(n)?.auto) items += `<label><input type="checkbox" data-pop="embed"${n['x-embed'] === true ? ' checked' : ''}> ${esc(t('board.embedWeb'))}</label>`;
       if (n.type === 'link') items += `<button data-pop="url">✎ ${esc(t('board.editUrl'))}</button>`;
+      if (k === 'pdf') items += `<button data-pop="page" title="${esc(t('board.pdfPageTitle'))}">${esc(pdfPage(n) ? t('board.pdfPageN', { n: pdfPage(n) }) : t('board.pdfPage'))}</button>`;
       if (k === 'html') items += `<label title="${esc(t('board.scriptsTitle'))}"><input type="checkbox" data-pop="scripts"${n['x-scripts'] === true ? ' checked' : ''}> ${esc(t('board.scripts'))}</label>`;
       if (n.type !== 'group') items += `<button data-pop="group" title="${esc(t('board.makeGroupTitle'))}">▢</button>`;
       items += colors;
@@ -327,6 +380,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     if (what === 'url') return editLink(n.id);
     if (what === 'note') return convertToNote(n.id);
     if (what === 'outline') return outlineToNote(n.id);
+    if (what === 'page') return editPdfPage(n.id);
     if (what === 'group') return makeGroup();
     if (what === 'align' || what === 'dist') {
       const list = selNodes().filter(x => x.type !== 'group' || selIds().length);
@@ -384,7 +438,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
       } else if (k === 'pdf') {
         const f = document.createElement('iframe');
         f.title = n.file;
-        f.src = await source.mediaURL(n.file);
+        f.src = await source.mediaURL(n.file) + (pdfPage(n) ? `#page=${pdfPage(n)}` : '');
         box.append(f);
       } else if (k === 'html' && n['x-scripts'] === true) {
         box.dataset.page = n.file;
@@ -402,7 +456,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     const k = kindOf(n);
     if (n.type === 'link') return window.open(n.url, '_blank', 'noopener');
     if (k === 'html') return openPageTab(n.file, source);
-    if (k === 'pdf' || k === 'image') return window.open(await source.mediaURL(n.file), '_blank', 'noopener');
+    if (k === 'pdf' || k === 'image') return window.open(await source.mediaURL(n.file) + (k === 'pdf' && pdfPage(n) ? `#page=${pdfPage(n)}` : ''), '_blank', 'noopener');
   }
   nodesEl.addEventListener('click', e => {
     const b = e.target.closest('.embed-load, [data-x]');
@@ -579,6 +633,18 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     n.type = 'file'; n.file = path; delete n.text;
     draw(); changed();
     if (reloadGraph) { try { g = await reloadGraph(); if (alive) draw(); } catch { /* 下次開啟就會有 */ } }
+  }
+  /** PDF 卡從第幾頁開始(存在 subpath,和 Obsidian 相同);留空或 1 就拿掉。 */
+  async function editPdfPage(id) {
+    const n = byId(id);
+    if (!n) return;
+    const v = await ask(t('board.pdfPageTitle'), t('board.pdfPageLabel'), pdfPage(n) ? String(pdfPage(n)) : '');
+    if (v == null) return;
+    const p = Math.floor(Number(v));
+    if (v && !(p > 0)) return toast(t('board.pdfPageBad'), { ms: 4000 });
+    if (p > 1) n.subpath = `#page=${p}`; else delete n.subpath;
+    els.get(n.id)?.el.querySelector('iframe')?.remove();
+    draw(); changed();
   }
   /** 群組轉成大綱筆記:建立新筆記,把筆記卡放在群組右邊。 */
   async function outlineToNote(id) {
@@ -811,7 +877,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   const isDouble = id => { const now = Date.now(); const d = lastTap.id === id && now - lastTap.t < DOUBLE_MS; lastTap = d ? { id: '', t: 0 } : { id, t: now }; return d; };
 
   view.addEventListener('pointerdown', e => {
-    if (e.target.closest('.board-present-bar, .board-fab, .board-mini, .board-mini-btn, .board-ctx, .board-search, .board-draw-bar, a.open, textarea, .embed-tools, .embed-load, .interactive .embed-box')) return;
+    if (e.target.closest('.board-present-bar, .board-fab, .board-mini, .board-mini-btn, .board-ctx, .board-outline, .board-search, .board-draw-bar, a.open, textarea, .embed-tools, .embed-load, .interactive .embed-box')) return;
     if (present) { if (e.button === 0) act = { type: 'pan', sx: e.clientX, sy: e.clientY, cx: cam.x, cy: cam.y, still: true }; return; }
     if (editing || e.button > 0) return;
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -998,6 +1064,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     const b = el?.dataset.b;
     if (b === 'more') { setMenu(menu.hidden); return; }
     if (b === 'minimap') { setMini(!miniOn); return; }
+    if (b === 'outline') { setMenu(false); setOutline(!outlineOn); return; }
     if (b === 'pin') { pinned = !pinned; writeFlag(PIN_KEY, pinned); syncHide(); if (!pinned) barAuto.show(2500); }
     if (el && !el.hasAttribute('data-keep') && el.closest('.board-menu')) setMenu(false);
     if (b === 'in') zoomAt(cam.z * 1.25);
@@ -1073,7 +1140,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     ctx.querySelector('button')?.focus({ preventScroll: true });
   }
   view.addEventListener('contextmenu', e => {
-    if (present || drawing || editing || e.target.closest('textarea, input, .board-bar, .board-ctx, .board-mini, .board-pop')) return;
+    if (present || drawing || editing || e.target.closest('textarea, input, .board-bar, .board-ctx, .board-mini, .board-pop, .board-outline')) return;
     e.preventDefault();
     const nodeEl = e.target.closest('.bnode'), edgeEl = e.target.closest('.bedge');
     if (nodeEl) { const id = nodeEl.dataset.id; if (!isSel(id)) select({ ids: [id] }); }
@@ -1149,7 +1216,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     if (mod && k === 'd' && canEdit) { e.preventDefault(); return duplicate(); }
     if (mod) return;
     if (e.key === 'Delete' || e.key === 'Backspace') { if (sel && canEdit) { e.preventDefault(); removeSelected(); } return; }
-    if (e.key === 'Escape') { if (!ctx.hidden) return closeCtx(); if (!menu.hidden) return setMenu(false); if (search) return closeSearch(); if (sel) return select(null); if (full) setFull(false); return; }
+    if (e.key === 'Escape') { if (!ctx.hidden) return closeCtx(); if (!menu.hidden) return setMenu(false); if (outlineOn) return setOutline(false); if (search) return closeSearch(); if (sel) return select(null); if (full) setFull(false); return; }
     if (e.key === 'Enter' && sel) {
       e.preventDefault();
       if (sel.edge) return editEdge(sel.edge);
@@ -1158,6 +1225,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
       return n && els.get(n.id)?.el.querySelector('a.open')?.click();
     }
     if (e.key === 'm' || e.key === 'M') setMini(!miniOn);
+    else if (e.key === 'o' || e.key === 'O') setOutline(!outlineOn);
     else if (e.key === 'f' || e.key === 'F') fit();
     else if (e.key === '0') zoomAt(1);
     else if (e.key === '+' || e.key === '=') zoomAt(cam.z * 1.25);
@@ -1168,7 +1236,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   window.addEventListener('beforeunload', onUnload);
 
   draw();
-  requestAnimationFrame(() => { fit(); setMini(miniOn); });
+  requestAnimationFrame(() => { fit(); setMini(miniOn); if (readFlag(OUTLINE_KEY)) setOutline(true); });
   graph?.then(x => { g = x; if (alive) draw(); }, () => {});
 
   return {

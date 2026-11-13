@@ -11,15 +11,24 @@ const PAGE = new Set(['html', 'htm']);
 /**
  * @returns {{ kind: 'image'|'video'|'audio'|'embed'|'page'|'unknown', src: string, provider?: string, embed?: string, thumb?: string, interactive?: boolean, remote: boolean }}
  */
+/** 影片網址裡的開始時間(t=90、t=90s、t=1m30s、t=1h2m3s、start=90)→ 秒數;沒有就是 0。 */
+export function startSeconds(url) {
+  const m = String(url || '').match(/[?&#](?:t|start)=([\dhms]+)/i);
+  if (!m) return 0;
+  if (/^\d+$/.test(m[1])) return +m[1];
+  const p = m[1].match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/i);
+  return p ? (+p[1] || 0) * 3600 + (+p[2] || 0) * 60 + (+p[3] || 0) : 0;
+}
+
 export function classifyMedia(src) {
   const s = src.trim();
   const remote = isURL(s);
   if (remote) {
     let m;
     if ((m = s.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{6,})/))) {
-      const t = s.match(/[?&](?:t|start)=(\d+)/);
+      const t = startSeconds(s);
       return { kind: 'embed', src: s, remote, provider: 'YouTube',
-        embed: `https://www.youtube-nocookie.com/embed/${m[1]}?rel=0&playsinline=1${t ? `&start=${t[1]}` : ''}`,
+        embed: `https://www.youtube-nocookie.com/embed/${m[1]}?rel=0&playsinline=1${t ? `&start=${t}` : ''}`,
         thumb: `https://i.ytimg.com/vi/${m[1]}/hqdefault.jpg` };
     }
     if ((m = s.match(/bilibili\.com\/video\/(BV[\w]+|av\d+)/i)) || (m = s.match(/b23\.tv\/(BV[\w]+)/i))) {
@@ -27,13 +36,13 @@ export function classifyMedia(src) {
       const q = id.startsWith('av') ? `aid=${id.slice(2)}` : `bvid=${id}`;
       const p = s.match(/[?&]p=(\d+)/);
       return { kind: 'embed', src: s, remote, provider: 'Bilibili',
-        embed: `https://player.bilibili.com/player.html?${q}&page=${p ? p[1] : 1}&autoplay=0&high_quality=1` };
+        embed: `https://player.bilibili.com/player.html?${q}&page=${p ? p[1] : 1}&autoplay=0&high_quality=1${startSeconds(s) ? `&t=${startSeconds(s)}` : ''}` };
     }
     if ((m = s.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([\w-]+)/))) {
       return { kind: 'embed', src: s, remote, provider: 'Google Drive', embed: `https://drive.google.com/file/d/${m[1]}/preview` };
     }
     if ((m = s.match(/vimeo\.com\/(?:video\/)?(\d+)/))) {
-      return { kind: 'embed', src: s, remote, provider: 'Vimeo', embed: `https://player.vimeo.com/video/${m[1]}` };
+      return { kind: 'embed', src: s, remote, provider: 'Vimeo', embed: `https://player.vimeo.com/video/${m[1]}${startSeconds(s) ? `#t=${startSeconds(s)}s` : ''}` };
     }
     // 互動網頁:CodePen 的作品(顯示執行結果)、GitHub Pages 上的網頁
     if ((m = s.match(/^https:\/\/codepen\.io\/([\w-]+)\/(?:pen|full|details|embed)\/([\w-]+)/i))) {

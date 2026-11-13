@@ -1,7 +1,7 @@
 // 畫布編輯工具的純函式。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { membersOf, withMembers, alignNodes, distribute, snapLines, snapMove, copyFragment, parseFragment, pasteFragment, searchNodes, groupOutline, buildBoardSvg, wrapText, strokesToSvg } from '../app/core/canvas-ops.js';
+import { membersOf, withMembers, alignNodes, distribute, snapLines, snapMove, copyFragment, parseFragment, pasteFragment, searchNodes, groupOutline, boardOutline, buildBoardSvg, wrapText, strokesToSvg } from '../app/core/canvas-ops.js';
 
 const N = (id, x, y, w = 100, h = 50, extra = {}) => ({ id, type: 'text', text: id, x, y, width: w, height: h, ...extra });
 
@@ -112,4 +112,34 @@ test('minimapFrame:包住卡片與目前位置,撐成小地圖的長寬比', asy
   assert.ok(Math.abs(f.width / f.height - 2) < 1e-9, '長寬比要符合小地圖框');
   const e = minimapFrame(null, { x: 10, y: 10, width: 300, height: 200 }, 1.5);
   assert.ok(Math.abs(e.width / e.height - 1.5) < 1e-9 && e.x < 10 && e.y < 10, '空畫布只看目前位置,也要留邊');
+});
+
+test('boardOutline:頂層群組依位置排、巢狀群組縮排、未分組放最後,連線寫成 → 目標 (文字)', () => {
+  const board = {
+    nodes: [
+      { id: 'g2', type: 'group', label: '右邊', x: 500, y: 0, width: 300, height: 300 },
+      { id: 'g1', type: 'group', label: '左邊', x: 0, y: 0, width: 400, height: 500 },
+      { id: 'g1a', type: 'group', label: '內層', x: 20, y: 200, width: 360, height: 280 },
+      { id: 'a', type: 'text', text: '**甲**\n說明一行', x: 20, y: 40, width: 200, height: 80 },
+      { id: 'b', type: 'text', text: '乙', x: 40, y: 240, width: 200, height: 80 },
+      { id: 'c', type: 'file', file: 'notes/x/n.md', x: 520, y: 40, width: 200, height: 80 },
+      { id: 'd', type: 'link', url: 'https://example.com', x: 0, y: 900, width: 200, height: 80 },
+    ],
+    edges: [{ id: 'e1', fromNode: 'a', toNode: 'c', label: '導致' }, { id: 'e2', fromNode: 'b', toNode: 'gone' }],
+  };
+  const describe = n => (n.file === 'notes/x/n.md' ? { kind: 'note', title: '丙筆記' } : { kind: 'other', title: '' });
+  const { items, markdown } = boardOutline(board, describe, { title: '畫布', loose: '未分組' });
+  assert.deepEqual(items.map(i => [i.id, i.depth]), [['g1', 0], ['a', 1], ['g1a', 1], ['b', 2], ['g2', 0], ['c', 1], ['', 0], ['d', 1]]);
+  assert.deepEqual(items.find(i => i.id === 'a').edges, [{ id: 'c', text: '丙筆記', label: '導致' }]);
+  assert.deepEqual(items.find(i => i.id === 'b').edges, [], '指向不存在卡片的連線略過');
+  assert.equal(markdown, ['# 畫布', '', '## 左邊', '', '- **甲**', '  說明一行', '  - → 丙筆記 (導致)', '- **內層**', '  - 乙', '',
+    '## 右邊', '', '- [[丙筆記]]', '', '## 未分組', '', '- [https://example.com](https://example.com)', ''].join('\n'));
+});
+
+test('boardOutline:沒有群組時就是一層清單;空畫布沒有項目', () => {
+  const board = { nodes: [{ id: 'b', type: 'text', text: '二', x: 0, y: 200, width: 100, height: 50 }, { id: 'a', type: 'text', text: '一', x: 0, y: 0, width: 100, height: 50 }], edges: [] };
+  const r = boardOutline(board, () => ({ kind: 'other', title: '' }));
+  assert.deepEqual(r.items.map(i => [i.id, i.depth]), [['a', 0], ['b', 0]]);
+  assert.equal(r.markdown, '- 一\n- 二\n');
+  assert.deepEqual(boardOutline({ nodes: [], edges: [] }, () => ({})).items, []);
 });

@@ -330,6 +330,14 @@ def main():
             for v in ['notes', 'table'] if h == '#/repo' else ['']:
                 if v: page.click(f'.segmented [data-view={v}]'); page.wait_for_timeout(400)
                 errors.extend(f'沒有名稱({h or "首頁"} {v}):{x}' for x in page.evaluate(unnamed))
+            if '/b/' in h:  # 大綱檢視:按 O 打開,列出卡片,點一項會選取那張卡片
+                page.locator('.board-view').click(position={'x': 5, 'y': 300}); page.keyboard.press('o'); page.wait_for_timeout(500)
+                if not page.locator('.board-outline .bo-list button').count(): errors.append('大綱檢視沒有列出卡片')
+                errors.extend(f'沒有名稱(大綱檢視):{x}' for x in page.evaluate(unnamed))
+                page.locator('.board-outline .bo-list button').first.click(); page.wait_for_timeout(500)
+                if not page.locator('.bnode.sel').count(): errors.append('點大綱項目沒有選取卡片')
+                page.keyboard.press('Escape'); page.keyboard.press('Escape'); page.keyboard.press('Escape'); page.wait_for_timeout(300)
+                if page.is_visible('.board-outline'): errors.append('Esc 沒有關掉大綱檢視')
         browser.close()
 
     if errors:

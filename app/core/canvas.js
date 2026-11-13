@@ -142,6 +142,12 @@ export function fileKind(file) {
   return 'other';
 }
 
+/** PDF 卡從第幾頁開始:JSON Canvas 的 subpath 欄位寫 "#page=3"(和 Obsidian 相同);沒有或不合法就是 0。 */
+export function pdfPage(node) {
+  const m = String(node?.subpath || '').match(/^#page=(\d{1,5})$/);
+  return m && +m[1] > 0 ? +m[1] : 0;
+}
+
 /** 使用者貼上的可能是整段 <iframe ...>(Google 簡報的嵌入碼):取出 src。 */
 export function extractURL(input) {
   const s = String(input || '').trim();

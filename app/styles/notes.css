@@ -519,6 +519,25 @@ body.immersive .note-side .toc summary { list-style: none; pointer-events: none;
 .board-mini-btn { position: absolute; right: 14px; bottom: 14px; z-index: 18; width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--muted); cursor: pointer; box-shadow: 0 4px 14px rgb(var(--shadow) / .14); }
 .board-mini-btn:hover, .board-mini-btn[aria-pressed=true] { color: var(--accent); }
 .board-page.presenting .board-mini, .board-page.presenting .board-mini-btn { display: none !important; }
+/* 畫布的大綱檢視 */
+.board-outline { position: absolute; left: 14px; top: 66px; bottom: 14px; z-index: 19; width: min(320px, calc(100% - 28px)); display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 12px; background: color-mix(in srgb, var(--surface) 96%, transparent); backdrop-filter: blur(6px); box-shadow: 0 12px 30px rgb(var(--shadow) / .2); overflow: hidden; }
+.board-outline[hidden] { display: none; }
+.bo-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); font-size: 14px; }
+.bo-head b { flex: 1; }
+.bo-tools { display: flex; gap: 4px; }
+.bo-tools button { font: inherit; font-size: 13px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--ink); cursor: pointer; }
+.bo-list { list-style: none; margin: 0; padding: 8px 6px 12px; overflow: auto; flex: 1; overscroll-behavior: contain; }
+.bo-list > li { padding-left: calc(var(--d, 0) * 16px); }
+.bo-list button { display: block; width: 100%; text-align: left; font: inherit; font-size: 14px; line-height: 1.45; padding: 4px 8px; border: 0; border-radius: 7px; background: transparent; color: var(--ink); cursor: pointer; overflow-wrap: anywhere; }
+.bo-list button:hover, .bo-list button:focus-visible, .bo-list button.on { background: var(--bg-deep); }
+.bo-list .bo-group { font-weight: 700; margin-top: 6px; }
+.bo-list .bo-loose { display: block; padding: 4px 8px; margin-top: 6px; color: var(--muted); font-size: 13px; }
+.bo-list .bo-file { color: var(--accent); }
+.bo-list ul { list-style: none; margin: 0; padding: 0 0 0 14px; }
+.bo-list .bo-edge button { font-size: 13px; color: var(--muted); padding: 2px 8px; }
+.bo-list .bo-edge i { font-style: normal; opacity: .8; }
+.bo-list .bo-empty { padding: 8px; color: var(--muted); font-size: 14px; }
+@media (max-width: 720px) { .board-outline { top: auto; left: 8px; right: 8px; width: auto; max-height: 55%; } }
 @media (max-width: 720px) { .board-mini { width: 150px; height: 110px; right: 10px; bottom: 56px; } .board-mini-btn { right: 10px; bottom: 10px; } }
 .board-menu kbd, .board-ctx kbd { margin-left: auto; padding-left: 18px; font: 12px/1 ui-monospace, monospace; color: var(--muted); background: none; border: 0; }
 .board-menu > button { display: flex; align-items: center; }
