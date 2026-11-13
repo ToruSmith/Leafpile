@@ -277,7 +277,7 @@ You can also drop a zip onto the site: on your library page it starts an import;
 
 **Generate with AI** on the library page, or Ctrl+K → "Generate … with AI". One kind at a time.
 
-1. Choose what to generate (note / deck / board), the topic and title, paste your material (highlights, summaries, meeting notes…), and optionally add one extra request.
+1. Choose what to generate (note / deck / board), the topic and title, paste your material (highlights, summaries, meeting notes…), and optionally add one extra request. **The material can be left empty**: after the AI opens, upload a PDF, document or image right in the AI chat (a prefilled link cannot carry files); the prompt then says the material is in your attachments.
 2. Press **Open Claude**, **Open ChatGPT**, **Open Gemini** or **Copy prompt only**. The prompt is copied and a new tab opens; paste it with Ctrl+V and send (Claude and ChatGPT get it prefilled when it is short).
 3. Paste the AI's whole reply back → import preview → confirm.
 

@@ -86,3 +86,11 @@ test('generate:三種組出來的檔案放進書庫都通過檢查', async () =>
   const r = await checkVault(memorySource(lib));
   assert.deepEqual(r.problems, [], JSON.stringify(r.problems));
 });
+
+test('資料留空(改在 AI 那邊上傳檔案)時,提示詞改成指向附件,不留空的「資料:」', () => {
+  for (const kind of ['note', 'deck', 'board']) {
+    const p = buildPrompt({ kind, title: 'T', data: '  ' });
+    assert.doesNotMatch(p, /資料:\s*$/, kind);
+    assert.match(p, /附件/, kind);
+  }
+});

@@ -47,7 +47,6 @@ export async function generateDialog({ topics }) {
     if (!r || r.value === null) return null;
     fields = r.fields;
     if (!String(fields.title || '').trim()) { error = t('gen.needTitle'); continue; }
-    if (!String(fields.data || '').trim()) { error = t('gen.needData'); continue; }
     writePref(LAST_KEY, JSON.stringify({ kind: fields.kind, topic: fields.topic, target: r.value || last.target || '' }));
     return { kind: fields.kind, topicId: fields.topic, title: fields.title.trim(), extra: fields.extra || '', data: fields.data, target: r.value };
   }

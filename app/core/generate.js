@@ -33,7 +33,7 @@ export function buildPrompt({ kind, title, topic = '', extra = '', data = '' }) 
     title: String(title).trim(),
     topic: String(topic).trim(),
     extra: String(extra).trim() ? t('gen.extraLine', { extra: String(extra).trim() }) : '',
-    data: String(data).trim(),
+    data: String(data).trim() || t('gen.dataAttached'),
   }).replace(/\n{3,}/g, '\n\n');
 }
 
