@@ -6,7 +6,7 @@ English · [繁體中文](README.md)
 
 Leafpile connects two things that are usually done twice: you collect notes in Markdown, promote them into a 3D card-pile slide deck when it is time to share, and save the Q&A back into your notes afterwards. Files stay on your computer or USB drive; the website only reads them. Nothing to install, nothing uploaded.
 
-**Live site: <https://torusmith.github.io/Leafpile/>** · current version v0.10.1 · [Join the public beta](docs/BETA.en.md)
+**Live site: <https://torusmith.github.io/Leafpile/>** · current version v0.11.0 · [Join the public beta](docs/BETA.en.md)
 
 ![Shelf: notes and decks under the same topic](docs/images/shelf.en.webp)
 
@@ -69,6 +69,8 @@ Full rules: [`docs/INTEROP.md`](docs/INTEROP.md) (Traditional Chinese). Deck for
 | Find your way across many topics | The sidebar on wide screens: a category → topic → notebook → note tree, with pins and recently opened |
 | See all notes at once | **Table** on the library page: sort and filter by title, topic, tags and dates, and group by category, topic, month, tag and more with collapsible groups (read-only) |
 | Change the look | **Appearance** in the top bar: Automatic, Paper, Ink, Slate, Sepia, Nord |
+| Generate notes, decks, boards with AI | **Generate with AI** on the library page: paste material → copy the prompt and open Claude/ChatGPT/Gemini → paste the reply back, preview, import |
+| Back up, share, merge libraries | **Library pack** on the library page: export a zip (whole or public part), import a zip/folder/AI reply (never overwrites); open someone's zip with **Open a zip library pack** on the home page |
 | Rename a topic, change its category or color | **Table** → **Topics** → **Edit**, or **Manage categories**. You preview the exact lines first, can undo after writing, and your YAML comments are kept (needs a local folder opened in Chrome/Edge) |
 | Check the library | **✓ Check** on the library page, or `node leafpile-check.mjs` |
 

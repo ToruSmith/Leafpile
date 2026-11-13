@@ -33,6 +33,11 @@ import { topicConfPath, planTopicEdit, newTopicYaml, planCategories, suggestTopi
 import { parseYaml } from './core/yaml.js';
 import { openCheckPanel } from './ui/check-view.js';
 import { dialog, confirmDialog, toast } from './ui/dialog.js';
+import { readZip, writeZip } from './core/zip.js';
+import { fileKind, walkFiles, exportPlan, parsePackText, normalizeIncoming, planImport } from './core/pack.js';
+import { packDialog, importSourceDialog, pasteDialog, previewDialog as packPreview } from './ui/pack.js';
+import { buildPrompt, aiURL, assembleGenerated, AI_TARGETS } from './core/generate.js';
+import { generateDialog, replyDialog } from './ui/generate.js';
 import { Player } from './player/player.js';
 import { noteToDeck } from './player/flash.js';
 import { openExportDialog } from './player/export.js';
@@ -42,7 +47,7 @@ import { applyUITheme, setUIChoice, uiChoiceNow, THEMES, themeName } from './pla
 import { readPref, writePref } from './ui/prefs.js';
 import { t, setLang, getLang, normalizeLang } from './core/i18n.js';
 
-export const VERSION = '0.10.1';
+export const VERSION = '0.11.0';
 const REPO_URL = 'https://github.com/ToruSmith/Leafpile';
 const MDSLIDE_URL = 'https://github.com/ToruSmith/Mdslide-Pile';
 
@@ -378,6 +383,7 @@ async function home() {
           <div class="actions">
             <button class="btn primary open-folder">${t('home.open')}</button>
             ${repoOK ? `<a class="btn ghost" href="#/repo">${t('home.repo')}</a>` : ''}
+            <button class="btn ghost open-zip" title="${esc(t('home.openZipTitle'))}">${t('home.openZip')}</button>
           </div>
           <p class="small">${canPickDirectory() ? t('home.tipPicker') : t('home.tipNoPicker')}</p>
         </div>
@@ -398,6 +404,7 @@ async function home() {
     </main>`;
 
   app.querySelector('.open-folder').onclick = openFolder;
+  app.querySelector('.open-zip').onclick = async () => { const f = (await pickFiles({ accept: '.zip,application/zip' }))?.[0]; if (f) openZip(f); };
   app.querySelectorAll('.forget').forEach(b => b.onclick = async e => { e.preventDefault(); await forget(b.dataset.id); home(); });
   const input = app.querySelector('.dir-input');
   input.onchange = () => { if (input.files.length) useSession(FileListSource.fromInput(input.files)); };
@@ -463,6 +470,8 @@ async function showShelf(key) {
         onNewBoard: vault.kind === 'leafpile' && source.canWrite ? () => newBoard(key) : null,
         onRefresh: key === 'repo' ? null : () => { invalidate(key); showShelf(key); },
         onCheck: () => runCheck(key),
+        onPack: vault.kind === 'leafpile' && !state.visitor ? () => packMenu(key) : null,
+        onGenerate: vault.kind === 'leafpile' && source.canWrite && !state.visitor ? () => generateFlow(key) : null,
         onNewNote: vault.notesSource?.canWrite ? () => newNote(key) : null,
         onTopicEdit: vault.kind === 'leafpile' && source.canWrite ? id => editTopic(key, id) : null,
         onTopicNew: vault.kind === 'leafpile' && source.canWrite && vault.notesSource ? () => newTopic(key) : null,
@@ -1098,6 +1107,8 @@ async function paletteItems() {
       if (st?.notes.length) act(t('deck.openSource'), () => { location.hash = href.note(st.notes[0].rel); });
       if ((st?.status === 'changed' || st?.status === 'untracked') && state.sources.get(key)?.canWrite) act(t(st.status === 'changed' ? 'deck.markSynced' : 'deck.trackSource'), () => markSynced(key, deck.topicId, deck.projectId));
       if (vault.notesSource?.canWrite) act(t('palette.newNote'), () => newNote(key, rel ? findNote(vault, rel)?.topic.id : undefined));
+      if (vault.kind === 'leafpile' && state.sources.get(key)?.canWrite) act(t('palette.generate'), () => generateFlow(key));
+      if (vault.kind === 'leafpile') act(t('palette.pack'), () => packMenu(key));
       act(t('palette.shelf'), () => { location.hash = href.shelf; });
       act(t('palette.check'), () => runCheck(key));
       if (g) {
@@ -1196,6 +1207,198 @@ document.addEventListener('keydown', e => {
   }
 }, true);
 
+// ---------------- 書庫包:匯出、匯入、直接開 zip ----------------
+// 規則在 core/pack.js(哪些檔案、怎麼合併),這裡負責讀寫檔案、下載與復原。
+
+const readLibraryFile = (src, path) => (fileKind(path) === 'binary' ? src.readBytes(path) : src.readText(path));
+
+function downloadBytes(bytes, name, type = 'application/zip') {
+  const url = URL.createObjectURL(new Blob([bytes], { type }));
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+const packName = (title, publicOnly) => `${String(title || 'leafpile').replace(/[\\/:*?"<>|\s]+/g, '-').replace(/^-+|-+$/g, '') || 'leafpile'}-${new Date().toISOString().slice(0, 10)}${publicOnly ? '-public' : ''}.zip`;
+const packError = e => (e instanceof UserError ? e.message : /^zip:/.test(e?.message || '') ? t('pack.zipError') : e?.message === 'denied' ? t('ne.denied') : t('pack.failed', { error: e?.message || e }));
+
+/**
+ * 選一個檔案(或資料夾裡的所有檔案)。使用者取消時這個 Promise 不會結束(呼叫端就什麼都不做)。
+ * 不在「cancel」事件時結束:有些環境(例如自動化測試的 Firefox)會先送 cancel 再送 change。
+ */
+function pickFiles({ accept = '', dir = false } = {}) {
+  document.querySelectorAll('input.lp-picker').forEach(el => el.remove()); // 上次取消留下的
+  return new Promise(resolve => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.className = 'lp-picker';
+    input.hidden = true;
+    if (accept) input.accept = accept;
+    if (dir) { input.webkitdirectory = true; input.multiple = true; }
+    // 放進頁面裡:有些瀏覽器(例如 iOS Safari)對不在頁面上的輸入框不一定會觸發 change
+    document.body.append(input);
+    input.addEventListener('change', () => { if (!input.files?.length) return; input.remove(); resolve([...input.files]); });
+    input.click();
+  });
+}
+
+async function zipToFiles(file) {
+  const { files, skipped } = await readZip(new Uint8Array(await file.arrayBuffer()));
+  return { files: [...files, ...skipped.map(s => ({ path: s.path, data: '' }))], label: file.name };
+}
+
+async function packMenu(key) {
+  const src = state.sources.get(key);
+  const choice = await packDialog({ canImport: !!src?.canWrite });
+  if (choice === 'import') return importPack(key);
+  if (choice) return exportPack(key, choice === 'public');
+}
+
+async function exportPack(key, publicOnly) {
+  try {
+    const vault = await getVault(key);
+    const src = state.sources.get(key);
+    toast(t('pack.exporting'));
+    const graph = publicOnly ? await getGraph(key) : null;
+    const { include, skipped } = exportPlan(await walkFiles(src), { vault, graph, publicOnly });
+    if (!include.length) return toast(t('pack.empty'));
+    const entries = [];
+    for (const path of include) entries.push({ path, data: await readLibraryFile(src, path) });
+    downloadBytes(await writeZip(entries), packName(vault.title, publicOnly));
+    const priv = skipped.filter(s => s.reason === 'private').length;
+    toast(t(publicOnly ? 'pack.exportedPublic' : 'pack.exported', { n: include.length, priv }), {
+      ms: 9000, actions: publicOnly ? [{ label: t('privacy.button'), run: () => runPrivacy(key) }] : [],
+    });
+  } catch (e) { toast(packError(e), { ms: 7000 }); }
+}
+
+async function importPack(key) {
+  try {
+    const how = await importSourceDialog();
+    if (!how) return;
+    let got = null;
+    if (how === 'text') {
+      const text = await pasteDialog();
+      if (text == null) return;
+      const files = parsePackText(text);
+      if (!files.length) throw new UserError(t('pack.noFilesInText'));
+      got = { files, label: t('pack.labelText') };
+    } else if (how === 'zip') {
+      const f = (await pickFiles({ accept: '.zip,application/zip' }))?.[0];
+      if (!f) return;
+      got = await zipToFiles(f);
+    } else {
+      got = await pickFolderFiles();
+      if (!got) return;
+    }
+    await importFiles(key, got.files, got.label);
+  } catch (e) { toast(packError(e), { ms: 8000 }); }
+}
+
+/** 選一個資料夾來匯入:Chrome/Edge 用資料夾選擇器;其他瀏覽器用 <input webkitdirectory>。只讀書庫會用到的檔案。 */
+async function pickFolderFiles() {
+  let src, label;
+  if (canPickDirectory()) {
+    let h;
+    try { h = await window.showDirectoryPicker({ id: 'leafpile-import', mode: 'read' }); } catch (e) { if (e.name === 'AbortError') return null; throw e; }
+    src = new HandleSource(h); label = h.name;
+  } else {
+    const list = await pickFiles({ dir: true });
+    if (!list) return null;
+    src = FileListSource.fromInput(list); label = src.label;
+  }
+  const raw = await walkFiles(src);
+  const paths = normalizeIncoming(raw.map(path => ({ path, data: '' }))); // 順序不變,只去掉外層資料夾
+  const files = [];
+  for (let i = 0; i < paths.length; i++) {
+    const keep = fileKind(paths[i].path) && !/^_archive\//.test(paths[i].path);
+    files.push({ path: paths[i].path, data: keep ? await readLibraryFile(src, raw[i]) : '' });
+  }
+  return { files, label };
+}
+
+/** 規劃 → 預覽 → 寫入 → 可以復原。絕不覆蓋既有檔案(見 core/pack.js)。 */
+async function importFiles(key, files, label) {
+  const src = state.sources.get(key);
+  if (!src?.canWrite) return toast(t('ne.readonly'));
+  const plan = await planImport(normalizeIncoming(files), {
+    exists: async p => (await src.stat(p)) != null,
+    read: p => readLibraryFile(src, p),
+  });
+  if (!(await packPreview(plan, { label }))) return;
+  const written = [], failed = [];
+  let siteOld = null;
+  for (const it of plan.items) {
+    if (!['add', 'rename', 'merge'].includes(it.action)) continue;
+    try {
+      if (it.action === 'merge') {
+        await src.writeText(it.path, it.data, { expect: await src.stat(it.path) });
+        siteOld = it.old;
+      } else if (it.kind === 'binary') {
+        await src.writeFile(it.path, it.data, { expect: null });
+        written.push(it.path);
+      } else {
+        await src.writeText(it.path, it.data, { mkdir: true, expect: null });
+        written.push(it.path);
+      }
+    } catch (e) {
+      failed.push(`${it.path}(${packError(e)})`);
+      if (e.message === 'denied') break;
+    }
+  }
+  invalidate(key);
+  route();
+  const d = new Date(), two = x => String(x).padStart(2, '0');
+  const stamp = `${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}`; // 本地時間
+  const undo = async () => {
+    let n = 0, site = false;
+    for (const p of written) {
+      try { await src.archive(p, ['_archive', `import-${stamp}`, ...p.split('/').slice(0, -1)].join('/')); n++; } catch { /* 已經被移走或改過:略過 */ }
+    }
+    if (siteOld != null) { try { await src.writeText('_site.yml', siteOld); site = true; } catch { /* 略過 */ } }
+    invalidate(key); route();
+    toast([n ? t('pack.undone', { n, dir: `_archive/import-${stamp}` }) : '', site ? t('pack.siteRestored') : ''].filter(Boolean).join(' '), { ms: 7000 });
+  };
+  const done = written.length + (siteOld != null ? 1 : 0);
+  if (failed.length) await dialog({ title: t('pack.someFailed', { n: failed.length }), list: failed, buttons: [{ label: t('dialog.ok'), value: true, primary: true }] });
+  if (done) toast(t('pack.imported', { n: done }), { ms: 15000, actions: [{ label: t('tm.undo'), run: undo }, { label: t('lib.check'), run: () => runCheck(key) }] });
+}
+
+/** 首頁「開啟 zip 書庫包」或把 zip 拖進來:任何瀏覽器都能看(唯讀)。 */
+async function openZip(file) {
+  try {
+    const { files } = await zipToFiles(file);
+    const list = normalizeIncoming(files.filter(f => typeof f.data !== 'string')); // 略過的項目(data 是 '')不放
+    const name = file.name.replace(/\.zip$/i, '');
+    useSession(new FileListSource(list.map(f => ({ file: new File([f.data], f.path.split('/').pop()), path: f.path })), name));
+  } catch (e) { showError(new UserError(packError(e))); }
+}
+
+// ---------------- 用 AI 生成(筆記、簡報、畫布) ----------------
+// 填資料 → 複製提示詞並開啟 AI → 貼回回覆 → 組成檔案(core/generate.js)→ 匯入預覽(importFiles)。
+async function generateFlow(key) {
+  try {
+    const vault = await getVault(key);
+    const topics = vault.topics.filter(tp => tp.id !== '_' && tp.notes).map(tp => ({ id: tp.id, title: tp.title }));
+    const g = await generateDialog({ topics });
+    if (!g) return;
+    const newTopic = !g.topicId;
+    const topicId = g.topicId || '01-inbox';
+    const topicName = newTopic ? t('gen.inboxName') : vault.topics.find(tp => tp.id === topicId)?.title || topicId;
+    const prompt = buildPrompt({ kind: g.kind, title: g.title, topic: topicName, extra: g.extra, data: g.data });
+    let copied = false;
+    try { await navigator.clipboard.writeText(prompt); copied = true; } catch { /* 沒有權限:下一步的方框裡可以手動複製 */ }
+    const target = AI_TARGETS.find(a => a.id === g.target);
+    if (target) window.open(aiURL(target.id, prompt), '_blank', 'noopener');
+    toast(t(copied ? 'gen.copied' : 'gen.copyFailed'), { ms: copied ? 3000 : 7000 });
+    const reply = await replyDialog({ prompt, opened: target?.name || '' });
+    if (reply == null) return;
+    const files = assembleGenerated({ kind: g.kind, text: reply, title: g.title, topicId, topicName, newTopic, theme: vault.theme || 'paper', lang: getLang() });
+    if (!files.length) return toast(t('gen.empty'), { ms: 6000 });
+    await importFiles(key, files, t('gen.labelAI'));
+  } catch (e) { toast(packError(e), { ms: 8000 }); }
+}
+
 // ---------------- 拖放資料夾 ----------------
 window.addEventListener('dragover', e => { e.preventDefault(); document.body.classList.add('dragging'); });
 window.addEventListener('dragleave', e => { if (!e.relatedTarget) document.body.classList.remove('dragging'); });
@@ -1204,6 +1407,13 @@ window.addEventListener('drop', async e => {
   document.body.classList.remove('dragging');
   if (state.player || state.view?.isDirty) return;
   try {
+    // zip 書庫包:在可以寫入的書庫頁 → 匯入(會先預覽);其他地方 → 直接開來看(唯讀)
+    const zip = [...(e.dataTransfer.files || [])].find(f => /\.zip$/i.test(f.name));
+    if (zip) {
+      const m = location.hash.match(/^#\/(local\/[^/?]+)$/);
+      if (m && state.sources.get(m[1])?.canWrite && (await getVault(m[1]))?.kind === 'leafpile') return await importFiles(m[1], (await zipToFiles(zip)).files, zip.name);
+      return await openZip(zip);
+    }
     const src = await sourceFromDrop(e.dataTransfer);
     if (src) useSession(src); else showError(new UserError(t('err.dropFolder')));
   } catch (err) { showError(err); }

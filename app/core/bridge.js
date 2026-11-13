@@ -129,9 +129,11 @@ export function promoteNote(note, { source, today = new Date().toISOString().sli
     'sections:',
     ...sections.flatMap(s => [`  - folder: ${s.folder}`, `    title: ${yamlStr(s.title)}`]),
     `end: ${yamlStr(t('promote.end', null, note.lang))}`,
-    `# ${t('promote.sourceComment')}`,
-    `source: ${source.replace(/\.md$/i, '')}`,
-    `source_hash: "${sourceFingerprint([note])}"`,
+    ...(source ? [ // 沒有來源筆記(AI 生成的簡報)就不寫
+      `# ${t('promote.sourceComment')}`,
+      `source: ${source.replace(/\.md$/i, '')}`,
+      `source_hash: "${sourceFingerprint([note])}"`,
+    ] : []),
     '',
   ].filter(l => l != null).join('\n');
   return { folder: `${today}-${safeName(note.title, 'deck')}`, files, slides, sections: sections.length };

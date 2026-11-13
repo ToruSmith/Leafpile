@@ -9,7 +9,7 @@ Leafpile 把一個本機資料夾同時當成筆記庫與簡報庫：`notes/` �
 
 ## 目前階段
 
-v0.10.1：P1、P2 完成；P3 完成畫布（含嵌入與簡報模式）、發布前檢查、筆記改名／搬移／封存、沉浸閱讀與字級、畫布小地圖與右鍵選單、書庫表格檢視與分組、側邊欄、主題管理（設定類）、書庫索引、外觀主題。結構類主題管理視需要再做（見路線圖）。路線圖的 P3 都已完成或量測後暫緩（圖譜快取，見 [`docs/ROADMAP.md`](docs/ROADMAP.md)）；目前在 v1.0 閘門，照路線圖的清單逐項完成。**開始寫程式前先確認目前在哪個階段，不要跳做後面階段的功能。**
+v0.11.0：P1、P2 完成；P3 完成畫布（含嵌入與簡報模式）、發布前檢查、筆記改名／搬移／封存、沉浸閱讀與字級、畫布小地圖與右鍵選單、書庫表格檢視與分組、側邊欄、主題管理（設定類）、書庫索引、外觀主題、書庫包（匯出、匯入、開 zip）、用 AI 生成。結構類主題管理視需要再做（見路線圖）。路線圖的 P3 都已完成或量測後暫緩（圖譜快取，見 [`docs/ROADMAP.md`](docs/ROADMAP.md)）；目前在 v1.0 閘門，照路線圖的清單逐項完成。**開始寫程式前先確認目前在哪個階段，不要跳做後面階段的功能。**
 
 簡報引擎（`app/player/`、`app/core/` 的 slide、markdown、library 等）來自 [Mdslide Pile](https://github.com/ToruSmith/Mdslide-Pile) v1.14.0。它的洗牌動畫有守門測試（`tests/protected.test.mjs`），**未經維護者同意不得修改**。
 
@@ -43,6 +43,8 @@ app/
     scale.js          筆記字級（十級，0.8–2.2 倍）           ← Leafpile
     table.js          書庫表格檢視（唯讀，front matter 欄位、分組）← Leafpile
     index.js          書庫索引（check --index，給 AI 先看全貌）  ← Leafpile
+    zip.js pack.js    書庫包：zip 讀寫、匯出規則、匯入合併（不覆蓋）← Leafpile
+    generate.js       用 AI 生成：提示詞、組檔案                ← Leafpile
     nav.js            側邊欄的樹狀目錄、釘選與最近開過         ← Leafpile
     yaml-edit.js      設定檔的局部改寫（保留註解）             ← Leafpile
     topics.js         主題管理（設定類）的規則與預覽           ← Leafpile

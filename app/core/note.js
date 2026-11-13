@@ -227,3 +227,14 @@ export function sourceFingerprint(notes) {
   }
   return h.toString(16).padStart(8, '0');
 }
+
+/** 新筆記的檔名:日期 + 標題(去掉檔名不能用的字元)。 */
+export function newNoteFileName(title, date = new Date().toISOString().slice(0, 10)) {
+  const safe = String(title).trim().replace(/[\\/:*?"<>|#^[\]\u0000-\u001f]/g, '').replace(/\s+/g, '-').slice(0, 60) || 'note';
+  return `${date}-${safe}.md`;
+}
+
+/** 新筆記的內容(front matter + 標題)。 */
+export function newNoteText(title, date = new Date().toISOString().slice(0, 10)) {
+  return `---\ntitle: ${/[:#'"[\]{},&*!|>%@`]/.test(title) ? JSON.stringify(title) : title}\ndate: ${date}\ntags: []\n---\n# ${title}\n\n`;
+}

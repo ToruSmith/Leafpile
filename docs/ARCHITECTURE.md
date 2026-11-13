@@ -34,6 +34,9 @@ Leafpile 沿用 Mdslide Pile 的分層：資料只往下流，**來源 → `core
 | `core/bridge.js` | `expandEmbeds()`、`promoteNote()`、`promoteBook()`、`distillDeck()` |
 | `core/check.js` | `checkVault()`：簡報規則（沿用）＋筆記與互通規則；錯誤與警告分開 |
 | `core/index.js` | `buildIndex()`、`indexMarkdown()`、`libraryIndex()`：書庫索引（`--index`），所有筆記、簡報、畫布與連結的一覽，給 AI 先看全貌；用時才產生、不存檔。`--public` 用 `graph` 裡的公開判斷過濾 |
+| `core/zip.js` | 零依賴 zip 讀寫（`CompressionStream('deflate-raw')`）；擋 `../`、隱藏檔、解壓縮炸彈 |
+| `core/pack.js`、`ui/pack.js` | 書庫包：匯出哪些檔案（公開包的規則）、文字書庫包格式、匯入規劃（絕不覆蓋）；寫檔與復原在 `main.js` 的 `exportPack`／`importFiles` |
+| `core/generate.js`、`ui/generate.js` | 用 AI 生成：精簡提示詞（在語言檔）、AI 網址、把回覆組成筆記／簡報（`promoteNote`）／畫布（大綱自動排版） |
 | `player/flash.js` | `noteToDeck()`：筆記 → 播放器要的 deck 物件 |
 | `ui/shelf.js` | 書架：分類、主題、筆記本、散篇、簡報卡片、急件、全文搜尋 |
 | `ui/notes/reader.js`、`editor.js` | 閱讀（目錄、反向連結）與編輯（即時預覽、草稿保護、`[[` 自動完成） |

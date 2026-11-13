@@ -277,6 +277,25 @@ def main():
             ctx.set_offline(False)
         else:
             errors.append('service worker 沒有接手頁面')
+        # 書庫包:內建範例可以匯出 zip;首頁「開啟 zip 書庫包」打開它(任何瀏覽器都能看,唯讀)
+        page.goto(BASE + '#/repo'); page.wait_for_timeout(1500)
+        page.click('.pack-btn'); page.wait_for_timeout(300)
+        assert page.locator('.lp-dialog button:has-text("匯入")').count() == 0, '唯讀的書庫不該有匯入'
+        with page.expect_download() as dl:
+            page.click('.lp-dialog .primary')
+        zpath = dl.value.path()
+        import zipfile
+        names = zipfile.ZipFile(zpath).namelist()
+        assert zipfile.ZipFile(zpath).testzip() is None and any(n.startswith('notes/') for n in names) and '_site.yml' in names, f'匯出的 zip 不對:{names[:5]}'
+        page.goto(BASE); page.wait_for_timeout(1000)
+        with page.expect_file_chooser() as fc:
+            page.click('.open-zip')
+        fc.value.set_files(zpath)
+        for _ in range(40):
+            if '#/session' in page.url and page.locator('.note-row, .book-card').count() >= 2: break
+            page.wait_for_timeout(250)
+        assert '#/session' in page.url and page.locator('.note-row, .book-card').count() >= 2, f'開啟 zip 書庫包後沒有顯示筆記:{page.url} {page.inner_text("body")[:300]!r}'
+
         # 外觀選單:選了會套用、重新整理後還在、選「自動」回到書庫設定
         page.goto(BASE + '#/repo'); page.wait_for_timeout(1500)
         page.click('.theme-toggle'); page.wait_for_timeout(200)

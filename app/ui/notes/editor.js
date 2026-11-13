@@ -218,13 +218,5 @@ export function renderEditor(root, { vault, libId, rel, text, header, href, grap
   };
 }
 
-/** 新筆記的檔名:日期 + 標題(去掉檔名不能用的字元)。 */
-export function newNoteFileName(title, date = new Date().toISOString().slice(0, 10)) {
-  const safe = String(title).trim().replace(/[\\/:*?"<>|#^[\]\u0000-\u001f]/g, '').replace(/\s+/g, '-').slice(0, 60) || 'note';
-  return `${date}-${safe}.md`;
-}
-
-/** 新筆記的內容。 */
-export function newNoteText(title, date = new Date().toISOString().slice(0, 10)) {
-  return `---\ntitle: ${/[:#'"[\]{},&*!|>%@`]/.test(title) ? JSON.stringify(title) : title}\ndate: ${date}\ntags: []\n---\n# ${title}\n\n`;
-}
+// 新筆記的檔名與內容:規則在 core/note.js(AI 生成精靈也用同一套)
+export { newNoteFileName, newNoteText } from '../../core/note.js';
