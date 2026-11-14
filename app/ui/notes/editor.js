@@ -13,6 +13,7 @@ import { t } from '../../core/i18n.js';
 import { noteMediaPath } from './reader.js';
 import { dialog, confirmDialog, toast } from '../dialog.js';
 import { attachSlash } from '../slash-menu.js';
+import { attachPaste } from '../paste-md.js';
 
 const DRAFT_PREFIX = 'leafpile-draft:';
 
@@ -68,6 +69,7 @@ export function renderEditor(root, { vault, libId, rel, text, header, href, grap
   const ta = $('.ne-text'), md = $('.ne-preview .md'), status = $('.ne-status'), suggest = $('.ne-suggest');
   ta.value = text;
   const slash = writable ? attachSlash(ta) : null; // 輸入 / 跳出格式選單
+  if (writable) attachPaste(ta); // 貼上網頁、Word、Google 文件的內容時轉成 Markdown
   const dirty = () => ta.value !== state.original;
   const setStatus = msg => { status.textContent = msg; };
   const refreshStatus = () => { setStatus(dirty() ? t('ne.unsaved') : t('ne.saved')); $('.save')?.classList.toggle('pulse', dirty()); };

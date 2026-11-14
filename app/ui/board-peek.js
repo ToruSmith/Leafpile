@@ -13,6 +13,7 @@ import { noteMediaPath } from './notes/reader.js';
 import { draftKey, writeDraft, dropDraft } from './notes/editor.js';
 import { dialog, confirmDialog, toast } from './dialog.js';
 import { attachSlash } from './slash-menu.js';
+import { attachPaste } from './paste-md.js';
 
 /**
  * @param {HTMLElement} box   面板的容器(畫布裡的 aside)
@@ -85,6 +86,7 @@ export function createPeek(box, { vault, libId, href, graph, visible = () => tru
     const area = ta();
     area.value = text;
     slash = attachSlash(area);
+    attachPaste(area);
     area.addEventListener('input', () => { text = area.value; writeDraft(draftKey(libId, rel), text); setStatus(); });
     area.addEventListener('keydown', e => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); save(); }

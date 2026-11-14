@@ -28,6 +28,7 @@ import { renderShelf } from './ui/shelf.js';
 import { renderReader } from './ui/notes/reader.js';
 import { renderEditor, newNoteFileName, newNoteText, draftKey, dropDraft } from './ui/notes/editor.js';
 import { trashItems } from './core/trash.js';
+import { pasteMarkdown } from './core/html-md.js';
 import { openPalette } from './ui/palette.js';
 import { mountSidebar, recordRecent } from './ui/sidebar.js';
 import { topicDialog, previewDialog, describeChange, categoriesDialog } from './ui/topic-manage.js';
@@ -49,7 +50,7 @@ import { applyUITheme, setUIChoice, uiChoiceNow, THEMES, themeName } from './pla
 import { readPref, writePref } from './ui/prefs.js';
 import { t, setLang, getLang, normalizeLang } from './core/i18n.js';
 
-export const VERSION = '0.18.0';
+export const VERSION = '0.19.0';
 const REPO_URL = 'https://github.com/ToruSmith/Leafpile';
 const MDSLIDE_URL = 'https://github.com/ToruSmith/Mdslide-Pile';
 
@@ -791,20 +792,80 @@ async function quickCapture(key) {
       buttons: [{ label: t('dialog.cancel'), value: false }, { label: t('capture.save'), value: true, primary: true }],
     });
     if (!r?.value) return;
-    const note = captureNote(r.fields.text);
-    if (!note) return toast(t('capture.empty'));
-    const dir = inbox?.id || '';
-    let rel = '';
-    for (let n = 1; n <= 50 && !rel; n++) {
-      const cand = [dir, numberedName(note.fileName, n)].filter(Boolean).join('/');
-      if ((await vault.notesSource.stat(cand)) == null) rel = cand;
-    }
-    if (!rel) return toast(t('newNote.exists'));
-    await vault.notesSource.writeText(rel, note.text, { mkdir: true, expect: null });
-    invalidate(key);
-    toast(t('capture.done', { title: note.title }), { ms: 6000, actions: [{ label: t('capture.open'), run: () => { location.hash = hrefs(key).note(rel); } }] });
+    await saveCapture(key, vault, inbox?.id || '', r.fields.text);
   } catch (e) { noteErr(e); } finally { capturing = false; }
 }
+
+/** 把一段文字存成收件匣(或未歸類)的新筆記;提示上可以「打開」或「不要這篇」。 */
+async function saveCapture(key, vault, dir, raw, { discard = false } = {}) {
+  const note = captureNote(raw);
+  if (!note) return toast(t('capture.empty'));
+  let rel = '';
+  for (let n = 1; n <= 50 && !rel; n++) {
+    const cand = [dir, numberedName(note.fileName, n)].filter(Boolean).join('/');
+    if ((await vault.notesSource.stat(cand)) == null) rel = cand;
+  }
+  if (!rel) return toast(t('newNote.exists'));
+  await vault.notesSource.writeText(rel, note.text, { mkdir: true, expect: null });
+  invalidate(key);
+  const actions = [{ label: t('capture.open'), run: () => { location.hash = hrefs(key).note(rel); } }];
+  if (discard && state.sources.get(key)?.archiveTree) actions.push({
+    label: t('trash.discard'),
+    run: async () => {
+      try {
+        await moveToTrash(state.sources.get(key), [vault.notePath(rel)]);
+        invalidate(key);
+        toast(t('trash.discarded', { name: rel }), { ms: 4000 });
+        if (location.hash === hrefs(key).shelf) route();
+      } catch (e) { noteErr(e); }
+    },
+  });
+  toast(t('capture.done', { title: note.title }), { ms: 10000, actions });
+}
+
+/** 剪貼簿的內容存成新筆記:有 HTML 就轉成 Markdown(網頁、Word、Google 文件、Claude 對話)。 */
+let clipping = false;
+async function clipboardNote(key, html, text) {
+  if (clipping || !key) return;
+  const vault = await getVault(key).catch(() => null);
+  if (!vault?.notesSource?.canWrite || vault.kind !== 'leafpile') return toast(t('ne.readonly'));
+  clipping = true;
+  try {
+    const md = (html ? pasteMarkdown(html, text) : null) ?? text;
+    if (!String(md || '').trim()) return toast(t('clip.empty'));
+    const inbox = vault.notes.topics.find(tp => tp.id !== '_' && /inbox/i.test(tp.id));
+    await saveCapture(key, vault, inbox?.id || '', md, { discard: true });
+  } catch (e) { noteErr(e); } finally { clipping = false; }
+}
+async function readClipboard() {
+  try {
+    let html = '', text = '';
+    for (const it of await navigator.clipboard.read()) {
+      if (it.types.includes('text/html')) html = await (await it.getType('text/html')).text();
+      if (it.types.includes('text/plain')) text = await (await it.getType('text/plain')).text();
+    }
+    return { html, text };
+  } catch {
+    try { return { html: '', text: await navigator.clipboard.readText() }; } catch { return null; }
+  }
+}
+async function clipboardNoteFromPalette(key) {
+  const c = await readClipboard();
+  if (!c) return toast(t('clip.denied'), { ms: 6000 });
+  return clipboardNote(key, c.html, c.text);
+}
+// 在書庫頁(不在輸入框、對話框裡)直接按 Ctrl+V:把剪貼簿存成新筆記。畫布有自己的貼上,不會走到這裡
+window.addEventListener('paste', e => {
+  const key = state.current?.key;
+  if (!key || e.defaultPrevented || location.hash !== hrefs(key).shelf) return;
+  if (e.target.closest?.('input, textarea, select, [contenteditable], .lp-dialog')) return;
+  const cd = e.clipboardData;
+  if (!cd || cd.files?.length) return;
+  const text = cd.getData('text/plain');
+  if (!text.trim() && !cd.getData('text/html')) return;
+  e.preventDefault();
+  clipboardNote(key, cd.getData('text/html'), text);
+});
 
 /** 日記:打開某一天(預設今天)的日記;還沒有就建立(可寫入的書庫)。 */
 const localDay = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
@@ -1337,6 +1398,7 @@ async function paletteItems() {
       if ((st?.status === 'changed' || st?.status === 'untracked') && state.sources.get(key)?.canWrite) act(t(st.status === 'changed' ? 'deck.markSynced' : 'deck.trackSource'), () => markSynced(key, deck.topicId, deck.projectId));
       if (vault.notesSource?.canWrite) act(t('palette.newNote'), () => newNote(key, rel ? findNote(vault, rel)?.topic.id : undefined));
       if (vault.kind === 'leafpile' && vault.notesSource?.canWrite) act(t('capture.palette'), () => quickCapture(key), 'Alt+N');
+      if (vault.kind === 'leafpile' && vault.notesSource?.canWrite) act(t('clip.palette'), () => clipboardNoteFromPalette(key));
       if (vault.kind === 'leafpile' && vault.notesSource) act(t('journal.palette'), () => openJournal(key));
       if (vault.kind === 'leafpile' && state.sources.get(key)?.canWrite) act(t('palette.generate'), () => generateFlow(key));
       if (vault.kind === 'leafpile') act(t('palette.pack'), () => packMenu(key));
