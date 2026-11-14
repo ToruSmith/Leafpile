@@ -4,9 +4,57 @@
 import { edgePath, canvasColor, bounds, newId, fileKind, slideOrder } from './canvas.js';
 import { norm } from './links.js';
 
-/** 完全落在群組框裡的節點(不含群組自己)。 */
+// ---------- 群組 ----------
+// JSON Canvas 的群組只是一個框,檔案裡不記成員;「誰在這組」由位置決定(Obsidian 也是這樣)。
+// 判斷方式:卡片的中心點在框裡。用中心點而不是「整張完全在框裡」,卡片變長(顯示全文、
+// 適合內容、展開)超出邊緣,也不會默默離開群組。群組裡的群組另外要比外層小(面積),才不會互為成員。
+
+const area = n => Math.max(0, n.width) * Math.max(0, n.height);
+const centerIn = (n, g) => { const cx = n.x + n.width / 2, cy = n.y + n.height / 2; return cx > g.x && cx < g.x + g.width && cy > g.y && cy < g.y + g.height; };
+/** n 屬不屬於群組 g。 */
+export const inGroup = (n, g) => !!n && !!g && g.type === 'group' && n !== g && n.id !== g.id && (n.type !== 'group' || area(n) < area(g)) && centerIn(n, g);
+
+/** 在群組框裡的節點(不含群組自己;巢狀群組與它的成員都算)。 */
 export function membersOf(nodes, group) {
-  return nodes.filter(n => n !== group && n.id !== group.id && n.x >= group.x && n.y >= group.y && n.x + n.width <= group.x + group.width && n.y + n.height <= group.y + group.height);
+  return nodes.filter(n => inGroup(n, group));
+}
+
+/** 拖到這個位置時會進入哪個群組:中心點所在、最小的那個;skip = 正在拖動的(不算)。 */
+export function groupAt(nodes, box, skip = new Set()) {
+  let best = null;
+  for (const g of nodes) if (g.type === 'group' && !skip.has(g.id) && inGroup({ ...box, id: '\0' }, g) && (!best || area(g) < area(best))) best = g;
+  return best;
+}
+
+/**
+ * 卡片超出了所在群組的框:把群組(與外層群組)撐開,包住它並留 pad。不縮小、不搬動卡片。
+ * @param {string[]} ids  剛移動、變大或新放上的節點
+ * @param {Map<string, object>} [before]  變大之前的位置與大小:用它判斷原本屬於哪個群組
+ *   (卡片一下子長很多,中心點可能已經跑出框外,但它本來就在這組)
+ * @returns {{ id: string, x: number, y: number, width: number, height: number }[]}  要改的群組
+ */
+export function growGroups(nodes, ids, pad = 24, before = null) {
+  const copy = new Map(nodes.map(n => [n.id, { ...n }]));
+  const changed = new Map();
+  const queue = [...ids];
+  const first = new Set(ids);
+  for (let guard = 0; queue.length && guard < 500; guard++) {
+    const id = queue.shift();
+    const n = copy.get(id);
+    if (!n) continue;
+    const probe = first.has(id) && before?.get(id) ? { ...n, ...before.get(id) } : n;
+    first.delete(id);
+    for (const g of copy.values()) {
+      if (!inGroup(probe, g)) continue;
+      const x = Math.min(g.x, n.x - pad), y = Math.min(g.y, n.y - pad);
+      const r = Math.max(g.x + g.width, n.x + n.width + pad), b = Math.max(g.y + g.height, n.y + n.height + pad);
+      if (x === g.x && y === g.y && r === g.x + g.width && b === g.y + g.height) continue;
+      Object.assign(g, { x: Math.round(x), y: Math.round(y), width: Math.round(r - x), height: Math.round(b - y) });
+      changed.set(g.id, { id: g.id, x: g.x, y: g.y, width: g.width, height: g.height });
+      queue.push(g.id); // 外層群組也要跟著撐開
+    }
+  }
+  return [...changed.values()];
 }
 
 /** 選取的節點,加上被選取群組裡的節點(搬移、複製時一起帶走)。 */

@@ -26,8 +26,9 @@ import { attachSlash } from './slash-menu.js';
  * @param {(rel: string) => boolean} [o.onBoard]    這篇是不是已經在畫布上
  * @param {(rel: string) => void} [o.addToBoard]    放到畫布
  * @param {() => void} [o.onSaved]                   存檔後(重建圖譜,卡片內容跟著更新)
+ * @param {(rel: string) => void} [o.ask]            問 AI(這篇筆記,與畫布上連到它的卡片)
  */
-export function createPeek(box, { vault, libId, href, graph, visible = () => true, onChange, onBoard = () => true, addToBoard = null, onSaved }) {
+export function createPeek(box, { vault, libId, href, graph, visible = () => true, onChange, onBoard = () => true, addToBoard = null, onSaved, ask = null }) {
   const source = vault.notesSource;
   const writable = !!source?.canWrite;
   let rel = null, mode = 'read', text = '', original = '', stat = null, saving = false, seq = 0, slash = null;
@@ -45,6 +46,7 @@ export function createPeek(box, { vault, libId, href, graph, visible = () => tru
       <span class="pk-tools">
         ${tools && mode === 'read' && writable ? `<button type="button" data-pk="edit" title="${esc(t('peek.editTitle'))}">${esc(t('peek.edit'))}</button>` : ''}
         ${tools && mode === 'edit' ? `<span class="pk-status" role="status"></span><button type="button" data-pk="cancel">${esc(t('dialog.cancel'))}</button><button type="button" class="primary" data-pk="save" title="${esc(t('ne.saveTitle'))}">${esc(t('ne.save'))}</button>` : ''}
+        ${tools && mode === 'read' && rel && ask ? `<button type="button" data-pk="ask" title="${esc(t('ask.buttonTitle'))}">${esc(t('ask.button'))}</button>` : ''}
         ${tools && rel && addToBoard && !onBoard(rel) ? `<button type="button" data-pk="add" title="${esc(t('peek.addTitle'))}">${esc(t('peek.add'))}</button>` : ''}
         ${tools && rel ? `<a class="pk-page" href="${href.note(rel)}" title="${esc(t('peek.pageTitle'))}" aria-label="${esc(t('peek.pageTitle'))}">↗</a>` : ''}
         <button type="button" data-pk="close" aria-label="${esc(t('checkp.close'))}" title="${esc(t('peek.closeTitle'))}">×</button>
@@ -196,6 +198,7 @@ export function createPeek(box, { vault, libId, href, graph, visible = () => tru
       if (k === 'edit') return startEdit();
       if (k === 'cancel') return cancelEdit();
       if (k === 'save') return save();
+      if (k === 'ask') return ask?.(rel);
       if (k === 'add') { addToBoard?.(rel); b.remove(); return; }
       return;
     }

@@ -6,7 +6,7 @@ English · [繁體中文](README.md)
 
 Leafpile connects two things that are usually done twice: you collect notes in Markdown, promote them into a 3D card-pile slide deck when it is time to share, and save the Q&A back into your notes afterwards. Files stay on your computer or USB drive; the website only reads them. Nothing to install, nothing uploaded.
 
-**Live site: <https://torusmith.github.io/Leafpile/>** · current version v0.16.0
+**Live site: <https://torusmith.github.io/Leafpile/>** · current version v0.17.0
 
 ![Shelf: notes and decks under the same topic](docs/images/shelf.en.webp)
 

@@ -143,3 +143,45 @@ test('boardOutline:沒有群組時就是一層清單;空畫布沒有項目', () 
   assert.equal(r.markdown, '- 一\n- 二\n');
   assert.deepEqual(boardOutline({ nodes: [], edges: [] }, () => ({})).items, []);
 });
+
+import { inGroup, groupAt, growGroups } from '../app/core/canvas-ops.js';
+
+test('群組成員看中心點:卡片長出框外一點還在組裡;比框大的不算;不會互為成員', () => {
+  const g = { id: 'g', type: 'group', x: 0, y: 0, width: 300, height: 300 };
+  const tall = N('t', 20, 20, 200, 400);       // 中心 (120, 220),超出下緣
+  const out = N('o', 280, 280, 100, 100);      // 中心 (330, 330) 在框外
+  assert.equal(inGroup(tall, g), true);
+  assert.equal(inGroup(out, g), false);
+  assert.equal(inGroup(N('huge', 0, 0, 280, 2000), g), false, '中心點跑到框外就不算');
+  assert.equal(inGroup(N('wide', 0, 0, 900, 200), { ...g, width: 1000 }), true, '卡片比框大也算(只要中心在裡面)');
+  const same = { id: 'h', type: 'group', x: 0, y: 0, width: 300, height: 300 };
+  assert.equal(inGroup(same, g), false);
+  assert.equal(inGroup(g, same), false);
+  const inner = { id: 'i', type: 'group', x: 20, y: 20, width: 100, height: 100 };
+  assert.deepEqual(membersOf([g, inner, tall], g).map(n => n.id).sort(), ['i', 't']);
+});
+
+test('groupAt:中心點所在最小的群組;正在拖動的群組不算', () => {
+  const big = { id: 'big', type: 'group', x: 0, y: 0, width: 1000, height: 1000 };
+  const small = { id: 'small', type: 'group', x: 100, y: 100, width: 300, height: 300 };
+  const box = { x: 150, y: 150, width: 100, height: 50 };
+  assert.equal(groupAt([big, small], box).id, 'small');
+  assert.equal(groupAt([big, small], box, new Set(['small'])).id, 'big');
+  assert.equal(groupAt([big, small], { x: 2000, y: 0, width: 10, height: 10 }), null);
+});
+
+test('growGroups:成員超出框就撐開群組與外層群組,不縮小', () => {
+  const outer = { id: 'o', type: 'group', x: 0, y: 0, width: 500, height: 400 };
+  const g = { id: 'g', type: 'group', x: 20, y: 20, width: 300, height: 300 };
+  const a = N('a', 40, 40, 200, 340); // 下緣 380,超出 g(320)
+  const out = growGroups([outer, g, a], ['a'], 24);
+  const byId = Object.fromEntries(out.map(c => [c.id, c]));
+  assert.deepEqual(byId.g, { id: 'g', x: 16, y: 16, width: 304, height: 388 });
+  assert.equal(byId.o.y + byId.o.height, 428, '外層也跟著長(包住 g 再留 24)');
+  assert.deepEqual(growGroups([g, N('b', 50, 50)], ['b']), [], '沒超出就不改');
+  assert.deepEqual(growGroups([g, N('c', 900, 900)], ['c']), [], '不在組裡就不改');
+  // 一下子長很多:中心點已經在框外,但用變大前的位置判斷,本來就在這組
+  const grown = N('d', 40, 40, 200, 2000);
+  const ch = growGroups([g, grown], ['d'], 24, new Map([['d', { x: 40, y: 40, width: 200, height: 100 }]]));
+  assert.equal(ch[0].y + ch[0].height, 2064);
+});

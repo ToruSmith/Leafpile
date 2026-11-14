@@ -18,7 +18,9 @@ import { t } from '../core/i18n.js';
 import { classifyMedia } from '../core/media.js';
 import { serializeCanvas, canvasColor, edgePath, bounds, resolveFile, newId, SIDES, PRESET_COLORS, fileKind, embedFor, extractURL, slideOrder, pdfPage, otherBoards, foldNode, unfoldNode, isFolded, fitHeight, FOLDABLE } from '../core/canvas.js';
 import { noteMediaPath } from './notes/reader.js';
-import { reorderNodes, minimapFrame, withMembers, alignNodes, distribute, snapLines, snapMove, copyFragment, parseFragment, pasteFragment, searchNodes, groupOutline, boardOutline, buildBoardSvg, strokesToSvg } from '../core/canvas-ops.js';
+import { askContext } from '../core/ask.js';
+import { askAI } from './ask.js';
+import { reorderNodes, minimapFrame, withMembers, alignNodes, distribute, snapLines, snapMove, copyFragment, parseFragment, pasteFragment, searchNodes, groupOutline, boardOutline, buildBoardSvg, strokesToSvg, groupAt, growGroups } from '../core/canvas-ops.js';
 import { hydrate, mountPage, openPageTab } from '../player/hydrate.js';
 import { prepareMedia } from './media-import.js';
 import { dialog, toast } from './dialog.js';
@@ -47,8 +49,9 @@ const INKS = ['#2b2925', '#c0504d', '#3f6fb0', '#5a8f5a'];
  * @param {null | ((box: HTMLElement, hooks: object) => object)} [o.makePeek]  建立側邊卡片面板(ui/board-peek.js)
  * @param {string} [o.peek]                              一打開就在面板顯示的筆記(筆記渠道裡的路徑)
  * @param {(rel: string) => string} [o.notePath]        筆記渠道的路徑 → 書庫路徑(notes/…)
+ * @param {boolean} [o.canAsk]                          可不可以「問 AI」(訪客視角不行)
  */
-export function renderBoard(root, { board, name, header, href, graph, source, save, choices = [], colorOf = () => '', toNote = null, reloadGraph = null, refs = null, makePeek = null, peek: initialPeek = '', notePath = rel => 'notes/' + rel }) {
+export function renderBoard(root, { board, name, header, href, graph, source, save, choices = [], colorOf = () => '', toNote = null, reloadGraph = null, refs = null, makePeek = null, peek: initialPeek = '', notePath = rel => 'notes/' + rel, canAsk = true }) {
   const canEdit = !!save;
   const canMedia = canEdit && !!source?.writeMedia;
   root.innerHTML = `<div class="board-shell">${header}
@@ -269,7 +272,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
 
   /** 卡片內容(不含位置與選取狀態);內容一樣就不重畫。 */
   function innerOf(n) {
-    if (n.type === 'group') return `<span class="glabel">${esc(n.label || '')}</span>`;
+    if (n.type === 'group') return n.label ? `<span class="glabel">${esc(n.label)}</span>` : `<span class="glabel empty">${esc(t(canEdit ? 'board.groupUnnamedEdit' : 'board.groupUnnamed'))}</span>`;
     if (n.type === 'text') {
       if (isFolded(n)) return `<div class="md folded-line">${esc(firstLine(n.text) || '…')}</div>`;
       return `<div class="md">${renderMarkdown(String(n.text || ''))}</div>`;
@@ -374,13 +377,13 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     if (sel.edge) items = `<button data-pop="label">✎ ${esc(t('board.edgeText'))}</button>${colors}`;
     else if (selIds().length > 1) {
       const n = selIds().length;
-      items = `<span class="count">${esc(t('board.selected', { n }))}</span><span class="aligns">${ALIGN.map(([m, icon]) => `<button data-pop="align" data-m="${m}" title="${esc(t('board.align.' + m))}" aria-label="${esc(t('board.align.' + m))}">${icon}</button>`).join('')}${n >= 3 ? `<button data-pop="dist" data-m="h" title="${esc(t('board.distH'))}" aria-label="${esc(t('board.distH'))}">⋯</button><button data-pop="dist" data-m="v" title="${esc(t('board.distV'))}" aria-label="${esc(t('board.distV'))}">⋮</button>` : ''}</span><button data-pop="group">▢ ${esc(t('board.makeGroup'))}</button>${colors}`;
+      items = `<span class="count">${esc(t('board.selected', { n }))}</span><span class="aligns">${ALIGN.map(([m, icon]) => `<button data-pop="align" data-m="${m}" title="${esc(t('board.align.' + m))}" aria-label="${esc(t('board.align.' + m))}">${icon}</button>`).join('')}${n >= 3 ? `<button data-pop="dist" data-m="h" title="${esc(t('board.distH'))}" aria-label="${esc(t('board.distH'))}">⋯</button><button data-pop="dist" data-m="v" title="${esc(t('board.distV'))}" aria-label="${esc(t('board.distV'))}">⋮</button>` : ''}</span><button data-pop="group" title="${esc(t('board.makeGroupKey', { key: MOD + 'G' }))}">▢ ${esc(t('board.makeGroup'))}</button>${colors}`;
     } else {
       const n = single();
       if (!n) { pop.hidden = true; return; }
       const k = kindOf(n);
       if (n.type === 'text') items += `<button data-pop="edit">✎ ${esc(t('board.editShort'))}</button>${toNote ? `<button data-pop="note">${esc(t('board.toNote'))}</button>` : ''}`;
-      if (n.type === 'group') items += `<button data-pop="glabel">✎ ${esc(t('board.groupLabel'))}</button>${toNote ? `<button data-pop="outline" title="${esc(t('board.outlineTitle'))}">${esc(t('board.outline'))}</button>` : ''}`;
+      if (n.type === 'group') items += `<button data-pop="glabel">✎ ${esc(t('board.groupLabel'))}</button>${toNote ? `<button data-pop="outline" title="${esc(t('board.outlineTitle'))}">${esc(t('board.outline'))}</button>` : ''}<button data-pop="ungroup" title="${esc(t('board.ungroupTitle'))}">${esc(t('board.ungroup'))}</button>`;
       if (n.type === 'link' && !embedOf(n)?.auto) items += `<label><input type="checkbox" data-pop="embed"${n['x-embed'] === true ? ' checked' : ''}> ${esc(t('board.embedWeb'))}</label>`;
       if (n.type === 'link') items += `<button data-pop="url">✎ ${esc(t('board.editUrl'))}</button>`;
       if (k === 'pdf') items += `<button data-pop="page" title="${esc(t('board.pdfPageTitle'))}">${esc(pdfPage(n) ? t('board.pdfPageN', { n: pdfPage(n) }) : t('board.pdfPage'))}</button>`;
@@ -419,6 +422,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     if (what === 'page') return editPdfPage(n.id);
     if (what === 'group') return makeGroup();
     if (what === 'fold') return toggleFold(n);
+    if (what === 'ungroup') return ungroup();
     if (what === 'fitc') return fitContent(n);
     if (what === 'align' || what === 'dist') {
       const list = selNodes().filter(x => x.type !== 'group' || selIds().length);
@@ -440,6 +444,13 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     if (e.target.checked) n[key] = true; else delete n[key];
     draw(); changed();
   });
+  let dropEl = null;
+  function setDropTarget(g) {
+    const el = g ? els.get(g.id)?.el : null;
+    if (el === dropEl) return;
+    dropEl?.classList.remove('drop-target');
+    dropEl = el; dropEl?.classList.add('drop-target');
+  }
   /** 移動一張卡片;是群組的話,裡面的卡片一起移。 */
   function moveWithMembers(n, x, y) {
     if (!n) return;
@@ -571,6 +582,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   // ---------- 新增與編輯 ----------
   function addNode(node) {
     board.nodes.push(node);
+    settle([node.id]);
     sel = { ids: [node.id] }; draw(); changed();
     return node;
   }
@@ -664,10 +676,26 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     peekApi.open(r.rec.rel);
     return true;
   }
+  // ---------- 問 AI:選取的卡片(加上連線鄰居)組成提示詞 ----------
+  const readCard = n => {
+    if (n.type === 'text') { const text = String(n.text || ''); return text.trim() ? { title: firstLine(text), text } : null; }
+    if (n.type === 'link') return { title: String(n.url || ''), text: String(n.url || '') };
+    const r = n.type === 'file' && g ? resolveFile(n.file, g) : null;
+    if (r?.kind === 'note') return { title: r.rec.title, text: String(r.rec.body || ''), private: !r.rec.public || !!r.rec.localOnly };
+    if (r?.kind === 'deck') return { title: r.rec.title, text: [t('board.kindDeck'), r.rec.date].filter(Boolean).join(' · ') };
+    return null;
+  };
+  async function askSelection(ids = selIds()) {
+    if (!canAsk || !ids.length) return;
+    g ||= await graph?.catch(() => null);
+    return askAI(askContext(board, ids, readCard));
+  }
+
   /** 摺疊/展開(文字卡與筆記卡)。 */
   function toggleFold(n) {
     if (!n || !canEdit) return;
-    if (isFolded(n) ? unfoldNode(n) : foldNode(n)) { draw(); changed(); }
+    const was = new Map([[n.id, { x: n.x, y: n.y, width: n.width, height: n.height }]]);
+    if (isFolded(n) ? unfoldNode(n) : foldNode(n)) { settle([n.id], was); draw(); changed(); }
   }
   /** 適合內容:量卡片內容的自然高度,把卡片改成剛好那麼高。 */
   function fitContent(n) {
@@ -677,7 +705,8 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     el.classList.add('measuring'); el.style.height = 'auto';
     const h = fitHeight(el.offsetHeight);
     el.style.height = prev; el.classList.remove('measuring');
-    if (h !== n.height) { n.height = h; draw(); changed(); }
+    const was = new Map([[n.id, { x: n.x, y: n.y, width: n.width, height: n.height }]]);
+    if (h !== n.height) { n.height = h; settle([n.id], was); draw(); changed(); }
   }
   /** 選檔、拖進來或貼上的圖片/HTML/PDF:存進 boards/media/,放成卡片。 */
   async function importFiles(files, at) {
@@ -735,16 +764,35 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     centerOn(node);
     if (reloadGraph) { try { g = await reloadGraph(); if (alive) draw(); } catch { /* 下次開啟就會有 */ } }
   }
-  async function makeGroup() {
+  /** 框成群組:選取的卡片外面加一個框,不跳對話框;名稱之後在框上改(雙擊或工具列「群組名稱」)。 */
+  function makeGroup() {
+    if (!canEdit) return;
     const list = selNodes();
     const b = bounds(list);
     if (!b) return;
-    const label = await ask(t('board.makeGroup'), t('board.groupLabel'), '');
-    if (label == null) return;
     const pad = 30;
-    const grp = { id: newId(board, 'g'), type: 'group', x: Math.round(b.x - pad), y: Math.round(b.y - pad), width: Math.round(b.width + pad * 2), height: Math.round(b.height + pad * 2), ...(label ? { label } : {}) };
+    const grp = { id: newId(board, 'g'), type: 'group', x: Math.round(b.x - pad), y: Math.round(b.y - 44), width: Math.round(b.width + pad * 2), height: Math.round(b.height + pad + 44) };
     board.nodes.unshift(grp); // 群組畫在最底下
+    settle([grp.id]); // 本來就在某個群組裡的話,外層跟著撐開
     sel = { ids: [grp.id] }; draw(); changed();
+  }
+  /** 解散群組:只拿掉框,裡面的卡片留著並選取它們。 */
+  function ungroup() {
+    if (!canEdit) return;
+    const groups = selNodes().filter(n => n.type === 'group');
+    if (!groups.length) return;
+    const members = withMembers(board.nodes, groups.map(g => g.id)).filter(n => !groups.includes(n));
+    const gone = new Set(groups.map(g => g.id));
+    board.nodes = board.nodes.filter(n => !gone.has(n.id));
+    board.edges = board.edges.filter(e => !gone.has(e.fromNode) && !gone.has(e.toNode));
+    sel = members.length ? { ids: members.map(n => n.id) } : null;
+    draw(); changed();
+  }
+  /** 卡片移動、變大或新放上之後:超出所在群組的框就把群組撐開。回傳有沒有改。 */
+  function settle(ids, before = null) {
+    const ch = growGroups(board.nodes, ids, 24, before);
+    for (const c of ch) Object.assign(byId(c.id) || {}, { x: c.x, y: c.y, width: c.width, height: c.height });
+    return ch.length > 0;
   }
   function removeSelected() {
     if (!sel || !canEdit) return;
@@ -1056,6 +1104,9 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
         if (el) { el.style.left = it.node.x + 'px'; el.style.top = it.node.y + 'px'; }
       }
       drawEdges(null, guides);
+      // 放下去會進入哪個群組:先亮起來
+      const lead = byId(act.id);
+      if (lead && act.moved) setDropTarget(groupAt(board.nodes, lead, act.skip ||= new Set(act.items.map(i => i.node.id))));
     } else if (act.type === 'resize') {
       act.n.width = Math.max(80, Math.round(act.w0 + w.x - act.sx));
       act.n.height = Math.max(50, Math.round(act.h0 + w.y - act.sy));
@@ -1080,11 +1131,12 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     if (a.type === 'marquee') { marquee.hidden = true; return drawPop(); }
     if (a.type === 'move') {
       drawEdges();
-      if (a.moved) changed();
+      setDropTarget(null);
+      if (a.moved) { if (settle(a.items.map(i => i.node.id))) draw(); changed(); }
       else if (selIds().length > 1) return select({ ids: [a.id] }); // 多選時點一下(沒拖動)= 只選這張
       drawPop();
     }
-    if (a.type === 'resize') { changed(); drawPop(); }
+    if (a.type === 'resize') { if (settle([a.n.id], new Map([[a.n.id, { width: a.w0, height: a.h0 }]]))) draw(); changed(); drawPop(); }
     if (a.type === 'link') {
       const target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.bnode');
       const to = target && byId(target.dataset.id);
@@ -1205,11 +1257,13 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
       if (FOLDABLE(n) && !isFolded(n)) out.push(it('fitc', t('board.fitContent')));
     }
     out.push(it('focus', t('board.ctxFocus')));
+    if (canAsk) out.push(it('ask', t('ask.menu')));
     if (canEdit) {
       out.push(sep, it('copy', t('board.ctxCopy'), MOD + 'C'), it('cut', t('board.ctxCut'), MOD + 'X'), it('dup', t('board.ctxDup'), MOD + 'D'));
       if (clip) out.push(it('paste', t('board.paste'), MOD + 'V'));
       out.push(sep);
-      if (!(n && n.type === 'group')) out.push(it('group', t('board.ctxGroup')));
+      if (!(n && n.type === 'group')) out.push(it('group', t('board.ctxGroup'), MOD + 'G'));
+      if (selNodes().some(x => x.type === 'group')) out.push(it('ungroup', t('board.ungroupTitle'), MOD === '⌘' ? '⌘⇧G' : 'Ctrl+Shift+G'));
       out.push(it('front', t('board.ctxFront')), it('back', t('board.ctxBack')), { colors: true }, sep, it('remove', t('board.remove'), 'Del', 'danger'));
     }
     return out;
@@ -1287,6 +1341,8 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     if (k === 'cut') return copySelection(true);
     if (k === 'dup') return duplicate();
     if (k === 'group') return makeGroup();
+    if (k === 'ungroup') return ungroup();
+    if (k === 'ask') return askSelection();
     if (k === 'front' || k === 'back') { board.nodes = reorderNodes(board.nodes, selIds(), k); draw(); return changed(); }
     if (k === 'remove') return removeSelected();
   });
@@ -1322,6 +1378,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     if (mod && k === 'c' && canEdit) { if (copySelection()) e.preventDefault(); return; }
     if (mod && k === 'x' && canEdit) { if (copySelection(true)) e.preventDefault(); return; }
     if (mod && k === 'd' && canEdit) { e.preventDefault(); return duplicate(); }
+    if (mod && k === 'g' && canEdit && sel?.ids) { e.preventDefault(); return e.shiftKey ? ungroup() : makeGroup(); }
     if (mod) return;
     if (e.key === 'Delete' || e.key === 'Backspace') { if (sel && canEdit) { e.preventDefault(); removeSelected(); } return; }
     if (e.key === 'Escape') { if (!ctx.hidden) return closeCtx(); if (!menu.hidden) return setMenu(false); if (outlineOn) return setOutline(false); if (search) return closeSearch(); if (sel) return select(null); if (peekRel) return peekApi?.close(); if (full) setFull(false); return; }
@@ -1349,6 +1406,13 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     onChange: rel => { peekRel = rel || ''; view.classList.toggle('has-peek', !!rel); placeAll(); },
     onBoard: rel => board.nodes.some(n => n.type === 'file' && normFile(n.file) === normFile(notePath(rel))),
     addToBoard: canEdit ? rel => addNoteCard(rel) : null,
+    ask: canAsk ? async rel => {
+      const card = board.nodes.find(n => n.type === 'file' && normFile(n.file) === normFile(notePath(rel)));
+      if (card) return askSelection([card.id]);
+      g ||= await graph?.catch(() => null);
+      const rec = g?.notes.get(notePath(rel));
+      return askAI({ cards: rec ? [{ title: rec.title, text: String(rec.body || ''), private: !rec.public || !!rec.localOnly }] : [], neighbors: [], links: [], groups: [] });
+    } : null,
   });
 
   draw();

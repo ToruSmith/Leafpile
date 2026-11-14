@@ -261,3 +261,31 @@ export function captureNote(raw, date = new Date().toISOString().slice(0, 10)) {
 export function numberedName(fileName, n) {
   return n < 2 ? fileName : String(fileName).replace(/(\.md)?$/i, m => `-${n}${m || ''}`);
 }
+
+// ---------- 日記 ----------
+// 一天一篇:notes/<日記主題>/YYYY-MM-DD.md。日記主題依序找:
+//   1. _site.yml 的 journal: <主題資料夾>
+//   2. 資料夾名稱含 journal 或 diary 的主題
+//   3. 預設的「生活紀錄」50-life(只留本機,不會放上 GitHub)
+//   4. 收件匣
+// 日記一律不寫 public,所以預設是私人(除非主題本身設成公開)。
+
+export const isDay = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
+
+/** 選日記主題。topics = [{ id }]。找不到回傳 ''(筆記渠道最上層)。 */
+export function journalTopic(topics, site = {}) {
+  const ids = topics.map(tp => tp.id).filter(id => id && id !== '_');
+  const want = String(site?.journal || '').trim();
+  if (want && ids.includes(want)) return want;
+  return ids.find(id => /journal|diary/i.test(id)) || ids.find(id => /^50-life$/.test(id)) || ids.find(id => /life/i.test(id)) || ids.find(id => /inbox/i.test(id)) || '';
+}
+
+/** 某一天的日記:路徑與新檔的內容。title 由畫面依語言給(例如「2026-11-14 日記」)。 */
+export function journalNote(day, topicId, title) {
+  if (!isDay(day)) throw new Error('day');
+  const name = String(title || day).trim();
+  return {
+    rel: [topicId, `${day}.md`].filter(Boolean).join('/'),
+    text: `---\ntitle: ${/[:#'"[\]{},&*!|>%@`]/.test(name) ? JSON.stringify(name) : name}\ndate: ${day}\ntags: [journal]\n---\n# ${name}\n\n`,
+  };
+}
