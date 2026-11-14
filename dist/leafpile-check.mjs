@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Leafpile 書庫檢查工具(單檔版 v0.15.0)
+// Leafpile 書庫檢查工具(單檔版 v0.16.0)
 // 由 scripts/bundle-check.mjs 自動產生,請不要手動修改。原始碼:https://github.com/ToruSmith/Leafpile
 //
 // 用法(需要 Node.js 18 以上):
@@ -758,6 +758,20 @@ const LOCALE_ZH_HANT = {
   'table.layout.table': "表格",
   'table.layout.kanban': "看板",
   'table.layout.calendar': "月曆",
+  'table.layout.cards': "卡片",
+  'table.boardBy': "畫布",
+  'table.boardAll': "全部",
+  'table.boardNone': "還沒放上畫布",
+  'table.cardsHint': "每篇筆記一張卡；下面是它出現在哪些畫布，點了在那張畫布的側邊打開",
+  'table.sortBy': "排序",
+  'table.sortAsc': "由小到大",
+  'table.sortDesc': "由大到小",
+  'table.openOnBoard': "在這張畫布打開",
+  'table.addToBoard': "+ 放到畫布",
+  'table.addToBoardTitle': "放到畫布",
+  'table.alreadyOnBoard': "已經在「{name}」上了",
+  'table.addedToBoard': "已放到「{name}」",
+  'table.openBoard': "打開畫布",
   'table.kanbanBy': "欄位",
   'table.calPrev': "上個月",
   'table.calNext': "下個月",
@@ -1075,6 +1089,34 @@ const LOCALE_ZH_HANT = {
   'ne.link': '連到筆記或簡報',
   'ne.save': '儲存',
   'ne.saveTitle': '儲存(Ctrl+S)',
+  'capture.title': "記到收件匣",
+  'capture.hint': "寫一句話就好，存成「{topic}」裡的新筆記；第一行當標題。之後再整理。",
+  'capture.label': "想到什麼",
+  'capture.placeholder': "例如：讀書會可以聊第三章的反例",
+  'capture.save': "存起來",
+  'capture.empty': "沒有寫字，沒有存",
+  'capture.done': "已存到收件匣：{title}",
+  'capture.open': "打開",
+  'capture.palette': "記到收件匣（快速收集）",
+  'slash.col': "欄 {n}",
+  'slash.aria': "格式選單",
+  'slash.head': "插入",
+  'slash.h1': "大標題",
+  'slash.h2': "中標題",
+  'slash.h3': "小標題",
+  'slash.bullet': "項目清單",
+  'slash.number': "編號清單",
+  'slash.todo': "待辦清單",
+  'slash.quote': "引言",
+  'slash.code': "程式碼區塊",
+  'slash.table': "表格",
+  'slash.divider': "分隔線",
+  'slash.link': "連結到筆記",
+  'slash.embed': "摘錄嵌入",
+  'slash.highlight': "螢光標記",
+  'slash.image': "圖片",
+  'slash.date': "今天的日期",
+  'slash.now': "現在時間",
   'ne.saving': '儲存中…',
   'ne.saved': '已儲存',
   'ne.unsaved': '尚未儲存',
@@ -1908,6 +1950,20 @@ const LOCALE_EN = {
   'table.layout.table': "Table",
   'table.layout.kanban': "Kanban",
   'table.layout.calendar': "Calendar",
+  'table.layout.cards': "Cards",
+  'table.boardBy': "Board",
+  'table.boardAll': "All",
+  'table.boardNone': "Not on any board",
+  'table.cardsHint': "One card per note; below it, the boards it is on (click to open it there)",
+  'table.sortBy': "Sort",
+  'table.sortAsc': "Ascending",
+  'table.sortDesc': "Descending",
+  'table.openOnBoard': "Open it on this board",
+  'table.addToBoard': "+ Add to board",
+  'table.addToBoardTitle': "Add to board",
+  'table.alreadyOnBoard': "Already on “{name}”",
+  'table.addedToBoard': "Added to “{name}”",
+  'table.openBoard': "Open board",
   'table.kanbanBy': "Columns",
   'table.calPrev': "Previous month",
   'table.calNext': "Next month",
@@ -2225,6 +2281,34 @@ const LOCALE_EN = {
   'ne.link': 'Link to a note or deck',
   'ne.save': 'Save',
   'ne.saveTitle': 'Save (Ctrl+S)',
+  'capture.title': "Capture to inbox",
+  'capture.hint': "One line is enough. It becomes a new note in “{topic}”; the first line is the title. Sort it out later.",
+  'capture.label': "What’s on your mind",
+  'capture.placeholder': "e.g. The reading group could discuss the counterexample in chapter 3",
+  'capture.save': "Save",
+  'capture.empty': "Nothing written, nothing saved",
+  'capture.done': "Saved to the inbox: {title}",
+  'capture.open': "Open",
+  'capture.palette': "Capture to inbox (quick capture)",
+  'slash.col': "Col {n}",
+  'slash.aria': "Format menu",
+  'slash.head': "Insert",
+  'slash.h1': "Heading 1",
+  'slash.h2': "Heading 2",
+  'slash.h3': "Heading 3",
+  'slash.bullet': "Bullet list",
+  'slash.number': "Numbered list",
+  'slash.todo': "To-do list",
+  'slash.quote': "Quote",
+  'slash.code': "Code block",
+  'slash.table': "Table",
+  'slash.divider': "Divider",
+  'slash.link': "Link to a note",
+  'slash.embed': "Embed excerpt",
+  'slash.highlight': "Highlight",
+  'slash.image': "Image",
+  'slash.date': "Today’s date",
+  'slash.now': "Current time",
   'ne.saving': 'Saving…',
   'ne.saved': 'Saved',
   'ne.unsaved': 'Unsaved changes',
@@ -3620,7 +3704,30 @@ function newNoteFileName(title, date = new Date().toISOString().slice(0, 10)) {
 function newNoteText(title, date = new Date().toISOString().slice(0, 10)) {
   return `---\ntitle: ${/[:#'"[\]{},&*!|>%@`]/.test(title) ? JSON.stringify(title) : title}\ndate: ${date}\ntags: []\n---\n# ${title}\n\n`;
 }
-return { LAYOUT_KEYS, splitFrontMatter, slugify, plainInline, headingsOf, parseTarget, wikilinksOf, replaceWikilinks, formatWikilink, linkLabel, sectionOf, parseNote, sourceFingerprint, newNoteFileName, newNoteText };
+
+/**
+ * 快速收集(記到收件匣):一段隨手寫的文字 → 新筆記。
+ * 第一行(去掉 # 與 Markdown 記號)當標題,太長就截斷;其餘當內文。只有一行時內文就是那一行。
+ * @returns {{ title: string, fileName: string, text: string } | null}  沒有字時回傳 null
+ */
+function captureNote(raw, date = new Date().toISOString().slice(0, 10)) {
+  const lines = String(raw ?? '').replace(/\r/g, '').split('\n');
+  const i = lines.findIndex(l => l.trim());
+  if (i < 0) return null;
+  const first = lines[i].trim();
+  const clean = first.replace(/^#{1,6}\s+/, '').replace(/^[-*+]\s+(\[[ xX]\]\s+)?/, '').replace(/[*_`=~[\]]/g, '').trim();
+  const title = (clean.length > 40 ? clean.slice(0, 39).trimEnd() + '…' : clean) || first.slice(0, 40);
+  const rest = lines.slice(i + 1).join('\n').trim();
+  const isHeading = /^#{1,6}\s/.test(first);
+  const body = isHeading ? rest : [clean.length > 40 || clean !== first ? first : '', rest].filter(Boolean).join('\n\n');
+  return { title, fileName: newNoteFileName(title, date), text: newNoteText(title, date) + (body ? body + '\n' : '') };
+}
+
+/** 檔名已經有人用:a.md → a-2.md、a-3.md…(第 n 個候選)。 */
+function numberedName(fileName, n) {
+  return n < 2 ? fileName : String(fileName).replace(/(\.md)?$/i, m => `-${n}${m || ''}`);
+}
+return { LAYOUT_KEYS, splitFrontMatter, slugify, plainInline, headingsOf, parseTarget, wikilinksOf, replaceWikilinks, formatWikilink, linkLabel, sectionOf, parseNote, sourceFingerprint, newNoteFileName, newNoteText, captureNote, numberedName };
 })();
 
 // ───────── app/core/markdown.js ─────────
@@ -4489,7 +4596,37 @@ function kanbanKey(chosen, fieldKeys) {
   if (chosen) return chosen;
   return fieldKeys.includes('status') ? 'status' : 'topic';
 }
-return { noteFields, tableColumns, cellText, valueOf, compareCells, sortRows, filterRows, GROUP_KEYS, groupIdsOf, groupRows, shiftMonth, monthGrid, rowsByDay, defaultMonth, kanbanKey };
+
+/**
+ * 依畫布篩選(卡片庫用):'' = 全部、'!' = 還沒放上任何畫布、其他 = 畫布名稱。
+ * row.boards 是這篇筆記出現的畫布名稱(core/canvas.js 的 boardRefs)。
+ */
+const NO_BOARD = '!';
+function matchBoard(row, filter) {
+  if (!filter) return true;
+  const list = row?.boards || [];
+  return filter === NO_BOARD ? list.length === 0 : list.includes(filter);
+}
+
+/** 卡片上的內文摘要:拿掉 Markdown 記號,只留可讀的文字;開頭和 title 相同的 # 標題略過。 */
+function plainExcerpt(body, max = 280, title = '') {
+  const text = String(body || '')
+    .replace(/^---\n[\s\S]*?\n---\n?/, '')
+    .replace(/^\s*#\s+(.+)\n?/, (m, h) => (title && h.trim() === String(title).trim() ? '' : m)) // 和卡片標題一樣的 # 標題略過
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/!\[\[[^\]]*\]\]/g, ' ')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+    .replace(/\[\[([^\]|#]*)(?:#[^\]|]*)?(?:\|([^\]]*))?\]\]/g, (m, a, b) => b || a.replace(/^slides:/i, ''))
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/^\s{0,3}(?:#{1,6}\s+|>\s?|[-*+]\s+\[[ xX]\]\s+|[-*+]\s+|\d+[.)]\s+)/gm, '')
+    .replace(/^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/gm, ' ') // 表格的分隔列
+    .replace(/\|/g, ' ')
+    .replace(/[*_~`=]+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text.length > max ? text.slice(0, max - 1).trimEnd() + '…' : text;
+}
+return { noteFields, tableColumns, cellText, valueOf, compareCells, sortRows, filterRows, GROUP_KEYS, groupIdsOf, groupRows, shiftMonth, monthGrid, rowsByDay, defaultMonth, kanbanKey, NO_BOARD, matchBoard, plainExcerpt };
 })();
 
 // ───────── app/core/graph.js ─────────
@@ -4832,6 +4969,7 @@ function textToNote(text) {
   return { title, body };
 }
 
+/** 比對畫布卡片的 file 欄位用的鍵(boardRefs 的鍵)。 */
 const fileKey = file => norm(String(file || '').replace(/^\/+/, ''));
 
 /** 筆記出現在哪些畫布的哪些卡片(只比對 file 欄位)。 */
@@ -4896,7 +5034,21 @@ function fitHeight(contentHeight, { min = 60, max = 2400 } = {}) {
   const h = Math.ceil(Number(contentHeight) || 0);
   return Math.min(max, Math.max(min, h));
 }
-return { NODE_TYPES, SIDES, PRESET_COLORS, canvasColor, parseCanvas, serializeCanvas, emptyCanvas, newId, anchor, edgePath, bounds, resolveFile, missingFiles, boardFileName, IMAGE_EXT, fileKind, pdfPage, extractURL, embedFor, slideOrder, textToNote, boardsWith, boardRefs, otherBoards, FOLD_KEY, FOLD_HEIGHT_KEY, FOLDED_HEIGHT, FOLDABLE, isFolded, foldNode, unfoldNode, fitHeight };
+
+/**
+ * 從畫布外放一張筆記卡進來(卡片庫的「放到畫布」):放在現有卡片的右邊,和最上面的卡片對齊;
+ * 空的畫布放在原點。已經在畫布上就回傳 null。
+ */
+function placeFileNode(board, file, size = [340, 300], gap = 60) {
+  const key = fileKey(file);
+  if (board.nodes.some(n => n.type === 'file' && fileKey(n.file) === key)) return null;
+  const b = bounds(board.nodes);
+  const [width, height] = size;
+  const node = { id: newId(board), type: 'file', file: String(file).replace(/^\/+/, ''), x: b ? Math.round(b.x + b.width + gap) : 0, y: b ? Math.round(b.y) : 0, width, height };
+  board.nodes.push(node);
+  return node;
+}
+return { NODE_TYPES, SIDES, PRESET_COLORS, canvasColor, parseCanvas, serializeCanvas, emptyCanvas, newId, anchor, edgePath, bounds, resolveFile, missingFiles, boardFileName, IMAGE_EXT, fileKind, pdfPage, extractURL, embedFor, slideOrder, textToNote, fileKey, boardsWith, boardRefs, otherBoards, FOLD_KEY, FOLD_HEIGHT_KEY, FOLDED_HEIGHT, FOLDABLE, isFolded, foldNode, unfoldNode, fitHeight, placeFileNode };
 })();
 
 // ───────── app/core/check.js ─────────

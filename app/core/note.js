@@ -238,3 +238,26 @@ export function newNoteFileName(title, date = new Date().toISOString().slice(0, 
 export function newNoteText(title, date = new Date().toISOString().slice(0, 10)) {
   return `---\ntitle: ${/[:#'"[\]{},&*!|>%@`]/.test(title) ? JSON.stringify(title) : title}\ndate: ${date}\ntags: []\n---\n# ${title}\n\n`;
 }
+
+/**
+ * 快速收集(記到收件匣):一段隨手寫的文字 → 新筆記。
+ * 第一行(去掉 # 與 Markdown 記號)當標題,太長就截斷;其餘當內文。只有一行時內文就是那一行。
+ * @returns {{ title: string, fileName: string, text: string } | null}  沒有字時回傳 null
+ */
+export function captureNote(raw, date = new Date().toISOString().slice(0, 10)) {
+  const lines = String(raw ?? '').replace(/\r/g, '').split('\n');
+  const i = lines.findIndex(l => l.trim());
+  if (i < 0) return null;
+  const first = lines[i].trim();
+  const clean = first.replace(/^#{1,6}\s+/, '').replace(/^[-*+]\s+(\[[ xX]\]\s+)?/, '').replace(/[*_`=~[\]]/g, '').trim();
+  const title = (clean.length > 40 ? clean.slice(0, 39).trimEnd() + '…' : clean) || first.slice(0, 40);
+  const rest = lines.slice(i + 1).join('\n').trim();
+  const isHeading = /^#{1,6}\s/.test(first);
+  const body = isHeading ? rest : [clean.length > 40 || clean !== first ? first : '', rest].filter(Boolean).join('\n\n');
+  return { title, fileName: newNoteFileName(title, date), text: newNoteText(title, date) + (body ? body + '\n' : '') };
+}
+
+/** 檔名已經有人用:a.md → a-2.md、a-3.md…(第 n 個候選)。 */
+export function numberedName(fileName, n) {
+  return n < 2 ? fileName : String(fileName).replace(/(\.md)?$/i, m => `-${n}${m || ''}`);
+}

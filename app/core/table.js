@@ -178,3 +178,33 @@ export function kanbanKey(chosen, fieldKeys) {
   if (chosen) return chosen;
   return fieldKeys.includes('status') ? 'status' : 'topic';
 }
+
+/**
+ * 依畫布篩選(卡片庫用):'' = 全部、'!' = 還沒放上任何畫布、其他 = 畫布名稱。
+ * row.boards 是這篇筆記出現的畫布名稱(core/canvas.js 的 boardRefs)。
+ */
+export const NO_BOARD = '!';
+export function matchBoard(row, filter) {
+  if (!filter) return true;
+  const list = row?.boards || [];
+  return filter === NO_BOARD ? list.length === 0 : list.includes(filter);
+}
+
+/** 卡片上的內文摘要:拿掉 Markdown 記號,只留可讀的文字;開頭和 title 相同的 # 標題略過。 */
+export function plainExcerpt(body, max = 280, title = '') {
+  const text = String(body || '')
+    .replace(/^---\n[\s\S]*?\n---\n?/, '')
+    .replace(/^\s*#\s+(.+)\n?/, (m, h) => (title && h.trim() === String(title).trim() ? '' : m)) // 和卡片標題一樣的 # 標題略過
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/!\[\[[^\]]*\]\]/g, ' ')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+    .replace(/\[\[([^\]|#]*)(?:#[^\]|]*)?(?:\|([^\]]*))?\]\]/g, (m, a, b) => b || a.replace(/^slides:/i, ''))
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/^\s{0,3}(?:#{1,6}\s+|>\s?|[-*+]\s+\[[ xX]\]\s+|[-*+]\s+|\d+[.)]\s+)/gm, '')
+    .replace(/^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/gm, ' ') // 表格的分隔列
+    .replace(/\|/g, ' ')
+    .replace(/[*_~`=]+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text.length > max ? text.slice(0, max - 1).trimEnd() + '…' : text;
+}

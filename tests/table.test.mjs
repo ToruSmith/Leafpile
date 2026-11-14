@@ -121,3 +121,25 @@ test('看板:沒選分組時有 status 用 status,否則用主題', async () => 
   assert.equal(kanbanKey('', ['rating']), 'topic');
   assert.equal(kanbanKey('tags', ['status']), 'tags');
 });
+
+import { matchBoard, plainExcerpt, NO_BOARD } from '../app/core/table.js';
+
+test('matchBoard:全部、還沒放上畫布、指定畫布', () => {
+  const on = { boards: ['A', 'B'] }, off = { boards: [] }, none = {};
+  assert.equal(matchBoard(on, ''), true);
+  assert.equal(matchBoard(on, NO_BOARD), false);
+  assert.equal(matchBoard(off, NO_BOARD), true);
+  assert.equal(matchBoard(none, NO_BOARD), true);
+  assert.equal(matchBoard(on, 'B'), true);
+  assert.equal(matchBoard(on, 'C'), false);
+});
+
+test('plainExcerpt:拿掉 Markdown 記號,太長就截斷', () => {
+  const md = '# 標題\n\n> 引言 **粗體** 與 ==螢光==\n\n- [ ] 待辦\n- 項目 [[筆記#段|顯示]] 和 [[另一篇]]\n\n```js\ncode()\n```\n![圖](a.png) [連結](https://x.y)';
+  assert.equal(plainExcerpt(md), '標題 引言 粗體 與 螢光 待辦 項目 顯示 和 另一篇 連結');
+  assert.equal(plainExcerpt('一二三四五六', 4), '一二三…');
+  assert.equal(plainExcerpt(''), '');
+  assert.equal(plainExcerpt('# 同名\n內文 [[slides:讀書會]]', 280, '同名'), '內文 讀書會');
+  assert.equal(plainExcerpt('# 別的\n內文', 280, '同名'), '別的 內文');
+  assert.equal(plainExcerpt('| 欄 | 說明 |\n|---|:---:|\n| a | b |'), '欄 說明 a b');
+});

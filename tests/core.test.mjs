@@ -287,3 +287,30 @@ test('classifyMedia:互動網頁(GitHub Pages、CodePen、資料夾裡的 .html)
   assert.equal(classifyMedia('media/demo.html').kind, 'page');
   assert.equal(classifyMedia('https://example.com/demo.html').kind, 'image', '其他網站不嵌入');
 });
+
+import { captureNote, numberedName } from '../app/core/note.js';
+
+test('captureNote:第一行當標題;一行就好也能存;太長截斷但內文保留全文', () => {
+  const a = captureNote('明天問房東暖氣的事', '2026-11-14');
+  assert.equal(a.title, '明天問房東暖氣的事');
+  assert.equal(a.fileName, '2026-11-14-明天問房東暖氣的事.md');
+  assert.match(a.text, /^---\ntitle: 明天問房東暖氣的事\ndate: 2026-11-14\n/);
+  assert.ok(!a.text.includes('暖氣的事\n\n明天'), '一行時不重複');
+  const b = captureNote('\n# 讀書會題目\n第一章的論點\n第二點', '2026-11-14');
+  assert.equal(b.title, '讀書會題目');
+  assert.ok(b.text.endsWith('# 讀書會題目\n\n第一章的論點\n第二點\n'));
+  const long = '這是一句非常非常長的想法,超過四十個字的時候標題會被截斷,但是內文一定要保留整句話,不能少任何一個字';
+  const c = captureNote(long, '2026-11-14');
+  assert.ok(c.title.endsWith('…') && c.title.length === 40);
+  assert.ok(c.text.includes(long));
+  const d = captureNote('- [ ] **買**牛奶', '2026-11-14');
+  assert.equal(d.title, '買牛奶');
+  assert.ok(d.text.includes('- [ ] **買**牛奶'), '原文保留在內文');
+  assert.equal(captureNote('  \n '), null);
+});
+
+test('numberedName:同名就加 -2、-3', () => {
+  assert.equal(numberedName('a.md', 1), 'a.md');
+  assert.equal(numberedName('a.md', 2), 'a-2.md');
+  assert.equal(numberedName('2026-11-14-x.md', 3), '2026-11-14-x-3.md');
+});

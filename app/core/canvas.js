@@ -201,7 +201,8 @@ export function textToNote(text) {
   return { title, body };
 }
 
-const fileKey = file => norm(String(file || '').replace(/^\/+/, ''));
+/** 比對畫布卡片的 file 欄位用的鍵(boardRefs 的鍵)。 */
+export const fileKey = file => norm(String(file || '').replace(/^\/+/, ''));
 
 /** 筆記出現在哪些畫布的哪些卡片(只比對 file 欄位)。 */
 export function boardsWith(boards, path) {
@@ -264,4 +265,18 @@ export function unfoldNode(n) {
 export function fitHeight(contentHeight, { min = 60, max = 2400 } = {}) {
   const h = Math.ceil(Number(contentHeight) || 0);
   return Math.min(max, Math.max(min, h));
+}
+
+/**
+ * 從畫布外放一張筆記卡進來(卡片庫的「放到畫布」):放在現有卡片的右邊,和最上面的卡片對齊;
+ * 空的畫布放在原點。已經在畫布上就回傳 null。
+ */
+export function placeFileNode(board, file, size = [340, 300], gap = 60) {
+  const key = fileKey(file);
+  if (board.nodes.some(n => n.type === 'file' && fileKey(n.file) === key)) return null;
+  const b = bounds(board.nodes);
+  const [width, height] = size;
+  const node = { id: newId(board), type: 'file', file: String(file).replace(/^\/+/, ''), x: b ? Math.round(b.x + b.width + gap) : 0, y: b ? Math.round(b.y) : 0, width, height };
+  board.nodes.push(node);
+  return node;
 }

@@ -11,6 +11,7 @@ Start here when you forget what Leafpile can do. For file formats and rules see 
 | **Ctrl+K** (⌘K on Mac) | Everywhere | Command palette: search notes and decks, and run commands such as "New note", "Check this library", "Switch language" |
 | **/** | Library page | Jump to the search box |
 | **F** | Note, board, deck | Note: focus reading. Board: fit to screen. Deck: full screen |
+| **Alt+N** (⌥N on Mac) | Everywhere (writable libraries) | Capture to inbox: jot a line, saved as a new note in the inbox |
 
 ## I want to…
 
@@ -18,6 +19,8 @@ Start here when you forget what Leafpile can do. For file formats and rules see 
 |---|---|
 | Find a note or deck | Ctrl+K, or the search box on the library page (it also searches note text) |
 | Add a note | **+ Note** on the library page, or Ctrl+K → "New note" |
+| Jot something down before it slips away | **Alt+N** (capture to inbox); sort it out later |
+| Find notes that are not on any board yet | Library **Table** → **Cards** → **Board: Not on any board** |
 | Read without distraction | Press **F** on a note (focus reading) |
 | Change the text size | A− / A+ at the top right of a note, or press **+** / **−** (ten steps, 0.8× to 2.2×) |
 | See every note, sorted by date or tag | **Table** on the library page |
@@ -82,7 +85,13 @@ Note: pins, recents and whether the sidebar is collapsed are stored **only in th
 
 ![Calendar](images/calendar.en.webp)
 
-**Kanban and calendar** (Notes mode): switch between **Table | Kanban | Calendar**. Both are read-only; search, category filters and tag filters still apply.
+![Card library](images/cards.en.webp)
+
+**Cards** (Notes mode, after Heptabase's card library): one card per note with its title, topic, date, opening text and tags. Below each card are the boards it is on; click one to open that board with this note in the side panel. Use **Sort** to pick a column and ▲▼ to flip the order.
+- **Board** filter (in Table, Cards, Kanban and Calendar): all, **Not on any board**, or one board. When sorting out the inbox, filter by "Not on any board" and place notes one by one.
+- **+ Add to board** (writable libraries): pick a board; the note is placed to the right of the board's existing cards. If it is already there, nothing is added.
+
+**Kanban and calendar** (Notes mode): switch between **Table | Cards | Kanban | Calendar**. Both are read-only; search, category filters and tag filters still apply.
 - **Kanban**: each group of the **Columns** menu is a column (default: `status` if notes have it, otherwise topic); cards follow the table's current sort. For example, write `status: reading` or `status: done` at the top of notes to see reading progress. To move a card, edit the note's front matter.
 - **Calendar**: notes placed by their `date` (weeks start on Sunday); ‹ › change months, **This month** goes back to today; the month's notes are listed below. On phones the cells show dots; use the list. Notes without a date are not on the calendar.
 - Your choice is remembered in this browser.
@@ -132,6 +141,7 @@ Press **F**. The sidebar and top bar disappear, leaving only the text and a floa
 |---|---|
 | Editor on the left, live preview on the right | The preview follows as you type |
 | Type `[[` | Lists notes and decks to link; `[[slides:` lists decks only; ↑↓ to choose, Enter or Tab to accept, Esc to cancel |
+| Type `/` at the start of a line or after a space | Slash menu: headings, lists, to-do, quote, code, table, divider, link, excerpt, highlight, image, today's date, current time. Keep typing to filter (English or Chinese, e.g. `/todo`), ↑↓ to choose, Enter or Tab to insert, Esc to close. Everything inserted is plain Markdown; a `/` inside URLs, paths or code blocks does not open it. Also works when editing in the board's side panel |
 | **Ctrl+S** | Save |
 | **Ctrl+B** | Bold |
 | Toolbar | Bold, heading, list, checkbox, quote, link |
@@ -139,6 +149,10 @@ Press **F**. The sidebar and top bar disappear, leaving only the text and a floa
 - You are warned before leaving with unsaved changes, and drafts are protected.
 - If the file was changed by another program (for example Obsidian) while you edit, saving stops and asks instead of overwriting.
 - Front matter fields: see [`SPEC.md`, section 4](SPEC.md).
+
+### Capture to inbox (quick capture)
+
+Press **Alt+N** (⌥N on Mac) anywhere, or Ctrl+K → "Capture to inbox". Write a line (or a few) and press **Save**: it becomes a new note in the inbox topic (`01-inbox`). The first line is the title (cut at 40 characters; the body keeps the full text). If the file name is taken, it is saved as `-2`, `-3`, never overwritten. Without an inbox topic it goes to the top of the notes channel.
 
 ### Link syntax
 

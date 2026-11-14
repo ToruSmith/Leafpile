@@ -11,7 +11,8 @@ import { hydrate } from '../player/hydrate.js';
 import { resolveMediaPath } from '../core/media.js';
 import { canPickDirectory } from '../sources/sources.js';
 import { readPref, writePref, readJSON, writeJSON } from './prefs.js';
-import { tableColumns, cellText, sortRows, filterRows, valueOf, groupRows, monthGrid, rowsByDay, shiftMonth, defaultMonth, kanbanKey } from '../core/table.js';
+import { tableColumns, cellText, sortRows, filterRows, valueOf, groupRows, monthGrid, rowsByDay, shiftMonth, defaultMonth, kanbanKey, matchBoard, plainExcerpt, NO_BOARD } from '../core/table.js';
+import { otherBoards, fileKey } from '../core/canvas.js';
 
 const VIEW_KEY = 'leafpile-shelf-view';
 const VIEWS = ['all', 'notes', 'slides', 'table'];
@@ -20,7 +21,7 @@ const MODE_KEY = 'leafpile-table-mode'; // 表格看的是「筆記」還是「�
 const GROUP_KEY = 'leafpile-table-group'; // 表格的分組依據:{ notes: 'category', topics: 'category' }
 const FOLD_KEY = 'leafpile-table-fold'; // 收起來的組:{ '<模式>:<分組依據>': [組 id] }
 const LAYOUT_KEY = 'leafpile-table-layout'; // 筆記用表格、看板還是月曆看
-const LAYOUTS = ['table', 'kanban', 'calendar'];
+const LAYOUTS = ['table', 'cards', 'kanban', 'calendar'];
 
 function savedView() {
   const v = readPref(VIEW_KEY); return VIEWS.includes(v) ? v : 'all';
@@ -31,8 +32,9 @@ function savedView() {
  * @param {{ vault, sourceKey: string, header: string, href: object, graph: Promise, onRefresh?: Function, onCheck: Function, onNewNote?: Function }} opts
  *   href = { note(rel), deck(topicId, projectId) } 產生連結
  * @returns {Function} 清理函式
+ * boardRefs:每個檔案出現在哪些畫布(背景讀完所有畫布才有);onAddToBoard(rel):卡片庫的「放到畫布」,回傳放好的畫布名稱
  */
-export function renderShelf(root, { vault, sourceKey, header, href, graph, onRefresh, onCheck, onNewNote, onPrivacy, onPack, onGenerate, onNewBoard, onTopicEdit, onTopicNew, onCategories }) {
+export function renderShelf(root, { vault, sourceKey, header, href, graph, onRefresh, onCheck, onNewNote, onPrivacy, onPack, onGenerate, onNewBoard, onTopicEdit, onTopicNew, onCategories, boardRefs = null, onAddToBoard = null }) {
   applyUITheme(vault.theme || 'paper');
   const noteCount = vault.notes.topics.reduce((n, tp) => n + notesOfTopic(tp).length, 0);
   const deckCount = vault.topics.reduce((n, tp) => n + tp.decks.length, 0);
@@ -138,8 +140,16 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
   const rowsOf = graphResult => [...graphResult.notes.values()].map(rec => {
     const tp = vault.topics.find(x => x.id === rec.topicId);
     const book = rec.bookPath ? (tp?.notes?.items || []).find(i => i.kind === 'book' && i.path === rec.bookPath) : null;
-    return { rel: rec.rel, title: rec.title, topic: tp?.title || '', topicId: rec.topicId, category: catOf.get(rec.topicId) || '', book: book?.title || '', date: rec.date || '', tags: rec.tags || [], fields: rec.fields || {}, private: !rec.public };
+    return { rel: rec.rel, path: rec.path, title: rec.title, topic: tp?.title || '', topicId: rec.topicId, category: catOf.get(rec.topicId) || '', book: book?.title || '', date: rec.date || '', tags: rec.tags || [], fields: rec.fields || {}, private: !rec.public, body: rec.body || '', boards: otherBoards(refMap, rec.path, null) };
   });
+  // ---------- 依畫布篩選(全部、還沒放上畫布、某張畫布);卡片庫與其他筆記檢視共用 ----------
+  let refMap = null, boardFilter = '';
+  const boardNames = (vault.boards || []).map(b => b.name);
+  const boardBar = () => boardNames.length ? `<label class="tb-group"><span>${esc(t('table.boardBy'))}</span><select class="board-by">
+      <option value=""${boardFilter === '' ? ' selected' : ''}>${esc(t('table.boardAll'))}</option>
+      <option value="${NO_BOARD}"${boardFilter === NO_BOARD ? ' selected' : ''}>${esc(t('table.boardNone'))}</option>
+      ${boardNames.map(n => `<option value="${esc(n)}"${boardFilter === n ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select></label>` : '';
+  boardRefs?.then(m => { refMap = m; tableRows = null; if (view === 'table' && mode === 'notes') renderTable(); }, () => {});
   let mode = readPref(MODE_KEY) === 'topics' ? 'topics' : 'notes';
   let layout = LAYOUTS.includes(readPref(LAYOUT_KEY)) ? readPref(LAYOUT_KEY) : 'table', calMonth = '';
   const layoutBar = () => `<span class="seg-mini" role="group" aria-label="${esc(t('table.layoutLabel'))}">${LAYOUTS.map(l => `<button data-layout="${l}" aria-pressed="${layout === l}">${esc(t('table.layout.' + l))}</button>`).join('')}</span>`;
@@ -211,14 +221,28 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
     const extra = tableColumns(tableRows);
     const cols = [['title', t('table.title')], ['topic', t('table.topic')], ...(tableRows.some(r => r.book) ? [['book', t('table.book')]] : []), ['date', t('table.date')], ['tags', t('table.tags')], ...extra.map(k => [k, k])];
     if (!cols.some(([k]) => k === sort.key)) sort = { key: 'date', dir: 'desc' };
-    const keep = filter === '*' ? null : r => (filter.startsWith('c:') ? r.category === filter.slice(2) : r.topicId === filter.slice(2));
+    const inCat = filter === '*' ? () => true : r => (filter.startsWith('c:') ? r.category === filter.slice(2) : r.topicId === filter.slice(2));
+    const keep = r => inCat(r) && matchBoard(r, boardFilter);
     const list = sortRows(filterRows(tableRows, { words, tag: tagFilter, keep }), sort.key, sort.dir);
     const gOptions = ['category', 'topic', ...(tableRows.some(r => r.book) ? ['book'] : []), 'year', 'month', 'tags', ...extra];
     const gkey = gOptions.includes(groupPref.notes) ? groupPref.notes : '';
     const titleLink = r => `<a href="${href.note(r.rel)}">${esc(r.title)}</a>${r.private ? `<span class="lock" title="${esc(t('table.private'))}" aria-label="${esc(t('table.private'))}">\u{1F512}</span>` : ''}`;
     const head = extraBar => `<div class="table-head">${modeBar()}${layoutBar()}<span class="n">${esc(t('table.count', { n: list.length, total: tableRows.length }))}</span>
         ${tagFilter ? `<button class="tag on clear-tag" title="${esc(t('table.clearTag'))}">#${esc(tagFilter)} \u2715</button>` : ''}
-        ${extraBar}<span class="hint">${esc(t('table.readonly'))}</span></div>`;
+        ${extraBar}${boardBar()}<span class="hint">${esc(t(layout === 'cards' ? 'table.cardsHint' : 'table.readonly'))}</span></div>`;
+    if (layout === 'cards') {
+      // 卡片庫(參考 Heptabase 的 Card Library):每篇筆記一張卡,照目前的排序;下面列出它在哪些畫布
+      const sortSel = `<label class="tb-group"><span>${esc(t('table.sortBy'))}</span><select class="sort-by">${cols.map(([k, label]) => `<option value="${esc(k)}"${k === sort.key ? ' selected' : ''}>${esc(label)}</option>`).join('')}</select></label><button class="btn ghost sort-dir" aria-label="${esc(t(sort.dir === 'asc' ? 'table.sortAsc' : 'table.sortDesc'))}" title="${esc(t(sort.dir === 'asc' ? 'table.sortAsc' : 'table.sortDesc'))}">${sort.dir === 'asc' ? '\u25B2' : '\u25BC'}</button>`;
+      const color = new Map(vault.topics.map(tp => [tp.id, tp.color]));
+      box.innerHTML = head(sortSel) + (list.length ? `<div class="card-grid" role="list">${list.map(r => `<article class="lib-card" role="listitem" style="--kc:${esc(color.get(r.topicId) || '')}">
+          <a class="lc-title" href="${href.note(r.rel)}">${esc(r.title)}</a>${r.private ? `<span class="lock" title="${esc(t('table.private'))}" aria-label="${esc(t('table.private'))}">\u{1F512}</span>` : ''}
+          <small class="lc-meta">${esc([r.topic, r.date].filter(Boolean).join(' \u00b7 '))}</small>
+          <p class="lc-text">${esc(plainExcerpt(r.body, 280, r.title))}</p>
+          ${r.tags.length ? `<span class="kb-tags">${r.tags.map(x => `<button class="tag" data-tag="${esc(x)}">#${esc(x)}</button>`).join(' ')}</span>` : ''}
+          ${boardNames.length || onAddToBoard ? `<div class="lc-boards">${refMap ? (r.boards.length ? r.boards.map(b => `<a href="${href.board(b, r.rel)}" title="${esc(t('table.openOnBoard'))}">\u25A2 ${esc(b)}</a>`).join('') : `<span class="lc-none">${esc(t('table.boardNone'))}</span>`) : ''}${onAddToBoard ? `<button class="btn ghost lc-add" data-add="${esc(r.rel)}" title="${esc(t('table.addToBoardTitle'))}">${esc(t('table.addToBoard'))}</button>` : ''}</div>` : ''}
+        </article>`).join('')}</div>` : `<p class="table-empty">${esc(t('table.empty'))}</p>`);
+      return;
+    }
     if (layout === 'kanban') {
       // 看板(唯讀):分組依據的每一組是一欄;卡片照目前的排序
       const key = kanbanKey(gkey, extra);
@@ -261,7 +285,7 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
     };
     box.innerHTML = `<div class="table-head">${modeBar()}${layoutBar()}<span class="n">${esc(t('table.count', { n: list.length, total: tableRows.length }))}</span>
         ${tagFilter ? `<button class="tag on clear-tag" title="${esc(t('table.clearTag'))}">#${esc(tagFilter)} \u2715</button>` : ''}
-        ${groupBar(gOptions)}
+        ${groupBar(gOptions)}${boardBar()}
         <span class="hint">${esc(t('table.readonly'))}</span></div>
       <div class="table-wrap"><table>
         <thead><tr>${cols.map(([k, label]) => `<th scope="col" aria-sort="${sort.key === k ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}"><button data-sort="${esc(k)}">${esc(label)}<i>${sort.key === k ? (sort.dir === 'asc' ? '\u25B2' : '\u25BC') : ''}</i></button></th>`).join('')}</tr></thead>
@@ -270,6 +294,8 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
       ${list.length ? '' : `<p class="table-empty">${esc(t('table.empty'))}</p>`}`;
   };
   $('.note-table').addEventListener('change', e => {
+    if (e.target.closest('.board-by')) { boardFilter = e.target.value; return renderTable(); }
+    if (e.target.closest('.sort-by')) { sort = { key: e.target.value, dir: sort.dir }; writeJSON(SORT_KEY, sort); return renderTable(); }
     if (!e.target.closest('.group-by')) return;
     groupPref[mode] = e.target.value;
     writeJSON(GROUP_KEY, groupPref);
@@ -290,6 +316,16 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
       folds[foldId()] = close ? [...$('.note-table').querySelectorAll('tbody.grp')].map(b => b.dataset.g) : [];
       writeJSON(FOLD_KEY, folds);
       return renderTable();
+    }
+    if (e.target.closest('.sort-dir')) { sort = { key: sort.key, dir: sort.dir === 'asc' ? 'desc' : 'asc' }; writeJSON(SORT_KEY, sort); return renderTable(); }
+    const add = e.target.closest('.lc-add');
+    if (add && onAddToBoard) {
+      add.disabled = true;
+      Promise.resolve(onAddToBoard(add.dataset.add)).then(name => {
+        if (name && refMap) { const k = tableRows?.find(r => r.rel === add.dataset.add)?.path; if (k) { const key = fileKey(k); refMap.set(key, [...new Set([...(refMap.get(key) || []), name])]); tableRows = null; } }
+        renderTable();
+      }, () => { add.disabled = false; });
+      return;
     }
     const lb = e.target.closest('[data-layout]');
     if (lb) { layout = lb.dataset.layout; writePref(LAYOUT_KEY, layout); return renderTable(); }

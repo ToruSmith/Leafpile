@@ -18,7 +18,7 @@ Leafpile 歡迎 AI 協作。這份文件公開記錄哪些部分由 AI 參與產
 | 2026-11-10 | Claude Fable 5.2（部分提交為 Claude Opus 5.5） | Anthropic | v0.1.0：引入 Mdslide Pile 引擎；`app/core/` 的 vault、note、links、graph、privacy、bridge；書架、筆記閱讀與編輯、指令面板、快閃播放、摘錄嵌入、升級成簡報、講後筆記；檢查工具、範例書庫、CI 與部署流程；文件更新 | ToruSmith |
 | 2026-11-11 | Claude Opus 5.5、Claude Sonnet 5.5 | Anthropic | v0.2.0：講者問答分頁、來源筆記指紋與提醒、投影片連結說明；公開 Beta 試用包；唯讀提示；冒煙測試修正 | ToruSmith |
 | 2026-11-12 | Claude Opus 5.5 | Anthropic | v0.3.0–v0.5.0：筆記改名／搬移／封存與連結更新、發布前檢查與訪客視角、畫布（含嵌入、圖片、簡報模式、多選對齊、複製貼上、搜尋、匯出、手繪）；來源提醒按鈕；文件更新 | ToruSmith |
-| 2026-11-14 | Claude Opus 5.5 | Anthropic | 參考 Heptabase 第二輪的評估與規劃；v0.15.0：畫布的側邊卡片面板、筆記卡全文、摺疊與適合內容、出現在 N 張畫布；路線圖與文件更新 | ToruSmith |
+| 2026-11-14 | Claude Opus 5.5 | Anthropic | 參考 Heptabase 第二輪的評估與規劃；v0.15.0：畫布的側邊卡片面板、筆記卡全文、摺疊與適合內容、出現在 N 張畫布；v0.16.0：卡片庫與依畫布篩選、斜線選單、記到收件匣；路線圖與文件更新 | ToruSmith |
 
 上游專案 Mdslide Pile 與讀書筆記 Vault 也以 AI 協作開發（見各自的 `AGENTS.md`／`CLAUDE.md`）。它們使用的模型與版本請由維護者補進上表。
 
