@@ -34,7 +34,7 @@ function savedView() {
  * @returns {Function} 清理函式
  * boardRefs:每個檔案出現在哪些畫布(背景讀完所有畫布才有);onAddToBoard(rel):卡片庫的「放到畫布」,回傳放好的畫布名稱
  */
-export function renderShelf(root, { vault, sourceKey, header, href, graph, onRefresh, onCheck, onNewNote, onPrivacy, onPack, onGenerate, onNewBoard, onTopicEdit, onTopicNew, onCategories, boardRefs = null, onAddToBoard = null }) {
+export function renderShelf(root, { vault, sourceKey, header, href, graph, onRefresh, onCheck, onNewNote, onPrivacy, onPack, onGenerate, onNewBoard, onTopicEdit, onTopicNew, onCategories, boardRefs = null, onAddToBoard = null, onJournal = null }) {
   applyUITheme(vault.theme || 'paper');
   const noteCount = vault.notes.topics.reduce((n, tp) => n + notesOfTopic(tp).length, 0);
   const deckCount = vault.topics.reduce((n, tp) => n + tp.decks.length, 0);
@@ -264,13 +264,13 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
       const monthName = new Intl.DateTimeFormat(lang, { year: 'numeric', month: 'long', timeZone: 'UTC' }).format(Date.UTC(y, m - 1, 1));
       const wd = Array.from({ length: 7 }, (_, i) => new Intl.DateTimeFormat(lang, { weekday: 'short', timeZone: 'UTC' }).format(Date.UTC(2026, 10, 1 + i)));
       const inMonth = [...byDay.entries()].filter(([d]) => d.startsWith(calMonth)).sort((a, b) => a[0].localeCompare(b[0]));
-      const nav = `<span class="cal-nav"><button class="btn ghost" data-cal="-1" aria-label="${esc(t('table.calPrev'))}">\u2039</button><b class="cal-month" aria-live="polite">${esc(monthName)}</b><button class="btn ghost" data-cal="1" aria-label="${esc(t('table.calNext'))}">\u203a</button><button class="btn ghost" data-cal="today">${esc(t('table.calToday'))}</button></span>`;
+      const nav = `<span class="cal-nav"><button class="btn ghost" data-cal="-1" aria-label="${esc(t('table.calPrev'))}">\u2039</button><b class="cal-month" aria-live="polite">${esc(monthName)}</b><button class="btn ghost" data-cal="1" aria-label="${esc(t('table.calNext'))}">\u203a</button><button class="btn ghost" data-cal="today">${esc(t('table.calToday'))}</button>${onJournal ? `<button class="btn ghost" data-journal="${today}" title="${esc(t('journal.todayTitle'))}">${esc(t('journal.today'))}</button>` : ''}</span>`;
       const undated = list.filter(r => !/^\d{4}-\d{2}-\d{2}/.test(String(r.date || ''))).length;
       box.innerHTML = head(nav) + `<div class="table-wrap"><table class="calendar">
           <thead><tr>${wd.map(w => `<th scope="col">${esc(w)}</th>`).join('')}</tr></thead>
           <tbody>${monthGrid(calMonth).map(w => `<tr>${w.map(d => {
             const rs = byDay.get(d.date) || [];
-            return `<td class="${d.inMonth ? '' : 'out'}${d.date === today ? ' today' : ''}"><span class="cal-d">${d.day}</span>${rs.map(r => `<a class="cal-note" href="${href.note(r.rel)}" title="${esc(r.title)}">${esc(r.title)}</a>`).join('')}</td>`;
+            return `<td class="${d.inMonth ? '' : 'out'}${d.date === today ? ' today' : ''}"><span class="cal-d">${d.day}</span>${onJournal && d.inMonth ? `<button class="cal-add" data-journal="${d.date}" title="${esc(t('journal.dayTitle', { date: d.date }))}" aria-label="${esc(t('journal.dayTitle', { date: d.date }))}">+</button>` : ''}${rs.map(r => `<a class="cal-note" href="${href.note(r.rel)}" title="${esc(r.title)}">${esc(r.title)}</a>`).join('')}</td>`;
           }).join('')}</tr>`).join('')}</tbody>
         </table></div>
         <div class="cal-list">${inMonth.length ? `<h3>${esc(t('table.calMonthList', { n: inMonth.reduce((a, [, rs]) => a + rs.length, 0) }))}</h3><ul>${inMonth.map(([d, rs]) => `<li><time>${esc(d.slice(5))}</time><span>${rs.map(titleLink).join('<br>')}</span></li>`).join('')}</ul>` : `<p class="table-empty">${esc(t('table.calNone'))}</p>`}
@@ -329,6 +329,8 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
     }
     const lb = e.target.closest('[data-layout]');
     if (lb) { layout = lb.dataset.layout; writePref(LAYOUT_KEY, layout); return renderTable(); }
+    const jb = e.target.closest('[data-journal]');
+    if (jb && onJournal) return onJournal(jb.dataset.journal);
     const cb = e.target.closest('[data-cal]');
     if (cb) { calMonth = cb.dataset.cal === 'today' ? new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 7) : shiftMonth(calMonth, Number(cb.dataset.cal)); return renderTable(); }
     const m = e.target.closest('[data-mode]');

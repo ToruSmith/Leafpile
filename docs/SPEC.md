@@ -66,6 +66,7 @@ title: Toru 的頁堆
 description: 一句話說明
 theme: paper                   # paper / ink / slate / sepia / nord(書庫與筆記的預設外觀;讀者可以在「外觀」選單改)
 lang: zh-Hant
+journal: 50-life                # 日記放在哪個主題(可省略;見第 4 節「日記」)
 categories:                    # 分類（首頁書架的分組與順序）
   - id: learning
     name: 學習
@@ -153,6 +154,10 @@ from_deck: slides/10-reading/2026-11-x
 
 支援的 Markdown 與 Mdslide Pile 相同（標題、清單、核取方塊、引言、表格、程式碼、粗體、斜體、刪除線、`==螢光==`、連結、圖片、腳註），再加上第 5 節的連結語法。原始 HTML 不會生效。
 
+### 日記
+
+一天一篇：`notes/<日記主題>/YYYY-MM-DD.md`，front matter 有 `title`、`date`、`tags: [journal]`，不寫 `public`（預設私人）。日記主題依序找：`_site.yml` 的 `journal`、資料夾名稱含 `journal` 或 `diary` 的主題、`50-life`、收件匣。日記就是一般筆記，可以連結、改名、搬移；自己照這個檔名建立的檔案，「今天的日記」也會直接打開它（月曆依 `date` 排，記得寫）。
+
 ## 5. 連結語法
 
 | 寫法 | 意思 |
@@ -204,6 +209,7 @@ from_deck: slides/10-reading/2026-11-x
 - Leafpile 自訂的欄位一律以 `x-` 開頭：節點的 `"x-kind": "deck"`、連結卡的 `"x-embed": true`（嵌入網頁）、HTML 卡的 `"x-scripts": true`（允許執行腳本）、文字卡與筆記卡的 `"x-leafpile-folded": true` 與 `"x-leafpile-height": 320`（摺疊成只剩標題，與摺疊前的高度；展開時還原並移除這兩個欄位）。
 - 圖片、HTML、PDF 卡片是 `file` 節點，檔案放在 `boards/media/`。
 - 讀寫時保留所有未知欄位。
+- 群組只記框的位置與大小。卡片的**中心點**在群組框裡就屬於這個群組；群組裡的群組還要比外層小（面積）。Leafpile 讓成員變大時會把群組撐開，不會自己縮小。
 - 卡片在 `nodes` 裡的順序就是上下疊放的順序；「移到最上層／最下層」只改這個順序，群組永遠排在一般卡片前面（畫在底下）。
 
 ## 8. 封存

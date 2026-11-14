@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Leafpile 書庫檢查工具(單檔版 v0.16.0)
+// Leafpile 書庫檢查工具(單檔版 v0.17.0)
 // 由 scripts/bundle-check.mjs 自動產生,請不要手動修改。原始碼:https://github.com/ToruSmith/Leafpile
 //
 // 用法(需要 Node.js 18 以上):
@@ -987,6 +987,11 @@ const LOCALE_ZH_HANT = {
   'board.exportSel': '選取的 {n} 張',
   'board.exportAll': '整張畫布',
   'board.selected': '已選 {n} 張',
+  'board.groupUnnamed': "群組",
+  'board.groupUnnamedEdit': "未命名群組（雙擊改名）",
+  'board.ungroup': "解散",
+  'board.ungroupTitle': "解散群組（只拿掉框，卡片留著）",
+  'board.makeGroupKey': "把選取的卡片框成一個群組（{key}）",
   'board.makeGroup': '框成群組',
   'board.makeGroupTitle': '用一個群組框住這張卡片',
   'board.align.left': '靠左對齊',
@@ -1089,6 +1094,38 @@ const LOCALE_ZH_HANT = {
   'ne.link': '連到筆記或簡報',
   'ne.save': '儲存',
   'ne.saveTitle': '儲存(Ctrl+S)',
+  'ask.prompt': "以下是我筆記軟體畫布上的 {n} 張卡片（Markdown）。{groups}\n\n我的問題：{question}\n\n請只根據這些內容回答；資料不夠的地方直接說缺什麼，不要自己編。回答用繁體中文。\n\n{cards}\n{links}\n{neighbors}",
+  'ask.defaultQuestion': "請整理這幾張卡片的重點、指出它們之間的關聯與矛盾，並提出 3 個值得繼續想的問題。",
+  'ask.groups': "它們在這些群組裡：{list}。",
+  'ask.card': "=== 卡片：{title} ===\n{text}\n",
+  'ask.untitled': "（沒有標題）",
+  'ask.empty': "（空白）",
+  'ask.omitted': "（太長，內容略過）",
+  'ask.linksHead': "--- 卡片之間的連線 ---",
+  'ask.link': "· {from} → {to}{label}",
+  'ask.via': "（{label}）",
+  'ask.neighborsHead': "--- 用線連到這些卡片的其他卡片（只附開頭）---",
+  'ask.neighbor': "· {title}{label}：{text}",
+  'ask.title': "問 AI",
+  'ask.lead': "會把 {n} 張卡片的內容（加上用線連到它們的 {m} 張卡片的開頭）組成提示詞，複製到剪貼簿，再開啟你選的 AI。Leafpile 不會自己把資料送出去。",
+  'ask.question': "想問什麼（可以留空）",
+  'ask.questionPh': "留空就請 AI 整理重點、找關聯、提出問題",
+  'ask.privateAsk': "裡面有 {n} 張私人筆記。複製給 AI 等於把內容交給那個網站，確定嗎？",
+  'ask.privateOk': "確定，複製",
+  'ask.copied': "提示詞已複製，到 AI 那邊貼上即可",
+  'ask.copyFailed': "瀏覽器不讓複製，請在下一個視窗手動複製",
+  'ask.manualTitle': "手動複製提示詞",
+  'ask.none': "選取的卡片沒有可以問的文字（圖片、網頁、PDF 不會帶進去）",
+  'ask.menu': "問 AI…",
+  'ask.button': "問 AI",
+  'ask.buttonTitle': "把這篇筆記（與畫布上連到它的卡片）組成提示詞，交給 AI",
+  'journal.title': "{date} 日記",
+  'journal.palette': "今天的日記",
+  'journal.today': "今天的日記",
+  'journal.todayTitle': "打開今天的日記；還沒有就建立（預設私人）",
+  'journal.dayTitle': "{date} 的日記（打開或建立）",
+  'journal.created': "已建立日記：{path}",
+  'journal.none': "{date} 還沒有日記（這個書庫不能寫入）",
   'capture.title': "記到收件匣",
   'capture.hint': "寫一句話就好，存成「{topic}」裡的新筆記；第一行當標題。之後再整理。",
   'capture.label': "想到什麼",
@@ -2179,6 +2216,11 @@ const LOCALE_EN = {
   'board.exportSel': 'The {n} selected',
   'board.exportAll': 'The whole board',
   'board.selected': '{n} selected',
+  'board.groupUnnamed': "Group",
+  'board.groupUnnamedEdit': "Untitled group (double-click to rename)",
+  'board.ungroup': "Ungroup",
+  'board.ungroupTitle': "Ungroup (removes only the frame; cards stay)",
+  'board.makeGroupKey': "Put the selected cards in a group ({key})",
   'board.makeGroup': 'Group',
   'board.makeGroupTitle': 'Put this card in a group',
   'board.align.left': 'Align left',
@@ -2281,6 +2323,38 @@ const LOCALE_EN = {
   'ne.link': 'Link to a note or deck',
   'ne.save': 'Save',
   'ne.saveTitle': 'Save (Ctrl+S)',
+  'ask.prompt': "Below are {n} cards from a board in my note app (Markdown). {groups}\n\nMy question: {question}\n\nAnswer only from this material; where it is not enough, say what is missing instead of making things up.\n\n{cards}\n{links}\n{neighbors}",
+  'ask.defaultQuestion': "Summarize the key points of these cards, point out how they connect or contradict each other, and suggest 3 questions worth exploring next.",
+  'ask.groups': "They are in these groups: {list}.",
+  'ask.card': "=== Card: {title} ===\n{text}\n",
+  'ask.untitled': "(untitled)",
+  'ask.empty': "(empty)",
+  'ask.omitted': "(too long; content left out)",
+  'ask.linksHead': "--- Links between the cards ---",
+  'ask.link': "· {from} → {to}{label}",
+  'ask.via': " ({label})",
+  'ask.neighborsHead': "--- Other cards linked to these (opening only) ---",
+  'ask.neighbor': "· {title}{label}: {text}",
+  'ask.title': "Ask AI",
+  'ask.lead': "The text of {n} cards (plus the opening of {m} cards linked to them) becomes a prompt, copied to the clipboard, and the AI you pick opens. Leafpile never sends anything by itself.",
+  'ask.question': "Your question (optional)",
+  'ask.questionPh': "Leave empty to get key points, connections and questions",
+  'ask.privateAsk': "This includes {n} private notes. Copying them to an AI hands their content to that website. Continue?",
+  'ask.privateOk': "Yes, copy",
+  'ask.copied': "Prompt copied. Paste it into the AI.",
+  'ask.copyFailed': "The browser blocked copying; copy it by hand in the next window",
+  'ask.manualTitle': "Copy the prompt",
+  'ask.none': "The selection has no text to ask about (images, web pages and PDFs are not included)",
+  'ask.menu': "Ask AI…",
+  'ask.button': "Ask AI",
+  'ask.buttonTitle': "Turn this note (and the cards linked to it on the board) into a prompt for an AI",
+  'journal.title': "Journal {date}",
+  'journal.palette': "Today’s journal",
+  'journal.today': "Today’s journal",
+  'journal.todayTitle': "Open today’s journal, creating it if needed (private by default)",
+  'journal.dayTitle': "Journal for {date} (open or create)",
+  'journal.created': "Journal created: {path}",
+  'journal.none': "No journal for {date} yet (this library is read-only)",
   'capture.title': "Capture to inbox",
   'capture.hint': "One line is enough. It becomes a new note in “{topic}”; the first line is the title. Sort it out later.",
   'capture.label': "What’s on your mind",
@@ -3727,7 +3801,35 @@ function captureNote(raw, date = new Date().toISOString().slice(0, 10)) {
 function numberedName(fileName, n) {
   return n < 2 ? fileName : String(fileName).replace(/(\.md)?$/i, m => `-${n}${m || ''}`);
 }
-return { LAYOUT_KEYS, splitFrontMatter, slugify, plainInline, headingsOf, parseTarget, wikilinksOf, replaceWikilinks, formatWikilink, linkLabel, sectionOf, parseNote, sourceFingerprint, newNoteFileName, newNoteText, captureNote, numberedName };
+
+// ---------- 日記 ----------
+// 一天一篇:notes/<日記主題>/YYYY-MM-DD.md。日記主題依序找:
+//   1. _site.yml 的 journal: <主題資料夾>
+//   2. 資料夾名稱含 journal 或 diary 的主題
+//   3. 預設的「生活紀錄」50-life(只留本機,不會放上 GitHub)
+//   4. 收件匣
+// 日記一律不寫 public,所以預設是私人(除非主題本身設成公開)。
+
+const isDay = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
+
+/** 選日記主題。topics = [{ id }]。找不到回傳 ''(筆記渠道最上層)。 */
+function journalTopic(topics, site = {}) {
+  const ids = topics.map(tp => tp.id).filter(id => id && id !== '_');
+  const want = String(site?.journal || '').trim();
+  if (want && ids.includes(want)) return want;
+  return ids.find(id => /journal|diary/i.test(id)) || ids.find(id => /^50-life$/.test(id)) || ids.find(id => /life/i.test(id)) || ids.find(id => /inbox/i.test(id)) || '';
+}
+
+/** 某一天的日記:路徑與新檔的內容。title 由畫面依語言給(例如「2026-11-14 日記」)。 */
+function journalNote(day, topicId, title) {
+  if (!isDay(day)) throw new Error('day');
+  const name = String(title || day).trim();
+  return {
+    rel: [topicId, `${day}.md`].filter(Boolean).join('/'),
+    text: `---\ntitle: ${/[:#'"[\]{},&*!|>%@`]/.test(name) ? JSON.stringify(name) : name}\ndate: ${day}\ntags: [journal]\n---\n# ${name}\n\n`,
+  };
+}
+return { LAYOUT_KEYS, splitFrontMatter, slugify, plainInline, headingsOf, parseTarget, wikilinksOf, replaceWikilinks, formatWikilink, linkLabel, sectionOf, parseNote, sourceFingerprint, newNoteFileName, newNoteText, captureNote, numberedName, isDay, journalTopic, journalNote };
 })();
 
 // ───────── app/core/markdown.js ─────────

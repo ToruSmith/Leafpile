@@ -20,6 +20,8 @@ Start here when you forget what Leafpile can do. For file formats and rules see 
 | Find a note or deck | Ctrl+K, or the search box on the library page (it also searches note text) |
 | Add a note | **+ Note** on the library page, or Ctrl+K → "New note" |
 | Jot something down before it slips away | **Alt+N** (capture to inbox); sort it out later |
+| Write today's journal | Ctrl+K → "Today's journal", or library **Table** → **Calendar** → **Today's journal** |
+| Discuss a few cards with an AI | Select cards or a group on a board → right-click **Ask AI…** |
 | Find notes that are not on any board yet | Library **Table** → **Cards** → **Board: Not on any board** |
 | Read without distraction | Press **F** on a note (focus reading) |
 | Change the text size | A− / A+ at the top right of a note, or press **+** / **−** (ten steps, 0.8× to 2.2×) |
@@ -94,6 +96,7 @@ Note: pins, recents and whether the sidebar is collapsed are stored **only in th
 **Kanban and calendar** (Notes mode): switch between **Table | Cards | Kanban | Calendar**. Both are read-only; search, category filters and tag filters still apply.
 - **Kanban**: each group of the **Columns** menu is a column (default: `status` if notes have it, otherwise topic); cards follow the table's current sort. For example, write `status: reading` or `status: done` at the top of notes to see reading progress. To move a card, edit the note's front matter.
 - **Calendar**: notes placed by their `date` (weeks start on Sunday); ‹ › change months, **This month** goes back to today; the month's notes are listed below. On phones the cells show dots; use the list. Notes without a date are not on the calendar.
+- **Journal** (writable libraries): **Today's journal** on the calendar, or hover a day and press **+** in its corner, opens that day's journal, creating `YYYY-MM-DD.md` and opening the editor if needed. Ctrl+K → "Today's journal" works too. Journals go to the topic named by `journal:` in `_site.yml`; otherwise a topic whose folder contains journal or diary, then the "Life" topic `50-life` (local only), then the inbox. Journals have no `public`, so they are private by default.
 - Your choice is remembered in this browser.
 
 ### Topic management
@@ -251,6 +254,7 @@ Read-only boards (the built-in examples, or a library you can't write to) have n
 | Delete | Delete the selection |
 | Esc | Cancel one layer at a time: context menu, More menu, outline, search, selection, side panel, full screen |
 | **Ctrl+A / C / X / D** | Select all, copy, cut, duplicate |
+| **Ctrl+G** / **Ctrl+Shift+G** | Group the selected cards / ungroup the selected group |
 | **Ctrl+V** | Paste (also pastes screenshots as image cards) |
 | **Ctrl+Z / Ctrl+Y** | Undo / redo |
 | **Ctrl+F** | Search within the board |
@@ -264,6 +268,26 @@ Right-click empty space, a card or a line (on a phone: select it, then tap ⋯).
 - A PDF card's toolbar has **Page**: set the page it opens at.
 - Card: open, edit, focus, copy, cut, duplicate, paste, group, bring to front / send to back, change color, delete. A text card can become a note; a group can become an outline note. Note cards also have **Open in side panel** and **Open note page**; text and note cards have **Fold / Unfold** and **Fit to content**.
 - Line: edit text, change color, delete.
+
+### Groups
+
+A group is a frame: the cards inside it are the group. The board file (JSON Canvas, also readable by Obsidian) stores only the frame's position and size, not a member list, so membership comes from position: **a card belongs to a group when its center is inside the frame** (a group inside a group must be smaller than the outer one).
+
+- **Create**: select cards (Shift+click, Shift+drag) and press **Ctrl+G**, or use **▢ Group** in the selection toolbar or the right-click menu. No dialog appears; name it later (double-click the group, or **Group name** in the toolbar). Unnamed groups show "Untitled group".
+- **Add**: drag a card into the frame. While dragging, the group it will join lights up; after dropping, the frame grows to wrap the card.
+- **Remove**: drag the card out (its center leaves the frame).
+- **Grows by itself**: when a card in the group gets bigger (full text, fit to content, unfold, resize) and sticks out, the group and any outer groups grow with it, so the card is never left behind. Groups never shrink by themselves.
+- **Move**: drag the group; its cards come along.
+- **Ungroup**: select the group and press **Ctrl+Shift+G**, or **Ungroup** in the toolbar or right-click menu. Only the frame goes away; the cards stay selected. (Delete on a selected group also removes only the frame.)
+- Groups also set the sections of the outline view, the pages of **▶ Present**, and which cards go into **Ask AI**.
+
+### Ask AI
+
+Select cards or a group → right-click **Ask AI…** (or **Ask AI** in the side panel). Write your question (or leave it empty for key points, connections and questions) and choose **Open Claude / ChatGPT / Gemini** or **Copy only**.
+
+- The prompt includes the full text of the selected cards (a group brings its cards), the links between them, and the opening of other cards linked to them. Images, web pages and PDFs are left out.
+- If private notes are included, you are asked first. Leafpile calls no AI service; it only puts the prompt on the clipboard and opens the site you picked.
+- Not available in visitor view.
 
 ### Side panel and note cards
 

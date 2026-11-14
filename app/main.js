@@ -12,7 +12,7 @@
 import { loadDeck, refreshProject } from './core/library.js';
 import { openVault, findNote, findDeck, notesOfTopic } from './core/vault.js';
 import { buildGraph, sourceStatus, compareSource } from './core/graph.js';
-import { parseNote, slugify, splitFrontMatter, wikilinksOf, captureNote, numberedName } from './core/note.js';
+import { parseNote, slugify, splitFrontMatter, wikilinksOf, captureNote, numberedName, journalTopic, journalNote } from './core/note.js';
 import { expandEmbeds, promoteNote, promoteBook, distillDeck, withSourceHash } from './core/bridge.js';
 import { openPrivacyPanel } from './ui/privacy-view.js';
 import { renderBoard } from './ui/canvas-view.js';
@@ -48,7 +48,7 @@ import { applyUITheme, setUIChoice, uiChoiceNow, THEMES, themeName } from './pla
 import { readPref, writePref } from './ui/prefs.js';
 import { t, setLang, getLang, normalizeLang } from './core/i18n.js';
 
-export const VERSION = '0.16.0';
+export const VERSION = '0.17.0';
 const REPO_URL = 'https://github.com/ToruSmith/Leafpile';
 const MDSLIDE_URL = 'https://github.com/ToruSmith/Mdslide-Pile';
 
@@ -466,6 +466,8 @@ async function showShelf(key) {
       const notes = new Map([...g.notes].filter(([, n]) => ok(n.rel)));
       graph = Promise.resolve({ ...g, notes, records: g.records.filter(r => r.kind !== 'note' || notes.has(r.path)) });
     }
+    // 書庫頁自己重新整理(資料夾有變化、按「重新整理」)時,先收掉舊的畫面,它晚到的圖譜才不會寫進新畫面
+    state.view?.cleanup?.();
     state.view = {
       cleanup: renderShelf(app, {
         vault: shown, sourceKey: key, href,
@@ -482,6 +484,7 @@ async function showShelf(key) {
         onTopicNew: vault.kind === 'leafpile' && source.canWrite && vault.notesSource ? () => newTopic(key) : null,
         onCategories: vault.kind === 'leafpile' && source.canWrite ? () => editCategories(key) : null,
         boardRefs: vault.kind === 'leafpile' && (vault.boards || []).length ? allBoards(key).then(boardRefs) : null,
+        onJournal: vault.kind === 'leafpile' && vault.notesSource?.canWrite && !state.visitor ? day => openJournal(key, day) : null,
         onAddToBoard: vault.kind === 'leafpile' && source.canWrite && (vault.boards || []).length && !state.visitor ? rel => noteToBoard(key, rel) : null,
       }),
     };
@@ -535,10 +538,10 @@ async function showBoard(key, name, peek = '') {
     view = renderBoard(app, {
       board, name, header: header(key === 'repo' ? 'repo' : 'home'), href, graph, choices, source: src,
       refs: (vault.boards || []).length > 1 ? allBoards(key).then(boardRefs) : null,
-      notePath: rel => vault.notePath(rel), peek,
+      notePath: rel => vault.notePath(rel), peek, canAsk: !state.visitor,
       makePeek: vault.kind === 'leafpile' && vault.notesSource ? (box, hooks) => (peekApi = createPeek(box, {
         vault, libId: key, href, graph, visible: canSee,
-        onBoard: hooks.onBoard, addToBoard: hooks.addToBoard,
+        onBoard: hooks.onBoard, addToBoard: hooks.addToBoard, ask: hooks.ask,
         onChange: rel => {
           hooks.onChange(rel);
           // 網址記住面板開著哪一篇(重新整理、分享連結都會回到這裡);不新增瀏覽紀錄
@@ -798,6 +801,23 @@ async function quickCapture(key) {
     invalidate(key);
     toast(t('capture.done', { title: note.title }), { ms: 6000, actions: [{ label: t('capture.open'), run: () => { location.hash = hrefs(key).note(rel); } }] });
   } catch (e) { noteErr(e); } finally { capturing = false; }
+}
+
+/** 日記:打開某一天(預設今天)的日記;還沒有就建立(可寫入的書庫)。 */
+const localDay = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+async function openJournal(key, day = localDay()) {
+  try {
+    const vault = await getVault(key);
+    if (!vault?.notesSource || vault.kind !== 'leafpile') return toast(t('err.noNotes'));
+    const topicId = journalTopic(vault.notes.topics, vault.site);
+    const j = journalNote(day, topicId, t('journal.title', { date: day }));
+    if ((await vault.notesSource.stat(j.rel)) != null) { location.hash = hrefs(key).note(j.rel); return; }
+    if (!vault.notesSource.canWrite) return toast(t('journal.none', { date: day }));
+    await vault.notesSource.writeText(j.rel, j.text, { mkdir: true, expect: null });
+    invalidate(key);
+    toast(t('journal.created', { path: j.rel }), { ms: 4000 });
+    location.hash = hrefs(key).edit(j.rel);
+  } catch (e) { noteErr(e); }
 }
 
 /** [[連結]]:用圖譜解析後轉過去。 */
@@ -1201,6 +1221,7 @@ async function paletteItems() {
       if ((st?.status === 'changed' || st?.status === 'untracked') && state.sources.get(key)?.canWrite) act(t(st.status === 'changed' ? 'deck.markSynced' : 'deck.trackSource'), () => markSynced(key, deck.topicId, deck.projectId));
       if (vault.notesSource?.canWrite) act(t('palette.newNote'), () => newNote(key, rel ? findNote(vault, rel)?.topic.id : undefined));
       if (vault.kind === 'leafpile' && vault.notesSource?.canWrite) act(t('capture.palette'), () => quickCapture(key), 'Alt+N');
+      if (vault.kind === 'leafpile' && vault.notesSource) act(t('journal.palette'), () => openJournal(key));
       if (vault.kind === 'leafpile' && state.sources.get(key)?.canWrite) act(t('palette.generate'), () => generateFlow(key));
       if (vault.kind === 'leafpile') act(t('palette.pack'), () => packMenu(key));
       act(t('palette.shelf'), () => { location.hash = href.shelf; });

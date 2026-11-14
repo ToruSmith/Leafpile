@@ -314,3 +314,24 @@ test('numberedName:同名就加 -2、-3', () => {
   assert.equal(numberedName('a.md', 2), 'a-2.md');
   assert.equal(numberedName('2026-11-14-x.md', 3), '2026-11-14-x-3.md');
 });
+
+import { journalTopic, journalNote, isDay } from '../app/core/note.js';
+
+test('journalTopic:_site.yml 指定 > journal/diary > 50-life > 收件匣', () => {
+  const tp = ids => ids.map(id => ({ id }));
+  assert.equal(journalTopic(tp(['01-inbox', '50-life', '60-journal']), { journal: '50-life' }), '50-life');
+  assert.equal(journalTopic(tp(['01-inbox', '50-life', '60-journal']), { journal: 'nope' }), '60-journal');
+  assert.equal(journalTopic(tp(['01-inbox', '50-life'])), '50-life');
+  assert.equal(journalTopic(tp(['_', '01-inbox', '10-reading'])), '01-inbox');
+  assert.equal(journalTopic(tp(['10-reading'])), '');
+});
+
+test('journalNote:一天一個檔,私人(不寫 public),標籤 journal', () => {
+  const j = journalNote('2026-11-14', '50-life', '2026-11-14 日記');
+  assert.equal(j.rel, '50-life/2026-11-14.md');
+  assert.equal(j.text, '---\ntitle: 2026-11-14 日記\ndate: 2026-11-14\ntags: [journal]\n---\n# 2026-11-14 日記\n\n');
+  assert.ok(!/public/.test(j.text));
+  assert.equal(journalNote('2026-01-02', '', 'Journal: 2026-01-02').text.split('\n')[1], 'title: "Journal: 2026-01-02"');
+  assert.throws(() => journalNote('2026-1-2', 'x'));
+  assert.equal(isDay('2026-11-14'), true);
+});
