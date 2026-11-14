@@ -224,6 +224,7 @@ def main():
         # 匯出單一 HTML,在全新、離線的瀏覽器設定檔用 file:// 開啟
         import tempfile
         cards = page.locator('.card').count()
+        page.click('.pmore > summary')  # 匯出收在「⋯」選單裡
         page.click('[data-act=export]')
         page.wait_for_selector('.export-panel [data-x=go]:not([disabled])')
         with page.expect_download() as dl:
