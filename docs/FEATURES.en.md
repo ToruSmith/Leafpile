@@ -153,6 +153,19 @@ Press **F**. The sidebar and top bar disappear, leaving only the text and a floa
 - If the file was changed by another program (for example Obsidian) while you edit, saving stops and asks instead of overwriting.
 - Front matter fields: see [`SPEC.md`, section 4](SPEC.md).
 
+### Pasting an article from elsewhere (smart paste)
+
+When you copy from a web page, Word, Google Docs, Notion or a Claude chat and paste into the note editor (or the editor in a board's side panel), Leafpile converts the HTML on the clipboard to Markdown, keeping headings, bold, links, lists, to-dos, quotes, code blocks and tables.
+
+- A toast says "Converted what you pasted to Markdown"; press **Paste as plain text** to switch. **Ctrl+Shift+V** (⌘⇧V) always pastes plain text.
+- Text that is already Markdown, colored text copied from a code editor, images and files are left alone.
+- Styles, buttons, inline images and `javascript:` links that come along with a web page are dropped.
+- HTML differs a lot between sources; rare structures fall back to plain paragraphs.
+
+### New note from the clipboard
+
+After copying an article, press **Ctrl+V** (⌘V) on the **library page** (with the cursor not in an input), or Ctrl+K → "New note from clipboard": it is saved as a new note in the inbox, converting HTML to Markdown first if there is any. The toast offers **Open** and **Discard**. The title is the first line (the heading, if it starts with one).
+
 ### Capture to inbox (quick capture)
 
 Press **Alt+N** (⌥N on Mac) anywhere, or Ctrl+K → "Capture to inbox". Write a line (or a few) and press **Save**: it becomes a new note in the inbox topic (`01-inbox`). The first line is the title (cut at 40 characters; the body keeps the full text). If the file name is taken, it is saved as `-2`, `-3`, never overwritten. Without an inbox topic it goes to the top of the notes channel.

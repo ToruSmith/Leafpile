@@ -45,6 +45,7 @@ Leafpile 沿用 Mdslide Pile 的分層：資料只往下流，**來源 → `core
 | `core/table.js` | 書庫的表格檢視（唯讀）：front matter 欄位、排序、篩選 |
 | `core/trash.js`、`sources/sources.js` 的 `archiveTree`／`moveTree` | 刪除：路徑規則、編號、還原清單（純邏輯）；整個檔案或資料夾逐檔複製、讀回比對一致才移除原本的，失敗時原本的不動。`main.js` 的 `trash*` 負責確認、提示可復原、還原清單 |
 | `core/ask.js`、`ui/ask.js` | 對卡片問 AI：從畫布挑卡片與連線鄰居、組提示詞（純邏輯）；對話框、剪貼簿、開啟 AI 網站（不呼叫 API） |
+| `core/html-md.js`、`ui/paste-md.js` | 智慧貼上：剪貼簿的 HTML 轉成 Markdown（純邏輯，自己的寬鬆解析器，不用 DOMParser，所以 Node 也能測）；接在 `<textarea>` 上的貼上處理、提示與「改貼純文字」（筆記編輯器與畫布側邊面板共用）。`main.js` 的 `clipboardNote` 負責從剪貼簿新增筆記 |
 | `core/slash.js`、`ui/slash-menu.js` | 斜線選單：觸發規則、選項與插入的 Markdown（純邏輯）；畫面、鍵盤與游標位置（筆記編輯器與畫布側邊面板共用） |
 | `ui/board-peek.js` | 畫布的側邊卡片面板：閱讀與編輯一篇筆記（寫入規則、草稿與筆記頁的編輯器相同）；畫布只給它容器與幾個回呼 |
 | `ui/prefs.js` | 本機偏好設定（localStorage）的唯一入口；所有用到的鍵列在檔案開頭 |

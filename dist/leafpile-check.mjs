@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Leafpile 書庫檢查工具(單檔版 v0.18.0)
+// Leafpile 書庫檢查工具(單檔版 v0.19.0)
 // 由 scripts/bundle-check.mjs 自動產生,請不要手動修改。原始碼:https://github.com/ToruSmith/Leafpile
 //
 // 用法(需要 Node.js 18 以上):
@@ -1152,6 +1152,11 @@ const LOCALE_ZH_HANT = {
   'trash.kind.topic': '主題',
   'journal.created': "已建立日記：{path}",
   'journal.none': "{date} 還沒有日記（這個書庫不能寫入）",
+  'paste.converted': "已把貼上的內容轉成 Markdown",
+  'paste.plain': "改貼純文字",
+  'clip.palette': "從剪貼簿新增筆記",
+  'clip.empty': "剪貼簿裡沒有文字，沒有存",
+  'clip.denied': "讀不到剪貼簿。請回到書庫頁，直接按 Ctrl+V（Mac：⌘V）。",
   'capture.title': "記到收件匣",
   'capture.hint': "寫一句話就好，存成「{topic}」裡的新筆記；第一行當標題。之後再整理。",
   'capture.label': "想到什麼",
@@ -2407,6 +2412,11 @@ const LOCALE_EN = {
   'trash.kind.topic': 'Topic',
   'journal.created': "Journal created: {path}",
   'journal.none': "No journal for {date} yet (this library is read-only)",
+  'paste.converted': "Converted what you pasted to Markdown",
+  'paste.plain': "Paste as plain text",
+  'clip.palette': "New note from clipboard",
+  'clip.empty': "The clipboard has no text; nothing was saved",
+  'clip.denied': "Could not read the clipboard. Go back to the library page and press Ctrl+V (Mac: ⌘V) instead.",
   'capture.title': "Capture to inbox",
   'capture.hint': "One line is enough. It becomes a new note in “{topic}”; the first line is the title. Sort it out later.",
   'capture.label': "What’s on your mind",
