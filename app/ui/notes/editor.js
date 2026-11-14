@@ -15,10 +15,10 @@ import { dialog, confirmDialog, toast } from '../dialog.js';
 
 const DRAFT_PREFIX = 'leafpile-draft:';
 
-const draftKey = (libId, rel) => `${DRAFT_PREFIX}${libId}:${rel}`;
+export const draftKey = (libId, rel) => `${DRAFT_PREFIX}${libId}:${rel}`;
 function readDraft(key) { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; } }
-function writeDraft(key, text) { try { localStorage.setItem(key, JSON.stringify({ text, at: Date.now() })); } catch { /* 空間不足或隱私模式 */ } }
-function dropDraft(key) { try { localStorage.removeItem(key); } catch { /* 隱私模式 */ } }
+export function writeDraft(key, text) { try { localStorage.setItem(key, JSON.stringify({ text, at: Date.now() })); } catch { /* 空間不足或隱私模式 */ } }
+export function dropDraft(key) { try { localStorage.removeItem(key); } catch { /* 隱私模式 */ } }
 
 /**
  * @param {HTMLElement} root

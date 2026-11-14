@@ -16,7 +16,8 @@
 import { escapeHTML as esc, renderMarkdown } from '../core/markdown.js';
 import { t } from '../core/i18n.js';
 import { classifyMedia } from '../core/media.js';
-import { serializeCanvas, canvasColor, edgePath, bounds, resolveFile, newId, SIDES, PRESET_COLORS, fileKind, embedFor, extractURL, slideOrder, pdfPage } from '../core/canvas.js';
+import { serializeCanvas, canvasColor, edgePath, bounds, resolveFile, newId, SIDES, PRESET_COLORS, fileKind, embedFor, extractURL, slideOrder, pdfPage, otherBoards, foldNode, unfoldNode, isFolded, fitHeight, FOLDABLE } from '../core/canvas.js';
+import { noteMediaPath } from './notes/reader.js';
 import { reorderNodes, minimapFrame, withMembers, alignNodes, distribute, snapLines, snapMove, copyFragment, parseFragment, pasteFragment, searchNodes, groupOutline, boardOutline, buildBoardSvg, strokesToSvg } from '../core/canvas-ops.js';
 import { hydrate, mountPage, openPageTab } from '../player/hydrate.js';
 import { prepareMedia } from './media-import.js';
@@ -25,6 +26,7 @@ import { enterFullscreen, exitFullscreen, autoHide } from './fullscreen.js';
 import { readFlag, writeFlag } from './prefs.js';
 
 const MIN_Z = 0.1, MAX_Z = 2.5, MAX_LIVE = 3, DOUBLE_MS = 400, SNAP_PX = 6;
+const NOTE_SIZE = [340, 300]; // 新的筆記卡(顯示全文)
 const INKS = ['#2b2925', '#c0504d', '#3f6fb0', '#5a8f5a'];
 
 /**
@@ -41,8 +43,12 @@ const INKS = ['#2b2925', '#c0504d', '#3f6fb0', '#5a8f5a'];
  * @param {(topicId: string) => string} [o.colorOf]
  * @param {null | ((text: string) => Promise<string|null>)} [o.toNote]  用一段文字建立筆記,回傳路徑(notes/…)
  * @param {null | (() => Promise<object>)} [o.reloadGraph]
+ * @param {Promise<Map<string, string[]>>|null} [o.refs]   每個檔案出現在哪些畫布(core/canvas.js 的 boardRefs)
+ * @param {null | ((box: HTMLElement, hooks: object) => object)} [o.makePeek]  建立側邊卡片面板(ui/board-peek.js)
+ * @param {string} [o.peek]                              一打開就在面板顯示的筆記(筆記渠道裡的路徑)
+ * @param {(rel: string) => string} [o.notePath]        筆記渠道的路徑 → 書庫路徑(notes/…)
  */
-export function renderBoard(root, { board, name, header, href, graph, source, save, choices = [], colorOf = () => '', toNote = null, reloadGraph = null }) {
+export function renderBoard(root, { board, name, header, href, graph, source, save, choices = [], colorOf = () => '', toNote = null, reloadGraph = null, refs = null, makePeek = null, peek: initialPeek = '', notePath = rel => 'notes/' + rel }) {
   const canEdit = !!save;
   const canMedia = canEdit && !!source?.writeMedia;
   root.innerHTML = `<div class="board-shell">${header}
@@ -94,6 +100,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
           <ol class="bo-list"></ol>
         </aside>
         <div class="board-ctx" role="menu" hidden></div>
+        <aside class="board-peek" hidden aria-label="${esc(t('peek.aria'))}"></aside>
         <div class="board-hot" aria-hidden="true"></div>
         <button class="board-fab" data-b="menu" aria-label="${esc(t('board.menu'))}" title="${esc(t('board.menu'))}">☰</button>
         <div class="board-present-bar" hidden><button data-p="prev" aria-label="${esc(t('board.prev'))}">‹</button><span class="n"></span><button data-p="next" aria-label="${esc(t('board.next'))}">›</button><button data-p="exit">${esc(t('board.presentExit'))}</button></div>
@@ -110,6 +117,9 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   const els = new Map();   // id → { el, sig }
   const live = [];         // 載入中的嵌入卡 id(最舊的在前)
   const interactive = new Set();
+  let refMap = null;                 // 每個檔案出現在哪些畫布(背景讀完其他畫布才有)
+  const bodyCache = new WeakMap();   // 圖譜的筆記記錄 → 卡片裡的全文 HTML(圖譜重建就換新的記錄)
+  let peekApi = null, peekRel = '';  // 側邊卡片面板與它正在顯示的筆記
 
   // ---------- 選取 ----------
   // sel = { ids: [...] }(一張或多張卡片)或 { edge: id }
@@ -141,8 +151,10 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     const r = view.getBoundingClientRect();
     if (!b) { cam = { x: r.width / 2, y: r.height / 3, z: 1 }; return applyCam(); }
     const pg = view.closest('.board-page'), top = pg.classList.contains('hideable') || pg.classList.contains('presenting') ? 0 : 64; // 浮動工具列佔掉的高度
-    const z = Math.min(maxZ, Math.max(MIN_Z, Math.min((r.width - pad * 2) / b.width, (r.height - top - pad * 2) / b.height)));
-    cam = { z, x: (r.width - b.width * z) / 2 - b.x * z, y: top + (r.height - top - b.height * z) / 2 - b.y * z };
+    const pk = root.querySelector('.board-peek'), right = pk && !pk.hidden && pk.offsetLeft > r.width / 3 ? r.width - pk.offsetLeft : 0; // 側邊面板擋住的寬度(手機上面板在下面,不算)
+    const w = r.width - right;
+    const z = Math.min(maxZ, Math.max(MIN_Z, Math.min((w - pad * 2) / b.width, (r.height - top - pad * 2) / b.height)));
+    cam = { z, x: (w - b.width * z) / 2 - b.x * z, y: top + (r.height - top - b.height * z) / 2 - b.y * z };
     applyCam();
   };
   const fit = () => fitTo(bounds(board.nodes));
@@ -258,7 +270,10 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   /** 卡片內容(不含位置與選取狀態);內容一樣就不重畫。 */
   function innerOf(n) {
     if (n.type === 'group') return `<span class="glabel">${esc(n.label || '')}</span>`;
-    if (n.type === 'text') return `<div class="md">${renderMarkdown(String(n.text || ''))}</div>`;
+    if (n.type === 'text') {
+      if (isFolded(n)) return `<div class="md folded-line">${esc(firstLine(n.text) || '…')}</div>`;
+      return `<div class="md">${renderMarkdown(String(n.text || ''))}</div>`;
+    }
     if (n.type === 'link') {
       const ok = /^https?:\/\//i.test(String(n.url || ''));
       const em = embedOf(n);
@@ -271,15 +286,35 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     if (k === 'pdf') return `<span class="kind">PDF${pdfPage(n) ? ` · ${esc(t('board.pdfPageN', { n: pdfPage(n) }))}` : ''}</span><b>${esc(base)}</b><div class="embed-box"><button class="embed-load">▶ ${esc(t('board.loadEmbed'))}</button></div>${toolsHTML()}`;
     const r = g ? resolveFile(file, g) : null;
     if (!r) return `<span class="kind">…</span><b>${esc(base)}</b>`;
-    if (r.kind === 'note') return `<span class="kind" style="--kc:${esc(colorOf(r.rec.topicId))}">${esc(t('board.kindNote'))}</span><a class="open" href="${href.note(r.rec.rel)}">${esc(r.rec.title)}</a><p>${esc(String(r.rec.excerpt || r.rec.body || '').replace(/[#>*_`[\]]/g, '').replace(/\s+/g, ' ').slice(0, 160))}</p>`;
+    if (r.kind === 'note') {
+      const others = otherBoards(refMap, n.file, name);
+      const badge = others.length ? `<button class="onb" data-x="boards" title="${esc(t('board.onBoardsTitle', { n: others.length + 1 }))}" aria-label="${esc(t('board.onBoardsTitle', { n: others.length + 1 }))}">▢ ${others.length + 1}</button>` : '';
+      const top = `<div class="nhead"><span class="kind" style="--kc:${esc(colorOf(r.rec.topicId))}">${esc(t('board.kindNote'))}</span>${badge}</div><a class="open" href="${href.note(r.rec.rel)}" data-peek="${esc(r.rec.rel)}">${esc(r.rec.title)}</a>`;
+      return isFolded(n) ? top : `${top}<div class="nb md">${noteHTML(r.rec)}</div>`;
+    }
     if (r.kind === 'deck') return `<span class="kind deck" style="--kc:${esc(colorOf(r.rec.topicId))}">${esc(t('board.kindDeck'))}</span><a class="open" href="${href.deck(r.rec.topicId, r.rec.project.id)}">${esc(r.rec.title)}</a>${r.rec.date ? `<p>${esc(r.rec.date)}</p>` : ''}`;
     return `<span class="kind missing">${esc(t('board.kindMissing'))}</span><code>${esc(file)}</code>`;
   }
 
+  /** 筆記卡的全文:和筆記頁同一套 Markdown;[[連結]] 只顯示文字(點卡片標題才開),圖片相對於筆記所在的資料夾。 */
+  function noteHTML(rec) {
+    let html = bodyCache.get(rec);
+    if (html == null) {
+      // 標題已經在卡片上方:內文開頭若是同樣的 # 標題就略過
+      const body = String(rec.body || '').replace(/^\s*#\s+(.+)\n?/, (m, h) => (h.trim() === String(rec.title || '').trim() ? '' : m));
+      html = renderMarkdown(body, { image: (src, alt) => `<img data-media="${esc(noteMediaPath(src, rec.path))}" alt="${esc(alt)}" loading="lazy" draggable="false">` });
+      bodyCache.set(rec, html);
+    }
+    return html;
+  }
+  const normFile = f => String(f || '').replace(/^\/+/, '');
+  const peekFile = () => normFile(notePath(peekRel));
+  const firstLine = text => String(text || '').split('\n').map(l => l.replace(/^#{1,6}\s+/, '').trim()).find(Boolean) || '';
+
   function placeNode(n, el) {
     const color = canvasColor(n.color), on = isSel(n.id);
     el.style.cssText = `left:${n.x}px;top:${n.y}px;width:${n.width}px;height:${n.height}px;${color ? `--nc:${color};` : ''}z-index:${n.type === 'group' ? 0 : on ? 3 : 1}`;
-    el.className = `bnode t-${n.type} k-${kindOf(n)}${on ? ' sel' : ''}${color ? ' colored' : ''}${interactive.has(n.id) ? ' interactive' : ''}${live.includes(n.id) ? ' live' : ''}${editing === n.id ? ' editing' : ''}${search?.hits.includes(n.id) ? ' hit' : ''}${search && search.hits[search.i] === n.id ? ' hit-now' : ''}`;
+    el.className = `bnode t-${n.type} k-${kindOf(n)}${isFolded(n) ? ' folded' : ''}${peekRel && n.type === 'file' && peekFile() === normFile(n.file) ? ' peeking' : ''}${on ? ' sel' : ''}${color ? ' colored' : ''}${interactive.has(n.id) ? ' interactive' : ''}${live.includes(n.id) ? ' live' : ''}${editing === n.id ? ' editing' : ''}${search?.hits.includes(n.id) ? ' hit' : ''}${search && search.hits[search.i] === n.id ? ' hit-now' : ''}`;
     let h = el.querySelector(':scope > .hdl');
     const want = canEdit && on && selIds().length === 1 && !editing && !present && !drawing;
     if (want && !h) { h = document.createElement('div'); h.className = 'hdl'; h.innerHTML = `<i class="resize" data-h="resize"></i>${n.type === 'group' ? '' : SIDES.map(s => `<i class="dot ${s}" data-h="link" data-side="${s}"></i>`).join('')}`; el.append(h); }
@@ -350,6 +385,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
       if (n.type === 'link') items += `<button data-pop="url">✎ ${esc(t('board.editUrl'))}</button>`;
       if (k === 'pdf') items += `<button data-pop="page" title="${esc(t('board.pdfPageTitle'))}">${esc(pdfPage(n) ? t('board.pdfPageN', { n: pdfPage(n) }) : t('board.pdfPage'))}</button>`;
       if (k === 'html') items += `<label title="${esc(t('board.scriptsTitle'))}"><input type="checkbox" data-pop="scripts"${n['x-scripts'] === true ? ' checked' : ''}> ${esc(t('board.scripts'))}</label>`;
+      if (FOLDABLE(n)) items += `<button data-pop="fold" title="${esc(t(isFolded(n) ? 'board.unfoldTitle' : 'board.foldTitle'))}">${esc(t(isFolded(n) ? 'board.unfold' : 'board.fold'))}</button>${isFolded(n) ? '' : `<button data-pop="fitc" title="${esc(t('board.fitContentTitle'))}">${esc(t('board.fitContent'))}</button>`}`;
       if (n.type !== 'group') items += `<button data-pop="group" title="${esc(t('board.makeGroupTitle'))}">▢</button>`;
       items += colors;
     }
@@ -382,6 +418,8 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     if (what === 'outline') return outlineToNote(n.id);
     if (what === 'page') return editPdfPage(n.id);
     if (what === 'group') return makeGroup();
+    if (what === 'fold') return toggleFold(n);
+    if (what === 'fitc') return fitContent(n);
     if (what === 'align' || what === 'dist') {
       const list = selNodes().filter(x => x.type !== 'group' || selIds().length);
       const pos = what === 'align' ? alignNodes(list, b.dataset.m) : distribute(list, b.dataset.m);
@@ -459,11 +497,15 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     if (k === 'pdf' || k === 'image') return window.open(await source.mediaURL(n.file) + (k === 'pdf' && pdfPage(n) ? `#page=${pdfPage(n)}` : ''), '_blank', 'noopener');
   }
   nodesEl.addEventListener('click', e => {
+    // 筆記卡的標題:在側邊面板開(按住 Ctrl/⌘/Shift 照常開筆記頁)
+    const a = e.target.closest('a.open[data-peek]');
+    if (a && peekApi && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) { e.preventDefault(); peekApi.open(a.dataset.peek); return; }
     const b = e.target.closest('.embed-load, [data-x]');
     if (!b) return;
     const id = b.closest('.bnode')?.dataset.id, n = byId(id);
     if (!n) return;
     e.stopPropagation();
+    if (b.dataset.x === 'boards') { const r = b.getBoundingClientRect(); return openBoardsMenu(n, r.left, r.bottom + 6); }
     if (b.classList.contains('embed-load')) return load(id);
     if (b.dataset.x === 'open') return openTab(n);
     if (b.dataset.x === 'interact') { if (!live.includes(id)) load(id); if (interactive.has(id)) interactive.delete(id); else interactive.add(id); return placeNode(n, els.get(id).el); }
@@ -601,7 +643,41 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     const r = await dialog({ title: t('board.addCardTitle'), fields: [{ name: 'file', label: t('board.pick'), type: 'select', value: choices[0].value, options: choices }], buttons: [{ label: t('dialog.cancel'), value: false }, { label: t('board.add'), value: true, primary: true }] });
     if (!r?.value) return;
     const c = choices.find(x => x.value === r.fields.file), m = center();
-    addNode({ id: newId(board), type: 'file', file: c.file, x: Math.round(m.x - 150), y: Math.round(m.y - 60), width: 300, height: 120, ...(c.deck ? { 'x-kind': 'deck' } : {}) });
+    const [w, h] = c.deck ? [300, 120] : NOTE_SIZE;
+    addNode({ id: newId(board), type: 'file', file: c.file, x: Math.round(m.x - w / 2), y: Math.round(m.y - h / 2), width: w, height: h, ...(c.deck ? { 'x-kind': 'deck' } : {}) });
+  }
+  /** 側邊面板的「放到畫布」:把正在看的筆記放在畫面中央偏左(右邊被面板擋住)。 */
+  function addNoteCard(rel) {
+    if (!canEdit) return;
+    const file = normFile(notePath(rel));
+    if (board.nodes.some(n => n.type === 'file' && normFile(n.file) === file)) return;
+    const v = view.getBoundingClientRect(), pk = peekBox.hidden ? 0 : peekBox.offsetWidth;
+    const m = toWorld(v.left + (v.width - pk) / 2, v.top + v.height / 2), [w, h] = NOTE_SIZE;
+    addNode({ id: newId(board), type: 'file', file, x: Math.round(m.x - w / 2), y: Math.round(m.y - h / 2), width: w, height: h });
+  }
+  /** 筆記卡的面板:圖譜還沒建好就等一下。 */
+  async function peekNode(n) {
+    if (!peekApi || n?.type !== 'file' || kindOf(n) !== 'note') return false;
+    const gg = g || await graph?.catch(() => null);
+    const r = gg ? resolveFile(n.file, gg) : null;
+    if (r?.kind !== 'note') return false;
+    peekApi.open(r.rec.rel);
+    return true;
+  }
+  /** 摺疊/展開(文字卡與筆記卡)。 */
+  function toggleFold(n) {
+    if (!n || !canEdit) return;
+    if (isFolded(n) ? unfoldNode(n) : foldNode(n)) { draw(); changed(); }
+  }
+  /** 適合內容:量卡片內容的自然高度,把卡片改成剛好那麼高。 */
+  function fitContent(n) {
+    const el = n && els.get(n.id)?.el;
+    if (!el || !canEdit || isFolded(n)) return;
+    const prev = el.style.height;
+    el.classList.add('measuring'); el.style.height = 'auto';
+    const h = fitHeight(el.offsetHeight);
+    el.style.height = prev; el.classList.remove('measuring');
+    if (h !== n.height) { n.height = h; draw(); changed(); }
   }
   /** 選檔、拖進來或貼上的圖片/HTML/PDF:存進 boards/media/,放成卡片。 */
   async function importFiles(files, at) {
@@ -877,7 +953,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   const isDouble = id => { const now = Date.now(); const d = lastTap.id === id && now - lastTap.t < DOUBLE_MS; lastTap = d ? { id: '', t: 0 } : { id, t: now }; return d; };
 
   view.addEventListener('pointerdown', e => {
-    if (e.target.closest('.board-present-bar, .board-fab, .board-mini, .board-mini-btn, .board-ctx, .board-outline, .board-search, .board-draw-bar, a.open, textarea, .embed-tools, .embed-load, .interactive .embed-box')) return;
+    if (e.target.closest('.board-present-bar, .board-fab, .board-mini, .board-mini-btn, .board-ctx, .board-outline, .board-peek, .board-search, .board-draw-bar, a.open, .onb, textarea, .embed-tools, .embed-load, .interactive .embed-box')) return;
     if (present) { if (e.button === 0) act = { type: 'pan', sx: e.clientX, sy: e.clientY, cx: cam.x, cy: cam.y, still: true }; return; }
     if (editing || e.button > 0) return;
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -894,7 +970,12 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     if (nodeEl) {
       const n = byId(nodeEl.dataset.id);
       if (!n) return;
-      if (!h && !e.shiftKey && isDouble('n:' + n.id)) { act = null; e.preventDefault(); if (canEdit) { if (n.type === 'text') editText(n.id); else if (n.type === 'group') editGroup(n.id); else if (n.type === 'link') editLink(n.id); } return; }
+      if (!h && !e.shiftKey && isDouble('n:' + n.id)) {
+        act = null; e.preventDefault();
+        if (kindOf(n) === 'note') { peekNode(n); return; }
+        if (canEdit) { if (n.type === 'text') editText(n.id); else if (n.type === 'group') editGroup(n.id); else if (n.type === 'link') editLink(n.id); }
+        return;
+      }
       if (e.shiftKey && canEdit) { // 加選/取消
         const ids = isSel(n.id) ? selIds().filter(x => x !== n.id) : [...selIds(), n.id];
         select({ ids }); act = null; return;
@@ -1020,7 +1101,13 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   view.addEventListener('pointercancel', endPointer);
 
   view.addEventListener('wheel', e => {
-    if (e.target.closest('.interactive .embed-box')) return;
+    if (e.target.closest('.interactive .embed-box, .board-peek')) return;
+    // 筆記卡的全文:內容還捲得動就捲卡片,捲到底才平移畫布
+    const nb = !e.ctrlKey && !e.metaKey && e.target.closest('.bnode .nb');
+    if (nb && nb.scrollHeight > nb.clientHeight + 1 && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      const down = e.deltaY > 0;
+      if (down ? nb.scrollTop + nb.clientHeight < nb.scrollHeight - 1 : nb.scrollTop > 0) return;
+    }
     e.preventDefault();
     world.classList.remove('glide');
     if (e.ctrlKey || e.metaKey) zoomAt(cam.z * Math.exp(-e.deltaY * 0.0025), e.clientX, e.clientY);
@@ -1038,7 +1125,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     importFiles(files, toWorld(e.clientX, e.clientY));
   });
   const onPaste = e => {
-    if (!canEdit || editing || present || drawing || e.target.closest?.('input, textarea, .lp-dialog')) return;
+    if (!canEdit || editing || present || drawing || e.target.closest?.('input, textarea, .lp-dialog, .board-peek')) return;
     const files = [...(e.clipboardData?.files || [])];
     if (files.length) { e.preventDefault(); return importFiles(files); }
     const raw = e.clipboardData?.getData('text') || '';
@@ -1106,13 +1193,16 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
       return out;
     }
     if (ids.length > 1) out.push({ head: t('board.selected', { n: ids.length }) });
-    if (n && openable(n)) out.push(it('open', t('board.ctxOpen'), 'Enter'));
+    if (n && openable(n)) out.push(it('open', t(kindOf(n) === 'note' && peekApi ? 'board.ctxPeek' : 'board.ctxOpen'), 'Enter'));
+    if (n && kindOf(n) === 'note' && peekApi && openable(n)) out.push(it('page', t('board.ctxPage')));
     if (n && canEdit) {
       if (n.type === 'text') out.push(it('edit', t('board.editShort'), 'Enter'));
       if (n.type === 'group') out.push(it('glabel', t('board.ctxGroupLabel')));
       if (n.type === 'link') out.push(it('url', t('board.ctxUrl')));
       if (n.type === 'text' && toNote) out.push(it('note', t('board.toNote')));
       if (n.type === 'group' && toNote) out.push(it('outline', t('board.outline')));
+      if (FOLDABLE(n)) out.push(it('fold', t(isFolded(n) ? 'board.unfold' : 'board.fold')));
+      if (FOLDABLE(n) && !isFolded(n)) out.push(it('fitc', t('board.fitContent')));
     }
     out.push(it('focus', t('board.ctxFocus')));
     if (canEdit) {
@@ -1132,6 +1222,20 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
       : i.head ? `<div class="head">${esc(i.head)}</div>`
       : i.colors ? `<div class="sw">${['', ...Object.keys(PRESET_COLORS)].map(c => `<button data-c="${c}" style="--sw:${c ? PRESET_COLORS[c] : 'transparent'}" aria-label="${esc(t('board.color'))} ${c || '—'}"${c ? '' : ' class="none"'}></button>`).join('')}</div>`
       : `<button role="menuitem" data-k="${i.k}" class="${i.cls}"${i.cls === 'on' || i.cls === 'off' ? ` aria-pressed="${i.cls === 'on'}"` : ''}><span>${esc(i.label)}</span>${i.key ? `<kbd>${esc(i.key)}</kbd>` : ''}</button>`).join('');
+    showCtx(x, y);
+  }
+  /** 筆記卡的「出現在 N 張畫布」:列出其他畫布,點了就過去,並在那邊的面板打開同一篇。 */
+  function openBoardsMenu(n, x, y) {
+    const others = otherBoards(refMap, n.file, name);
+    if (!others.length) return;
+    const r = g ? resolveFile(n.file, g) : null, rel = r?.kind === 'note' ? r.rec.rel : '';
+    if (!isSel(n.id)) select({ ids: [n.id] });
+    ctx.innerHTML = `<div class="head">${esc(t('board.onBoardsHead', { n: others.length + 1 }))}</div>`
+      + `<div class="here">▣ ${esc(name)} <small>${esc(t('board.onBoardsHere'))}</small></div>`
+      + others.map(b => `<button role="menuitem" data-k="goto" data-name="${esc(b)}" data-rel="${esc(rel)}"><span>▢ ${esc(b)}</span></button>`).join('');
+    showCtx(x, y);
+  }
+  function showCtx(x, y) {
     ctx.hidden = false;
     pop.hidden = true;
     const v = view.getBoundingClientRect(), w = ctx.offsetWidth, h = ctx.offsetHeight;
@@ -1169,6 +1273,10 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     if (k === 'fit') return fit();
     if (k === 'minimap') return setMini(!miniOn);
     if (k === 'open') return n && (els.get(n.id)?.el.querySelector('a.open')?.click() ?? openTab(n));
+    if (k === 'page') { const a = n && els.get(n.id)?.el.querySelector('a.open'); if (a) location.hash = a.getAttribute('href'); return; }
+    if (k === 'fold') return toggleFold(n);
+    if (k === 'fitc') return fitContent(n);
+    if (k === 'goto') { const b = e.target.closest('[data-name]')?.dataset.name, rel = e.target.closest('[data-rel]')?.dataset.rel; if (b) location.hash = href.board(b, rel); return; }
     if (k === 'edit') return sel?.edge ? editEdge(sel.edge) : n && editText(n.id);
     if (k === 'glabel') return n && editGroup(n.id);
     if (k === 'url') return n && editLink(n.id);
@@ -1192,7 +1300,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   view.addEventListener('wheel', () => { if (!ctx.hidden) closeCtx(); }, { passive: true });
 
   const onKey = e => {
-    if (editing || e.target.closest?.('input, textarea, select, .lp-dialog, .palette')) return;
+    if (editing || e.target.closest?.('input, textarea, select, .lp-dialog, .palette, .board-peek')) return;
     if (present) {
       if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); showSlide(present.i + 1); }
       else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) { e.preventDefault(); showSlide(present.i - 1); }
@@ -1216,7 +1324,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     if (mod && k === 'd' && canEdit) { e.preventDefault(); return duplicate(); }
     if (mod) return;
     if (e.key === 'Delete' || e.key === 'Backspace') { if (sel && canEdit) { e.preventDefault(); removeSelected(); } return; }
-    if (e.key === 'Escape') { if (!ctx.hidden) return closeCtx(); if (!menu.hidden) return setMenu(false); if (outlineOn) return setOutline(false); if (search) return closeSearch(); if (sel) return select(null); if (full) setFull(false); return; }
+    if (e.key === 'Escape') { if (!ctx.hidden) return closeCtx(); if (!menu.hidden) return setMenu(false); if (outlineOn) return setOutline(false); if (search) return closeSearch(); if (sel) return select(null); if (peekRel) return peekApi?.close(); if (full) setFull(false); return; }
     if (e.key === 'Enter' && sel) {
       e.preventDefault();
       if (sel.edge) return editEdge(sel.edge);
@@ -1235,9 +1343,26 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
   const onUnload = e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } };
   window.addEventListener('beforeunload', onUnload);
 
+  // ---------- 側邊卡片面板 ----------
+  const peekBox = $('.board-peek');
+  if (makePeek) peekApi = makePeek(peekBox, {
+    onChange: rel => { peekRel = rel || ''; view.classList.toggle('has-peek', !!rel); placeAll(); },
+    onBoard: rel => board.nodes.some(n => n.type === 'file' && normFile(n.file) === normFile(notePath(rel))),
+    addToBoard: canEdit ? rel => addNoteCard(rel) : null,
+  });
+
   draw();
-  requestAnimationFrame(() => { fit(); setMini(miniOn); if (readFlag(OUTLINE_KEY)) setOutline(true); });
+  requestAnimationFrame(() => {
+    fit(); setMini(miniOn); if (readFlag(OUTLINE_KEY)) setOutline(true);
+    if (initialPeek && peekApi) {
+      peekApi.open(initialPeek);
+      // 從別張畫布的徽章過來:選取並移到同一張卡片
+      const card = board.nodes.find(n => n.type === 'file' && normFile(n.file) === normFile(notePath(initialPeek)));
+      if (card) { select({ ids: [card.id] }); centerOn(card); }
+    }
+  });
   graph?.then(x => { g = x; if (alive) draw(); }, () => {});
+  refs?.then(m => { refMap = m; if (alive) draw(); }, () => {});
 
   return {
     cleanup: () => {
@@ -1248,6 +1373,9 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
       if ((present || full) && document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
       if (dirty) flush();
     },
-    isDirty: () => false, // 離開時 cleanup 會把還沒存的立刻存掉,不用問
+    // 畫布離開時 cleanup 會把還沒存的立刻存掉,不用問;側邊面板正在編輯、還沒存的才要問
+    isDirty: () => !!peekApi?.isDirty(),
+    /** 筆記存檔後:圖譜換新,卡片的全文跟著更新。 */
+    refreshGraph: gg => { g = gg; if (alive) draw(); },
   };
 }

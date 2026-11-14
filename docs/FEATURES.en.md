@@ -232,9 +232,10 @@ Read-only boards (the built-in examples, or a library you can't write to) have n
 | **M** | Toggle the minimap |
 | **O** | Toggle the outline |
 | Double-click empty space | New text card |
-| Enter | Edit the selected text card; open a note or deck card |
+| Enter | Edit the selected text card; open a note card in the side panel; open a deck card |
+| Double-click a note card | Open it in the side panel |
 | Delete | Delete the selection |
-| Esc | Cancel one layer at a time: context menu, More menu, search, selection, full screen |
+| Esc | Cancel one layer at a time: context menu, More menu, outline, search, selection, side panel, full screen |
 | **Ctrl+A / C / X / D** | Select all, copy, cut, duplicate |
 | **Ctrl+V** | Paste (also pastes screenshots as image cards) |
 | **Ctrl+Z / Ctrl+Y** | Undo / redo |
@@ -247,8 +248,22 @@ Right-click empty space, a card or a line (on a phone: select it, then tap ⋯).
 
 - Empty space: new text / note or deck / URL, paste, fit to screen, minimap.
 - A PDF card's toolbar has **Page**: set the page it opens at.
-- Card: open, edit, focus, copy, cut, duplicate, paste, group, bring to front / send to back, change color, delete. A text card can become a note; a group can become an outline note.
+- Card: open, edit, focus, copy, cut, duplicate, paste, group, bring to front / send to back, change color, delete. A text card can become a note; a group can become an outline note. Note cards also have **Open in side panel** and **Open note page**; text and note cards have **Fold / Unfold** and **Fit to content**.
 - Line: edit text, change color, delete.
+
+### Side panel and note cards
+
+![The board's side card panel](images/board-peek.en.webp)
+
+Note cards show the whole note. When it is longer than the card, the wheel scrolls inside the card first and pans the board once you reach the end.
+
+- **Open in the side panel**: click a note card's title, double-click the card, or select it and press Enter. The note opens on the right and you stay on the board. Clicking a `[[note]]` inside the panel opens it in the panel; deck links open as usual. Ctrl/⌘-click the title to go to the note page instead.
+- **Edit in the panel** (writable libraries): press **Edit**, Ctrl+S to save, Esc to cancel. Same safety as the note editor: if another app changed the file you are asked first, and unsaved text is kept as a draft. The card's text updates after saving.
+- The URL remembers which note the panel shows; ↗ opens the note page; **+ Add to board** appears when the note is not on this board yet.
+- **Fold** (selection toolbar or right-click): text and note cards shrink to one title line; **Unfold** restores the height. Stored as `x-leafpile-folded` in the board file (Obsidian ignores it).
+- **Fit to content**: resize the card to exactly fit its content.
+- **▢ N** at a note card's top right: the note appears on N boards. Click it to list the other boards; pick one to go there with the same card selected and open in the panel.
+- On phones the panel takes the bottom part of the screen.
 
 ### Outline
 

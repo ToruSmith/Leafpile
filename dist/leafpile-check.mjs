@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Leafpile 書庫檢查工具(單檔版 v0.14.1)
+// Leafpile 書庫檢查工具(單檔版 v0.15.0)
 // 由 scripts/bundle-check.mjs 自動產生,請不要手動修改。原始碼:https://github.com/ToruSmith/Leafpile
 //
 // 用法(需要 Node.js 18 以上):
@@ -903,6 +903,27 @@ const LOCALE_ZH_HANT = {
   'board.minimapTitle': '小地圖:點或拖曳就移過去(M)',
   'board.ctxTitle': '更多動作',
   'board.ctxOpen': '開啟',
+  'board.ctxPeek': '在側邊開啟',
+  'board.ctxPage': '在筆記頁開啟',
+  'board.fold': '摺疊',
+  'board.unfold': '展開',
+  'board.foldTitle': '只留標題（再按一次展開，高度會還原）',
+  'board.unfoldTitle': '展開成原本的高度',
+  'board.fitContent': '適合內容',
+  'board.fitContentTitle': '把卡片高度改成剛好放下內容',
+  'board.onBoardsTitle': '這篇筆記出現在 {n} 張畫布',
+  'board.onBoardsHead': '出現在 {n} 張畫布',
+  'board.onBoardsHere': '這張',
+  'peek.aria': '側邊卡片面板',
+  'peek.edit': '編輯',
+  'peek.editTitle': '在面板裡編輯這篇筆記（Ctrl+S 存檔、Esc 取消）',
+  'peek.add': '+ 放到畫布',
+  'peek.addTitle': '把這篇筆記放到這張畫布上',
+  'peek.pageTitle': '在筆記頁開啟',
+  'peek.closeTitle': '關閉面板（Esc）',
+  'peek.readFailed': '讀不到這篇筆記。可能已經改名、搬移或封存。',
+  'peek.discardAsk': '放棄還沒存的修改嗎？（草稿會留在這台電腦）',
+  'peek.discard': '放棄修改',
   'board.ctxFocus': '放大到這裡',
   'board.ctxCopy': '複製',
   'board.ctxCut': '剪下',
@@ -2032,6 +2053,27 @@ const LOCALE_EN = {
   'board.minimapTitle': 'Minimap: click or drag to move there (M)',
   'board.ctxTitle': 'More actions',
   'board.ctxOpen': 'Open',
+  'board.ctxPeek': 'Open in side panel',
+  'board.ctxPage': 'Open note page',
+  'board.fold': 'Fold',
+  'board.unfold': 'Unfold',
+  'board.foldTitle': 'Show only the title (unfold restores the height)',
+  'board.unfoldTitle': 'Unfold to the previous height',
+  'board.fitContent': 'Fit to content',
+  'board.fitContentTitle': 'Resize the card to fit its content',
+  'board.onBoardsTitle': 'This note appears on {n} boards',
+  'board.onBoardsHead': 'On {n} boards',
+  'board.onBoardsHere': 'this one',
+  'peek.aria': 'Side card panel',
+  'peek.edit': 'Edit',
+  'peek.editTitle': 'Edit this note in the panel (Ctrl+S to save, Esc to cancel)',
+  'peek.add': '+ Add to board',
+  'peek.addTitle': 'Put this note on this board',
+  'peek.pageTitle': 'Open note page',
+  'peek.closeTitle': 'Close panel (Esc)',
+  'peek.readFailed': 'Could not read this note. It may have been renamed, moved or archived.',
+  'peek.discardAsk': 'Discard unsaved changes? (A draft stays on this computer.)',
+  'peek.discard': 'Discard',
   'board.ctxFocus': 'Zoom to this',
   'board.ctxCopy': 'Copy',
   'board.ctxCut': 'Cut',
@@ -4790,12 +4832,71 @@ function textToNote(text) {
   return { title, body };
 }
 
+const fileKey = file => norm(String(file || '').replace(/^\/+/, ''));
+
 /** 筆記出現在哪些畫布的哪些卡片(只比對 file 欄位)。 */
 function boardsWith(boards, path) {
-  const p = norm(path);
-  return boards.filter(b => b.board.nodes.some(n => n.type === 'file' && norm(String(n.file || '').replace(/^\/+/, '')) === p)).map(b => b.name);
+  return boardRefs(boards).get(fileKey(path)) || [];
 }
-return { NODE_TYPES, SIDES, PRESET_COLORS, canvasColor, parseCanvas, serializeCanvas, emptyCanvas, newId, anchor, edgePath, bounds, resolveFile, missingFiles, boardFileName, IMAGE_EXT, fileKind, pdfPage, extractURL, embedFor, slideOrder, textToNote, boardsWith };
+
+/**
+ * 每個檔案出現在哪些畫布:Map(正規化的路徑 → 畫布名稱[],依 boards 的順序、不重複)。
+ * 筆記頁的「出現在這些畫布」、畫布卡片的徽章、書庫索引共用這一份。
+ * @param {{ name: string, board: { nodes: object[] } }[]} boards
+ */
+function boardRefs(boards) {
+  const out = new Map();
+  for (const b of boards) {
+    for (const n of b.board?.nodes || []) {
+      if (n.type !== 'file') continue;
+      const k = fileKey(n.file);
+      if (!k) continue;
+      if (!out.has(k)) out.set(k, []);
+      const list = out.get(k);
+      if (!list.includes(b.name)) list.push(b.name);
+    }
+  }
+  return out;
+}
+
+/** 這張卡片(file)還出現在哪些「其他」畫布。 */
+function otherBoards(refs, file, current) {
+  return (refs?.get(fileKey(file)) || []).filter(name => name !== current);
+}
+
+// ---------- 摺疊與適合內容(Leafpile 自訂欄位,Obsidian 會略過) ----------
+const FOLD_KEY = 'x-leafpile-folded';
+const FOLD_HEIGHT_KEY = 'x-leafpile-height';
+const FOLDED_HEIGHT = 56;
+const FOLDABLE = n => n.type === 'text' || (n.type === 'file' && fileKind(n.file) === 'note');
+
+const isFolded = n => n?.[FOLD_KEY] === true;
+
+/** 摺疊:只留標題列;原本的高度記在 x-leafpile-height,展開時還原。回傳有沒有改。 */
+function foldNode(n) {
+  if (!n || isFolded(n) || !FOLDABLE(n)) return false;
+  n[FOLD_HEIGHT_KEY] = n.height;
+  n[FOLD_KEY] = true;
+  n.height = FOLDED_HEIGHT;
+  return true;
+}
+
+/** 展開:還原摺疊前的高度(沒有記錄或太小就用 240)。回傳有沒有改。 */
+function unfoldNode(n) {
+  if (!n || !isFolded(n)) return false;
+  const h = Number(n[FOLD_HEIGHT_KEY]);
+  n.height = Number.isFinite(h) && h > FOLDED_HEIGHT ? h : 240;
+  delete n[FOLD_KEY];
+  delete n[FOLD_HEIGHT_KEY];
+  return true;
+}
+
+/** 適合內容:量到的內容高度 → 卡片高度(有上下限,取整數)。 */
+function fitHeight(contentHeight, { min = 60, max = 2400 } = {}) {
+  const h = Math.ceil(Number(contentHeight) || 0);
+  return Math.min(max, Math.max(min, h));
+}
+return { NODE_TYPES, SIDES, PRESET_COLORS, canvasColor, parseCanvas, serializeCanvas, emptyCanvas, newId, anchor, edgePath, bounds, resolveFile, missingFiles, boardFileName, IMAGE_EXT, fileKind, pdfPage, extractURL, embedFor, slideOrder, textToNote, boardsWith, boardRefs, otherBoards, FOLD_KEY, FOLD_HEIGHT_KEY, FOLDED_HEIGHT, FOLDABLE, isFolded, foldNode, unfoldNode, fitHeight };
 })();
 
 // ───────── app/core/check.js ─────────
