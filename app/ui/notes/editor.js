@@ -53,6 +53,7 @@ export function renderEditor(root, { vault, libId, rel, text, header, href, grap
           <button data-ins="link" title="${esc(t('ne.link'))}">[[ ]]</button>
         </div>
         <span class="ne-status" role="status"></span>
+        ${writable ? `<button class="btn ghost del" title="${esc(t('trash.buttonTitle'))}">${esc(t('trash.button'))}</button>` : ''}
         ${writable ? `<button class="btn primary save" title="${esc(t('ne.saveTitle'))}">${esc(t('ne.save'))}</button>` : ghEdit ? `<a class="btn primary" href="${esc(ghEdit)}" target="_blank" rel="noopener">${esc(t('ne.editOnGitHub'))}</a>` : ''}
       </div>
       ${writable ? '' : `<p class="ne-readonly">${esc(t(source.kind === 'repo' ? 'ne.readonlyRepo' : 'ne.readonly'))}</p>`}
@@ -212,6 +213,8 @@ export function renderEditor(root, { vault, libId, rel, text, header, href, grap
     e.preventDefault();
     if (await confirmDialog(t('ne.leaveAsk'), t('ne.leave'))) { state.original = ta.value; location.hash = href.note(rel); }
   });
+  // 刪除:交給 main.js 確認與搬到 _archive/;搬完才把這個畫面標成「沒有未存檔的修改」,不然會被離開保護攔住
+  $('.del')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('leafpile:note-action', { detail: { action: 'delete', rel, onDone: () => { state.original = ta.value; dropDraft(key); } } })));
   requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(0, 0); });
 
   return {

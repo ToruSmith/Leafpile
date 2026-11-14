@@ -93,7 +93,7 @@ export function renderReader(root, { vault, rel, note, topic, book, header, href
             ${canEdit ? `<a class="btn ghost" href="${href.edit(rel)}" title="${esc(t('note.editTitle'))}">${esc(t('note.edit'))}</a>` : ''}
             ${canPromote ? `<button class="btn ghost promote" title="${esc(t('promote.buttonTitle'))}">${esc(t('promote.button'))}</button>` : ''}
             ${canPromote ? `<details class="note-more"><summary class="btn ghost" title="${esc(t('move.moreTitle'))}">${esc(t('move.more'))}</summary><div class="note-more-menu">
-              <button data-act="rename">${esc(t('move.rename'))}</button><button data-act="move">${esc(t('move.move'))}</button><button data-act="archive">${esc(t('move.archive'))}</button></div></details>` : ''}
+              <button data-act="rename">${esc(t('move.rename'))}</button><button data-act="move">${esc(t('move.move'))}</button><button data-act="delete" title="${esc(t('trash.buttonTitle'))}">${esc(t('move.archive'))}</button></div></details>` : ''}
             <button class="btn ghost imm" data-rd="enter" title="${esc(t('note.immersiveTitle'))}">${esc(t('note.immersive'))}</button>
             <span class="scale"><button data-scale="-1" title="${esc(t('note.smaller'))}" aria-label="${esc(t('note.smaller'))}">A−</button><button class="val" data-scale="0" title="${esc(t('note.scaleReset'))}">${pct(scale)}</button><button data-scale="1" title="${esc(t('note.larger'))}" aria-label="${esc(t('note.larger'))}">A+</button></span>
           </div>

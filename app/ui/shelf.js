@@ -34,7 +34,10 @@ function savedView() {
  * @returns {Function} 清理函式
  * boardRefs:每個檔案出現在哪些畫布(背景讀完所有畫布才有);onAddToBoard(rel):卡片庫的「放到畫布」,回傳放好的畫布名稱
  */
-export function renderShelf(root, { vault, sourceKey, header, href, graph, onRefresh, onCheck, onNewNote, onPrivacy, onPack, onGenerate, onNewBoard, onTopicEdit, onTopicNew, onCategories, boardRefs = null, onAddToBoard = null, onJournal = null }) {
+/** 刪除(搬到 _archive/)的小按鈕;沒有寫入權限的書庫不會有。 */
+const delBtn = (kind, id, extra = '', cls = 'del-x') => `<button type="button" class="${cls}" data-del="${esc(kind)}" data-id="${esc(id)}"${extra} title="${esc(t('trash.buttonTitle'))}" aria-label="${esc(t('trash.button'))}">\u2715</button>`;
+
+export function renderShelf(root, { vault, sourceKey, header, href, graph, onRefresh, onCheck, onNewNote, onPrivacy, onPack, onGenerate, onNewBoard, onTopicEdit, onTopicNew, onCategories, boardRefs = null, onAddToBoard = null, onJournal = null, onDelete = null }) {
   applyUITheme(vault.theme || 'paper');
   const noteCount = vault.notes.topics.reduce((n, tp) => n + notesOfTopic(tp).length, 0);
   const deckCount = vault.topics.reduce((n, tp) => n + tp.decks.length, 0);
@@ -82,7 +85,7 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
         ${groups.map(g => `
           <div class="category" data-category="${esc(g.id)}">
             ${g.name ? `<h2 class="category-name">${esc(g.name)}</h2>` : ''}
-            ${g.topics.map(tp => topicHTML(tp, vault, href)).join('')}
+            ${g.topics.map(tp => topicHTML(tp, vault, href, !!onDelete)).join('')}
           </div>`).join('')}
       </div>
       ${hasNotes && (vault.boards?.length || onNewBoard) ? `<section class="boards-row"><h2>${esc(t('board.heading'))}</h2><div class="boards-list">
@@ -96,6 +99,13 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
   const shelf = $('.shelf');
   const cards = [...root.querySelectorAll('.deck-card')];
   const findDeck = el => vault.topics.find(tp => tp.id === el.dataset.topic)?.decks.find(p => p.id === el.dataset.project);
+  // 刪除(搬到 _archive/):筆記列、簡報卡、表格列、卡片庫、主題表共用同一個處理(掛在 .shelf 上,不是 root:root 會跨畫面留著)
+  shelf.addEventListener('click', e => {
+    const dl = e.target.closest('[data-del]');
+    if (!dl || !onDelete) return;
+    e.preventDefault();
+    onDelete({ kind: dl.dataset.del, id: dl.dataset.id, topic: dl.dataset.topic });
+  });
   const stopCards = wireDeckCards(cards, { find: findDeck, source: vault.slidesSource, theme: vault.theme });
   if (vault.notesSource) root.querySelectorAll('.books').forEach(el => hydrate(el, vault.notesSource)); // 筆記本封面(簡報封面由 wireDeckCards 用簡報渠道讀)
 
@@ -192,7 +202,7 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
     const pub = tp => (typeof tp.conf?.public === 'boolean' ? t(tp.conf.public ? 'tm.publicYes' : 'tm.publicNo') : '');
     const gkey = groupPref.topics === 'category' ? 'category' : '';
     const groups = groupRows(list.map(tp => ({ ...tp, topicId: tp.id, category: catOf.get(tp.id) || '' })), gkey, groupOpts(gkey));
-    const span = onTopicEdit ? 7 : 6;
+    const span = 6 + (onTopicEdit ? 1 : 0);
     const rowHTML = tp => `<tr>
           <td class="c-title"><span class="tm-head"><i class="tm-dot" style="background:${esc(tp.color)}"></i>${esc(tp.title)}</span>${tp.description ? `<small>${esc(tp.description)}</small>` : ''}</td>
           <td class="c-f"><code>${esc(tp.id)}</code></td>
@@ -200,7 +210,7 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
           <td class="c-num">${tp.notes ? notesOfTopic(tp.notes).length : 0}</td>
           <td class="c-num">${tp.decks.length}</td>
           <td class="c-f">${esc(pub(tp))}</td>
-          ${onTopicEdit ? `<td class="c-act"><button class="btn ghost tm-edit" data-topic="${esc(tp.id)}">${esc(t('tm.editBtn'))}</button></td>` : ''}
+          ${onTopicEdit ? `<td class="c-act"><button class="btn ghost tm-edit" data-topic="${esc(tp.id)}">${esc(t('tm.editBtn'))}</button>${onDelete ? ` <button class="btn ghost tm-del" data-del="topic" data-id="${esc(tp.id)}" title="${esc(t('trash.buttonTitle'))}">${esc(t('trash.button'))}</button>` : ''}</td>` : ''}
         </tr>`;
     box.innerHTML = `<div class="table-head">${modeBar()}<span class="n">${esc(t('table.topicCount', { n: list.length }))}</span>${groupBar(['category'])}
         ${onTopicNew ? `<button class="btn ghost tm-new">${esc(t('tm.newBtn'))}</button>` : ''}
@@ -239,6 +249,7 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
           <small class="lc-meta">${esc([r.topic, r.date].filter(Boolean).join(' \u00b7 '))}</small>
           <p class="lc-text">${esc(plainExcerpt(r.body, 280, r.title))}</p>
           ${r.tags.length ? `<span class="kb-tags">${r.tags.map(x => `<button class="tag" data-tag="${esc(x)}">#${esc(x)}</button>`).join(' ')}</span>` : ''}
+          ${onDelete ? delBtn('note', r.rel, '', 'del-x lc-del') : ''}
           ${boardNames.length || onAddToBoard ? `<div class="lc-boards">${refMap ? (r.boards.length ? r.boards.map(b => `<a href="${href.board(b, r.rel)}" title="${esc(t('table.openOnBoard'))}">\u25A2 ${esc(b)}</a>`).join('') : `<span class="lc-none">${esc(t('table.boardNone'))}</span>`) : ''}${onAddToBoard ? `<button class="btn ghost lc-add" data-add="${esc(r.rel)}" title="${esc(t('table.addToBoardTitle'))}">${esc(t('table.addToBoard'))}</button>` : ''}</div>` : ''}
         </article>`).join('')}</div>` : `<p class="table-empty">${esc(t('table.empty'))}</p>`);
       return;
@@ -288,8 +299,8 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
         ${groupBar(gOptions)}${boardBar()}
         <span class="hint">${esc(t('table.readonly'))}</span></div>
       <div class="table-wrap"><table>
-        <thead><tr>${cols.map(([k, label]) => `<th scope="col" aria-sort="${sort.key === k ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}"><button data-sort="${esc(k)}">${esc(label)}<i>${sort.key === k ? (sort.dir === 'asc' ? '\u25B2' : '\u25BC') : ''}</i></button></th>`).join('')}</tr></thead>
-        ${groupBodies(groups, cols.length, r => `<tr>${cols.map(([k]) => `<td class="c-${k === 'title' || k === 'tags' || k === 'date' ? k : 'f'}">${cell(r, k)}</td>`).join('')}</tr>`)}
+        <thead><tr>${cols.map(([k, label]) => `<th scope="col" aria-sort="${sort.key === k ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}"><button data-sort="${esc(k)}">${esc(label)}<i>${sort.key === k ? (sort.dir === 'asc' ? '\u25B2' : '\u25BC') : ''}</i></button></th>`).join('')}${onDelete ? '<th scope="col"></th>' : ''}</tr></thead>
+        ${groupBodies(groups, cols.length + (onDelete ? 1 : 0), r => `<tr>${cols.map(([k]) => `<td class="c-${k === 'title' || k === 'tags' || k === 'date' ? k : 'f'}">${cell(r, k)}</td>`).join('')}${onDelete ? `<td class="c-del">${delBtn('note', r.rel)}</td>` : ''}</tr>`)}
       </table></div>
       ${list.length ? '' : `<p class="table-empty">${esc(t('table.empty'))}</p>`}`;
   };
@@ -429,7 +440,7 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
   return () => { alive = false; stopCards(); window.removeEventListener('keydown', onKey); window.removeEventListener('leafpile-shelf', onShelfNav); };
 }
 
-function topicHTML(tp, vault, href) {
+function topicHTML(tp, vault, href, canDelete = false) {
   const items = tp.notes?.items || [];
   const nNotes = tp.notes ? notesOfTopic(tp.notes).length : 0;
   const counts = [nNotes && t('shelf.countNotes', { n: nNotes }), tp.decks.length && t('shelf.countDecks', { n: tp.decks.length })].filter(Boolean).join(t('shelf.dot'));
@@ -439,15 +450,16 @@ function topicHTML(tp, vault, href) {
     <header><h2><i></i>${esc(tp.title)}${badges}<small class="counts">${esc(counts || t('shelf.emptyTopic'))}</small></h2>${tp.description ? `<p>${esc(tp.description)}</p>` : ''}</header>
     <div class="notes-col">
       ${items.filter(i => i.kind === 'book').length ? `<div class="books">${items.filter(i => i.kind === 'book').map(b => bookHTML(b, tp, vault, href)).join('')}</div>` : ''}
-      ${items.filter(i => i.kind === 'note').length ? `<ul class="note-list">${items.filter(i => i.kind === 'note').map(n => noteRowHTML(n, tp, href)).join('')}</ul>` : ''}
+      ${items.filter(i => i.kind === 'note').length ? `<ul class="note-list">${items.filter(i => i.kind === 'note').map(n => noteRowHTML(n, tp, href, canDelete)).join('')}</ul>` : ''}
     </div>
-    <div class="decks-col"><div class="grid">${tp.decks.map(p => deckCardHTML(tp, p, href.deck(tp.id, p.id))).join('')}</div></div>
+    <div class="decks-col"><div class="grid">${tp.decks.map(p => canDelete ? `<div class="deck-item">${deckCardHTML(tp, p, href.deck(tp.id, p.id))}${delBtn('deck', p.id, ` data-topic="${esc(tp.id)}"`)}</div>` : deckCardHTML(tp, p, href.deck(tp.id, p.id))).join('')}</div></div>
   </section>`;
 }
 
-function noteRowHTML(n, tp, href) {
+function noteRowHTML(n, tp, href, canDelete = false) {
   return `<li class="note-row" data-path="${esc(n.path)}" data-search="${esc([n.title, n.path, tp.title].join(' ').toLowerCase())}">
     <a href="${href.note(n.path)}"><span class="t">${esc(n.title)}</span><span class="x"></span><span class="m"><span class="d">${esc(n.date || '')}</span><span class="tags"></span></span></a>
+    ${canDelete ? delBtn('note', n.path) : ''}
   </li>`;
 }
 
