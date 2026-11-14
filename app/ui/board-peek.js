@@ -12,6 +12,7 @@ import { t } from '../core/i18n.js';
 import { noteMediaPath } from './notes/reader.js';
 import { draftKey, writeDraft, dropDraft } from './notes/editor.js';
 import { dialog, confirmDialog, toast } from './dialog.js';
+import { attachSlash } from './slash-menu.js';
 
 /**
  * @param {HTMLElement} box   面板的容器(畫布裡的 aside)
@@ -29,7 +30,7 @@ import { dialog, confirmDialog, toast } from './dialog.js';
 export function createPeek(box, { vault, libId, href, graph, visible = () => true, onChange, onBoard = () => true, addToBoard = null, onSaved }) {
   const source = vault.notesSource;
   const writable = !!source?.canWrite;
-  let rel = null, mode = 'read', text = '', original = '', stat = null, saving = false, seq = 0;
+  let rel = null, mode = 'read', text = '', original = '', stat = null, saving = false, seq = 0, slash = null;
 
   const dirty = () => mode === 'edit' && text !== original;
   const ta = () => box.querySelector('.pk-text');
@@ -81,6 +82,7 @@ export function createPeek(box, { vault, libId, href, graph, visible = () => tru
       <textarea class="pk-text" spellcheck="false" aria-label="${esc(t('ne.textLabel'))}"></textarea>`;
     const area = ta();
     area.value = text;
+    slash = attachSlash(area);
     area.addEventListener('input', () => { text = area.value; writeDraft(draftKey(libId, rel), text); setStatus(); });
     area.addEventListener('keydown', e => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); save(); }
@@ -96,6 +98,7 @@ export function createPeek(box, { vault, libId, href, graph, visible = () => tru
   }
 
   function render() {
+    slash?.dispose(); slash = null;
     const note = parseNote(text, { path: rel });
     if (mode === 'edit') renderEdit(note); else renderRead(note);
   }
@@ -130,6 +133,7 @@ export function createPeek(box, { vault, libId, href, graph, visible = () => tru
   async function close() {
     if (dirty() && !(await confirmDialog(t('ne.leaveAsk'), t('ne.leave')))) return false;
     seq++;
+    slash?.dispose(); slash = null;
     rel = null; mode = 'read'; text = original = '';
     box.hidden = true;
     box.innerHTML = '';

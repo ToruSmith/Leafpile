@@ -12,6 +12,7 @@ import { applyUITheme } from '../../player/themes.js';
 import { t } from '../../core/i18n.js';
 import { noteMediaPath } from './reader.js';
 import { dialog, confirmDialog, toast } from '../dialog.js';
+import { attachSlash } from '../slash-menu.js';
 
 const DRAFT_PREFIX = 'leafpile-draft:';
 
@@ -65,6 +66,7 @@ export function renderEditor(root, { vault, libId, rel, text, header, href, grap
   const $ = s => root.querySelector(s);
   const ta = $('.ne-text'), md = $('.ne-preview .md'), status = $('.ne-status'), suggest = $('.ne-suggest');
   ta.value = text;
+  const slash = writable ? attachSlash(ta) : null; // 輸入 / 跳出格式選單
   const dirty = () => ta.value !== state.original;
   const setStatus = msg => { status.textContent = msg; };
   const refreshStatus = () => { setStatus(dirty() ? t('ne.unsaved') : t('ne.saved')); $('.save')?.classList.toggle('pulse', dirty()); };
@@ -214,7 +216,7 @@ export function renderEditor(root, { vault, libId, rel, text, header, href, grap
 
   return {
     isDirty: dirty,
-    cleanup: () => { clearTimeout(timer); window.removeEventListener('keydown', onKey); window.removeEventListener('beforeunload', onUnload); },
+    cleanup: () => { clearTimeout(timer); slash?.dispose(); window.removeEventListener('keydown', onKey); window.removeEventListener('beforeunload', onUnload); },
   };
 }
 

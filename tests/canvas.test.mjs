@@ -176,3 +176,17 @@ test('fitHeight:取整數、有上下限', () => {
   assert.equal(fitHeight(99999), 2400);
   assert.equal(fitHeight(NaN), 60);
 });
+
+import { placeFileNode } from '../app/core/canvas.js';
+
+test('placeFileNode:放在現有卡片右邊;空畫布放原點;已經在畫布上就不放', () => {
+  const b = { nodes: [{ id: 'a', type: 'text', x: 10, y: 20, width: 100, height: 50 }, { id: 'b', type: 'text', x: 0, y: 200, width: 300, height: 50 }], edges: [] };
+  const n = placeFileNode(b, '/notes/Ab.md');
+  assert.equal(n.file, 'notes/Ab.md', '保留大小寫,去掉開頭的 /');
+  assert.deepEqual([n.x, n.y, n.width, n.height], [360, 20, 340, 300]);
+  assert.equal(b.nodes.length, 3);
+  assert.equal(placeFileNode(b, 'notes/ab.md'), null, '比對時不分大小寫(和 boardRefs 相同)');
+  const empty = { nodes: [], edges: [] };
+  const m = placeFileNode(empty, 'notes/y.md');
+  assert.deepEqual([m.x, m.y], [0, 0]);
+});

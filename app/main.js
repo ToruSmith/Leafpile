@@ -12,11 +12,11 @@
 import { loadDeck, refreshProject } from './core/library.js';
 import { openVault, findNote, findDeck, notesOfTopic } from './core/vault.js';
 import { buildGraph, sourceStatus, compareSource } from './core/graph.js';
-import { parseNote, slugify, splitFrontMatter, wikilinksOf } from './core/note.js';
+import { parseNote, slugify, splitFrontMatter, wikilinksOf, captureNote, numberedName } from './core/note.js';
 import { expandEmbeds, promoteNote, promoteBook, distillDeck, withSourceHash } from './core/bridge.js';
 import { openPrivacyPanel } from './ui/privacy-view.js';
 import { renderBoard } from './ui/canvas-view.js';
-import { parseCanvas, emptyCanvas, boardFileName, textToNote, boardsWith, boardRefs } from './core/canvas.js';
+import { parseCanvas, emptyCanvas, boardFileName, textToNote, boardsWith, boardRefs, placeFileNode, serializeCanvas } from './core/canvas.js';
 import { createPeek } from './ui/board-peek.js';
 import { auditPrivacy, visitorVault, isLocalOnly } from './core/privacy.js';
 import { planLinkUpdates, retitle, renamedFile, rebaseLinks, retargetSource, dirOf } from './core/move.js';
@@ -48,7 +48,7 @@ import { applyUITheme, setUIChoice, uiChoiceNow, THEMES, themeName } from './pla
 import { readPref, writePref } from './ui/prefs.js';
 import { t, setLang, getLang, normalizeLang } from './core/i18n.js';
 
-export const VERSION = '0.15.0';
+export const VERSION = '0.16.0';
 const REPO_URL = 'https://github.com/ToruSmith/Leafpile';
 const MDSLIDE_URL = 'https://github.com/ToruSmith/Mdslide-Pile';
 
@@ -481,6 +481,8 @@ async function showShelf(key) {
         onTopicEdit: vault.kind === 'leafpile' && source.canWrite ? id => editTopic(key, id) : null,
         onTopicNew: vault.kind === 'leafpile' && source.canWrite && vault.notesSource ? () => newTopic(key) : null,
         onCategories: vault.kind === 'leafpile' && source.canWrite ? () => editCategories(key) : null,
+        boardRefs: vault.kind === 'leafpile' && (vault.boards || []).length ? allBoards(key).then(boardRefs) : null,
+        onAddToBoard: vault.kind === 'leafpile' && source.canWrite && (vault.boards || []).length && !state.visitor ? rel => noteToBoard(key, rel) : null,
       }),
     };
     withSide(state.view, mountSidebar(app, { lib: key, vault: shown, boards: (vault.boards || []).map(b => b.name), href, current: { type: 'shelf' }, context: 'shelf', onSearch: () => showPalette(), graph: graph?.catch(() => null) }));
@@ -592,6 +594,33 @@ async function allBoards(key) {
     try { return { name: b.name, board: parseCanvas(await src.readText(b.path)) }; } catch { return null; }
   }));
   return boards.filter(Boolean);
+}
+
+/** 卡片庫的「放到畫布」:選一張畫布,把筆記卡放在現有卡片的右邊。回傳畫布名稱(取消或失敗回傳 null)。 */
+const LAST_BOARD_KEY = 'leafpile-last-board';
+async function noteToBoard(key, rel) {
+  try {
+    const vault = await getVault(key);
+    const src = state.sources.get(key);
+    if (!src?.canWrite) { toast(t('ne.readonly')); return null; }
+    const boards = vault.boards || [];
+    const last = readPref(LAST_BOARD_KEY);
+    const r = await dialog({
+      title: t('table.addToBoardTitle'),
+      fields: [{ name: 'board', label: t('table.boardBy'), type: 'select', value: boards.some(b => b.name === last) ? last : boards[0]?.name, options: boards.map(b => ({ value: b.name, label: b.name })) }],
+      buttons: [{ label: t('dialog.cancel'), value: false }, { label: t('board.add'), value: true, primary: true }],
+    });
+    if (!r?.value) return null;
+    const info = boards.find(b => b.name === r.fields.board);
+    if (!info) return null;
+    const expect = await src.stat(info.path);
+    const board = parseCanvas(await src.readText(info.path));
+    if (!placeFileNode(board, vault.notePath(rel))) { toast(t('table.alreadyOnBoard', { name: info.name })); return info.name; }
+    await src.writeText(info.path, serializeCanvas(board), { expect });
+    writePref(LAST_BOARD_KEY, info.name);
+    toast(t('table.addedToBoard', { name: info.name }), { ms: 6000, actions: [{ label: t('table.openBoard'), run: () => { location.hash = hrefs(key).board(info.name, rel); } }] });
+    return info.name;
+  } catch (e) { noteErr(e); return null; }
 }
 
 /** 這篇筆記出現在哪些畫布(筆記頁右側欄用)。 */
@@ -737,6 +766,38 @@ async function newNote(key, topicId) {
     invalidate(key);
     location.hash = hrefs(key).edit(rel);
   } catch (e) { toast(e.message === 'denied' ? t('ne.denied') : t('ne.saveFailed', { error: e.message || e })); }
+}
+
+/** 快速收集:隨手寫一句話,存成收件匣主題裡的新筆記(Alt+N 或指令面板)。不覆蓋既有的檔案。 */
+let capturing = false;
+async function quickCapture(key) {
+  if (capturing || !key) return;
+  const vault = await getVault(key).catch(() => null);
+  if (!vault?.notesSource?.canWrite || vault.kind !== 'leafpile') return toast(t('ne.readonly'));
+  const topics = vault.notes.topics.filter(tp => tp.id !== '_');
+  const inbox = topics.find(tp => /inbox/i.test(tp.id));
+  capturing = true;
+  try {
+    const r = await dialog({
+      title: t('capture.title'),
+      message: t('capture.hint', { topic: inbox?.title || t('notes.unfiled') }),
+      fields: [{ name: 'text', label: t('capture.label'), type: 'textarea', rows: 5, placeholder: t('capture.placeholder') }],
+      buttons: [{ label: t('dialog.cancel'), value: false }, { label: t('capture.save'), value: true, primary: true }],
+    });
+    if (!r?.value) return;
+    const note = captureNote(r.fields.text);
+    if (!note) return toast(t('capture.empty'));
+    const dir = inbox?.id || '';
+    let rel = '';
+    for (let n = 1; n <= 50 && !rel; n++) {
+      const cand = [dir, numberedName(note.fileName, n)].filter(Boolean).join('/');
+      if ((await vault.notesSource.stat(cand)) == null) rel = cand;
+    }
+    if (!rel) return toast(t('newNote.exists'));
+    await vault.notesSource.writeText(rel, note.text, { mkdir: true, expect: null });
+    invalidate(key);
+    toast(t('capture.done', { title: note.title }), { ms: 6000, actions: [{ label: t('capture.open'), run: () => { location.hash = hrefs(key).note(rel); } }] });
+  } catch (e) { noteErr(e); } finally { capturing = false; }
 }
 
 /** [[連結]]:用圖譜解析後轉過去。 */
@@ -1139,6 +1200,7 @@ async function paletteItems() {
       if (st?.notes.length) act(t('deck.openSource'), () => { location.hash = href.note(st.notes[0].rel); });
       if ((st?.status === 'changed' || st?.status === 'untracked') && state.sources.get(key)?.canWrite) act(t(st.status === 'changed' ? 'deck.markSynced' : 'deck.trackSource'), () => markSynced(key, deck.topicId, deck.projectId));
       if (vault.notesSource?.canWrite) act(t('palette.newNote'), () => newNote(key, rel ? findNote(vault, rel)?.topic.id : undefined));
+      if (vault.kind === 'leafpile' && vault.notesSource?.canWrite) act(t('capture.palette'), () => quickCapture(key), 'Alt+N');
       if (vault.kind === 'leafpile' && state.sources.get(key)?.canWrite) act(t('palette.generate'), () => generateFlow(key));
       if (vault.kind === 'leafpile') act(t('palette.pack'), () => packMenu(key));
       act(t('palette.shelf'), () => { location.hash = href.shelf; });
@@ -1184,6 +1246,14 @@ window.addEventListener('keydown', e => {
   }
 }, true);
 window.addEventListener('leafpile:palette', showPalette);
+// Alt+N(Mac:⌥N):快速收集到收件匣。看 code 不看 key:Mac 的 ⌥N 會打出別的字元
+window.addEventListener('keydown', e => {
+  if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.code !== 'KeyN') return;
+  if (!state.current?.key || location.hash.startsWith('#/presenter') || document.querySelector('.lp-dialog')) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  quickCapture(state.current.key);
+}, true);
 
 // ---------------- 切換語言 ----------------
 function toggleLang() {

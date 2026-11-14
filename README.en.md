@@ -6,7 +6,7 @@ English · [繁體中文](README.md)
 
 Leafpile connects two things that are usually done twice: you collect notes in Markdown, promote them into a 3D card-pile slide deck when it is time to share, and save the Q&A back into your notes afterwards. Files stay on your computer or USB drive; the website only reads them. Nothing to install, nothing uploaded.
 
-**Live site: <https://torusmith.github.io/Leafpile/>** · current version v0.15.0
+**Live site: <https://torusmith.github.io/Leafpile/>** · current version v0.16.0
 
 ![Shelf: notes and decks under the same topic](docs/images/shelf.en.webp)
 
@@ -64,7 +64,7 @@ Full rules: [`docs/INTEROP.md`](docs/INTEROP.md) (Traditional Chinese). Deck for
 | To do this | Do this |
 |---|---|
 | Find anything, run a command | **Ctrl+K** (⌘K on Mac) on any screen |
-| Write a note | **+ Note** next to the search box on the library page, or drop a `.md` file into `notes/<topic>/` |
+| Write a note | **+ Note** next to the search box on the library page (press **Alt+N** to jot something into the inbox; type `/` while editing for a format menu), or drop a `.md` file into `notes/<topic>/` |
 | Link | Type `[[` in the editor to pick a note or deck |
 | Share a note right now | **▶ Flash play** on the note (or press P). No files are created |
 | Build a real deck | **Make a deck** on the note: a new skeleton in `slides/<same topic>/`, independent afterwards |
