@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Leafpile 書庫檢查工具(單檔版 v0.19.0)
+// Leafpile 書庫檢查工具(單檔版 v0.20.0)
 // 由 scripts/bundle-check.mjs 自動產生,請不要手動修改。原始碼:https://github.com/ToruSmith/Leafpile
 //
 // 用法(需要 Node.js 18 以上):
@@ -1387,6 +1387,25 @@ const LOCALE_ZH_HANT = {
   'bridge.needWrite': '需要可以寫入的書庫:請用 Chrome 或 Edge 按「開啟本機資料夾」。',
   'bridge.needVault': '這個功能需要 Leafpile 書庫(有 notes/ 與 slides/ 的資料夾)。',
   'embed.missing': '有 {n} 個摘錄找不到來源筆記,會顯示原本的文字。',
+  'scaffold.siteTitle': '我的頁堆',
+  'scaffold.siteDesc': '筆記在 notes/,簡報在 slides/。這個資料夾在你自己的電腦上,內容不會上傳。',
+  'scaffold.topicName': '收件匣',
+  'scaffold.topicDesc': '快速記下的東西,之後再歸檔到其他主題。',
+  'scaffold.welcome': '---\ntitle: 歡迎使用 Leafpile\ntags: [入門]\n---\n# 歡迎使用 Leafpile\n\n## 這是什麼\n\n這是你的第一篇筆記。它放在 `notes/01-inbox/`,也就是「收件匣」:先記下來,之後再歸檔。\n\n## 試試看\n\n- 按右上角的 **▶ 快閃播放**:這篇筆記會依 `##` 拆成投影片\n- 按 **Ctrl+K**(Mac 是 ⌘K)搜尋筆記與簡報\n- 按 **編輯** 改這篇筆記;輸入 `[[` 會列出可以連結的筆記\n- 從別處複製一段文字,貼進編輯框,格式會自動轉成 Markdown\n\n## 不要這篇?\n\n按筆記右上角的選單 → 刪除。檔案只是搬進 `_archive/`,隨時可以復原。\n',
+  'scaffold.start': '開始使用這個資料夾',
+  'scaffold.lead': '這個資料夾還沒有 Leafpile 的結構。選一種開始方式,不會動到你原有的任何檔案。',
+  'scaffold.sample': '用範例開始',
+  'scaffold.sampleHint': '建立「收件匣」主題與一篇歡迎筆記',
+  'scaffold.empty': '只建立空書庫',
+  'scaffold.emptyHint': '只建立設定檔與「收件匣」主題',
+  'scaffold.readonly': '這個資料夾是唯讀的,無法建立。請用「開啟本機資料夾」重新選取並允許寫入。',
+  'scaffold.done': '已建立書庫結構',
+  'scaffold.exists': '這個資料夾已經有 {path},沒有覆蓋。',
+  'scaffold.failed': '建立失敗:{path}',
+  'home.create': '建立新書庫',
+  'home.createTitle': '選一個空資料夾,自動建立 Leafpile 的結構',
+  'home.createNeedsPicker': '建立新書庫需要 Chrome 或 Edge。',
+  'player.moreTitle': '更多',
 };
 return { LOCALE_ZH_HANT };
 })();
@@ -2647,6 +2666,25 @@ const LOCALE_EN = {
   'bridge.needWrite': 'This needs a writable library: open the folder with Chrome or Edge.',
   'bridge.needVault': 'This needs a Leafpile library (a folder with notes/ and slides/).',
   'embed.missing': '{n} excerpts could not find their note and are shown as written.',
+  'scaffold.siteTitle': 'My Leafpile',
+  'scaffold.siteDesc': 'Notes live in notes/, slides in slides/. This folder stays on your computer; nothing is uploaded.',
+  'scaffold.topicName': 'Inbox',
+  'scaffold.topicDesc': 'Quick captures; file them under other topics later.',
+  'scaffold.welcome': '---\ntitle: Welcome to Leafpile\ntags: [start]\n---\n# Welcome to Leafpile\n\n## What is this\n\nThis is your first note. It lives in `notes/01-inbox/`, the Inbox: write it down now, file it later.\n\n## Try it\n\n- Press **▶ Flash play** at the top right: this note is split into slides by `##`\n- Press **Ctrl+K** (⌘K on Mac) to search notes and decks\n- Press **Edit** to change this note; type `[[` to list notes you can link to\n- Copy text from elsewhere and paste it into the editor: formatting converts to Markdown automatically\n\n## Don\'t want this one?\n\nOpen the note\'s menu at the top right → Delete. The file is only moved to `_archive/`; you can restore it any time.\n',
+  'scaffold.start': 'Start using this folder',
+  'scaffold.lead': 'This folder has no Leafpile structure yet. Pick a way to start; none of your existing files are touched.',
+  'scaffold.sample': 'Start with a sample',
+  'scaffold.sampleHint': 'Creates an Inbox topic and a welcome note',
+  'scaffold.empty': 'Create an empty library',
+  'scaffold.emptyHint': 'Creates only the settings and an Inbox topic',
+  'scaffold.readonly': 'This folder is read-only. Reopen it with "Open a local folder" and allow writing.',
+  'scaffold.done': 'Library structure created',
+  'scaffold.exists': 'This folder already has {path}; nothing was overwritten.',
+  'scaffold.failed': 'Could not create {path}',
+  'home.create': 'Create a new library',
+  'home.createTitle': 'Pick an empty folder and set up the Leafpile structure',
+  'home.createNeedsPicker': 'Creating a library needs Chrome or Edge.',
+  'player.moreTitle': 'More',
 };
 return { LOCALE_EN };
 })();

@@ -84,11 +84,13 @@ export class Player {
           <div class="ptools">
             <select class="stage-select" title="${esc(t('player.stageTitle'))}" aria-label="${esc(t('player.stageTitle'))}">${Object.keys(STAGES).map(k => `<option value="${k}">${esc(t('stage.' + k))}</option>`).join('')}</select>
             <button class="pbtn" data-act="theme" title="${esc(t('player.themeTitle'))}">${esc(t('player.theme'))}</button>
-            ${this.source.list && !d.flash ? `<button class="pbtn" data-act="check" title="${esc(t('player.checkTitle'))}">${esc(t('player.check'))}</button>` : ''}
-            ${this.onExport ? `<button class="pbtn" data-act="export" title="${esc(t('player.exportTitle'))}">${esc(t('player.export'))}</button>` : ''}
+            ${(this.source.list && !d.flash) || this.onExport ? `<details class="pmore"><summary class="pbtn" title="${esc(t('player.moreTitle'))}" aria-label="${esc(t('player.moreTitle'))}">⋯</summary><div class="pmore-pop">
+              ${this.source.list && !d.flash ? `<button class="pbtn" data-act="check" title="${esc(t('player.checkTitle'))}">${esc(t('player.check'))}</button>` : ''}
+              ${this.onExport ? `<button class="pbtn" data-act="export" title="${esc(t('player.exportTitle'))}">${esc(t('player.export'))}</button>` : ''}
+            </div></details>` : ''}
             <button class="pbtn" data-act="read" title="${esc(t('player.readTitle'))}">${esc(t('player.read'))}</button>
             <button class="pbtn" data-act="ink" title="${esc(t('player.inkTitle'))}" aria-label="${esc(t('player.inkTitle'))}">✎</button>
-            <button class="pbtn" data-act="present" title="${esc(t('player.presentTitle'))}" aria-label="${esc(t('player.presentTitle'))}">▶</button>
+            <button class="pbtn primary" data-act="present" title="${esc(t('player.presentTitle'))}" aria-label="${esc(t('player.presentTitle'))}">▶</button>
             <button class="pbtn" data-act="help" title="${esc(t('player.helpTitle'))}" aria-label="${esc(t('player.helpTitle'))}">?</button>
           </div>
         </header>
@@ -175,6 +177,7 @@ export class Player {
     this.channel?.addEventListener('message', this.handlers.msg);
     this.root.querySelector('.pbar').addEventListener('click', e => {
       const act = e.target.closest('[data-act]')?.dataset.act;
+      if (act) this.root.querySelector('.pmore')?.removeAttribute('open');
       if (act === 'exit') this.exit();
       if (act === 'theme') this.cycleTheme();
       if (act === 'present') this.viewing ? this.closeViewer() : this.openViewer();

@@ -6,7 +6,7 @@
 
 Leafpile 把兩件常被分開做的事接起來：用 Markdown 累積筆記，要分享時升級成 3D 牌堆簡報，講完再把問答存回筆記。檔案留在你的電腦或隨身碟，網站只負責讀取，不用安裝、不用上傳。
 
-**線上版：<https://torusmith.github.io/Leafpile/>**　·　目前版本 v0.19.0
+**線上版：<https://torusmith.github.io/Leafpile/>**　·　目前版本 v0.20.0
 
 ![書架：筆記與簡報放在同一個主題底下](docs/images/shelf.webp)
 

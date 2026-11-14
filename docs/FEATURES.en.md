@@ -46,6 +46,8 @@ Start here when you forget what Leafpile can do. For file formats and rules see 
 
 ## Opening a library
 
+- **Create a new library** (Chrome / Edge): "Create a new library" on the home page. Pick a folder; Leafpile sets up `_site.yml`, an Inbox topic and a welcome note, then opens it.
+- **Empty folders**: opening a folder with no Leafpile structure offers "Start with a sample" or "Create an empty library". Existing files are never overwritten.
 - **Built-in examples**: "Examples" on the home page. Read-only, for looking around.
 - **My library**: "Open local folder" on the home page. Only **Chrome and Edge** can save; other browsers can read and play but not edit.
 - Next time, click the library under "Recent libraries" on the home page. The browser may ask for write permission again.

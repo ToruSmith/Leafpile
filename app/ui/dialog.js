@@ -54,7 +54,8 @@ export async function confirmDialog(message, okLabel = t('dialog.ok')) {
  * 右下角的短暫提示。actions = [{ label, run }]:提示上直接放按鈕(按了就執行並關閉),
  * 有按鈕時會多一個「×」,並且停留比較久,滑鼠移上去時不會消失。
  */
-export function toast(message, { ms = 2600, actions = [] } = {}) {
+export function toast(message, { ms, actions = [] } = {}) {
+  ms ??= actions.length ? 6000 : 2600; // 有按鈕(復原、改貼純文字…)的多留一點時間
   const el = document.createElement('div');
   el.className = 'lp-toast' + (actions.length ? ' has-actions' : '');
   el.setAttribute('role', 'status');

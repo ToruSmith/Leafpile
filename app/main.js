@@ -28,6 +28,7 @@ import { renderShelf } from './ui/shelf.js';
 import { renderReader } from './ui/notes/reader.js';
 import { renderEditor, newNoteFileName, newNoteText, draftKey, dropDraft } from './ui/notes/editor.js';
 import { trashItems } from './core/trash.js';
+import { scaffoldFiles } from './core/scaffold.js';
 import { pasteMarkdown } from './core/html-md.js';
 import { openPalette } from './ui/palette.js';
 import { mountSidebar, recordRecent } from './ui/sidebar.js';
@@ -50,7 +51,7 @@ import { applyUITheme, setUIChoice, uiChoiceNow, THEMES, themeName } from './pla
 import { readPref, writePref } from './ui/prefs.js';
 import { t, setLang, getLang, normalizeLang } from './core/i18n.js';
 
-export const VERSION = '0.19.0';
+export const VERSION = '0.20.0';
 const REPO_URL = 'https://github.com/ToruSmith/Leafpile';
 const MDSLIDE_URL = 'https://github.com/ToruSmith/Mdslide-Pile';
 
@@ -389,6 +390,7 @@ async function home() {
           <p>${t('home.lead')}</p>
           <div class="actions">
             <button class="btn primary open-folder">${t('home.open')}</button>
+            ${canPickDirectory() ? `<button class="btn ghost create-lib" title="${esc(t('home.createTitle'))}">${t('home.create')}</button>` : ''}
             ${repoOK ? `<a class="btn ghost" href="#/repo">${t('home.repo')}</a>` : ''}
             <button class="btn ghost open-zip" title="${esc(t('home.openZipTitle'))}">${t('home.openZip')}</button>
           </div>
@@ -411,6 +413,7 @@ async function home() {
     </main>`;
 
   app.querySelector('.open-folder').onclick = openFolder;
+  app.querySelector('.create-lib')?.addEventListener('click', createLibrary);
   app.querySelector('.open-zip').onclick = async () => { const f = (await pickFiles({ accept: '.zip,application/zip' }))?.[0]; if (f) openZip(f); };
   app.querySelectorAll('.forget').forEach(b => b.onclick = async e => { e.preventDefault(); await forget(b.dataset.id); home(); });
   const input = app.querySelector('.dir-input');
@@ -429,6 +432,42 @@ async function openFolder() {
   } else {
     app.querySelector('.dir-input')?.click();
   }
+}
+
+/** 把起手式的檔案寫進書庫資料夾。已經有的檔案一律不覆蓋。回傳 false 表示中途失敗。 */
+async function writeScaffold(src, kind) {
+  for (const f of scaffoldFiles(kind)) {
+    try { await src.writeText(f.path, f.text, { expect: null, mkdir: true }); }
+    catch (e) {
+      if (String(e.message) === 'stale') continue; // 已經有這個檔:保留原樣
+      toast(t(String(e.message) === 'denied' ? 'scaffold.readonly' : 'scaffold.failed', { path: f.path }), { ms: 6000 });
+      return false;
+    }
+  }
+  return true;
+}
+
+async function scaffoldLibrary(key, kind) {
+  const src = state.sources.get(key);
+  if (!src?.canWrite) return toast(t('scaffold.readonly'));
+  const ok = await writeScaffold(src, kind);
+  invalidate(key);
+  if (ok) toast(t('scaffold.done'));
+  route();
+}
+
+/** 首頁「建立新書庫」:選一個資料夾(通常是空的),寫入起手式再打開。 */
+async function createLibrary() {
+  if (!canPickDirectory()) return toast(t('home.createNeedsPicker'), { ms: 6000 });
+  try {
+    const handle = await window.showDirectoryPicker({ id: 'leafpile-library', mode: 'readwrite' });
+    const ok = await writeScaffold(new HandleSource(handle), 'sample');
+    if (!ok) return;
+    const id = await remember(handle);
+    state.sources.delete(`local/${id}`); invalidate(`local/${id}`);
+    location.hash = `#/local/${id}`;
+    toast(t('scaffold.done'));
+  } catch (e) { if (e.name !== 'AbortError') showError(e); }
 }
 
 async function useSession(source) {
@@ -484,6 +523,7 @@ async function showShelf(key) {
         onNewNote: vault.notesSource?.canWrite ? () => newNote(key) : null,
         onTopicEdit: vault.kind === 'leafpile' && source.canWrite ? id => editTopic(key, id) : null,
         onDelete: vault.kind === 'leafpile' && source.canWrite && source.archiveTree && !state.visitor ? ({ kind, id, topic }) => (kind === 'note' ? trashNote(key, id) : kind === 'deck' ? trashDeck(key, topic, id) : kind === 'topic' ? trashTopic(key, id) : null) : null,
+        onSetup: vault.kind === 'mdslide' && source.canWrite && source.kind === 'handle' && !state.visitor ? kind => scaffoldLibrary(key, kind) : null,
         onTopicNew: vault.kind === 'leafpile' && source.canWrite && vault.notesSource ? () => newTopic(key) : null,
         onCategories: vault.kind === 'leafpile' && source.canWrite ? () => editCategories(key) : null,
         boardRefs: vault.kind === 'leafpile' && (vault.boards || []).length ? allBoards(key).then(boardRefs) : null,
