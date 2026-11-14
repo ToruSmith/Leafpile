@@ -51,7 +51,7 @@ const INKS = ['#2b2925', '#c0504d', '#3f6fb0', '#5a8f5a'];
  * @param {(rel: string) => string} [o.notePath]        筆記渠道的路徑 → 書庫路徑(notes/…)
  * @param {boolean} [o.canAsk]                          可不可以「問 AI」(訪客視角不行)
  */
-export function renderBoard(root, { board, name, header, href, graph, source, save, choices = [], colorOf = () => '', toNote = null, reloadGraph = null, refs = null, makePeek = null, peek: initialPeek = '', notePath = rel => 'notes/' + rel, canAsk = true }) {
+export function renderBoard(root, { board, name, header, href, graph, source, save, choices = [], colorOf = () => '', toNote = null, onDelete = null, reloadGraph = null, refs = null, makePeek = null, peek: initialPeek = '', notePath = rel => 'notes/' + rel, canAsk = true }) {
   const canEdit = !!save;
   const canMedia = canEdit && !!source?.writeMedia;
   root.innerHTML = `<div class="board-shell">${header}
@@ -83,6 +83,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
               <button role="menuitem" data-b="pin" data-keep aria-pressed="false">${esc(t('board.pin'))}</button>
               <hr>
               <div class="zoomrow"><button data-b="out" data-keep aria-label="${esc(t('board.zoomOut'))}">−</button><button class="zoom" data-b="reset" data-keep title="${esc(t('board.zoomReset'))}">100%</button><button data-b="in" data-keep aria-label="${esc(t('board.zoomIn'))}">+</button><button data-b="fit" title="${esc(t('board.fitTitle'))}">${esc(t('board.fit'))}</button></div>
+              ${canEdit && onDelete ? `<hr><button role="menuitem" class="danger" data-b="trash" title="${esc(t('trash.buttonTitle'))}">${esc(t('trash.palette.board'))}</button>` : ''}
             </div>
           </span>
         </span>
@@ -1213,6 +1214,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     if (b === 'undo') undo();
     if (b === 'card') addCard();
     if (b === 'link') addLink();
+    if (b === 'trash') onDelete?.();
     if (b === 'file') fileInput.click();
     if (b === 'draw') startDraw();
     if (b === 'search') openSearch();

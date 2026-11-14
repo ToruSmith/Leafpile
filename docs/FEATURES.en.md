@@ -42,7 +42,7 @@ Start here when you forget what Leafpile can do. For file formats and rules see 
 | Check for personal data before pushing to GitHub | **🔒 Pre-publish check** on the library page |
 | Find broken links | **✓ Check** on the library page |
 | Rename or move a note | **More ▾** on the note → Rename / Move (links to it update automatically) |
-| Get rid of a note | **More ▾** → Archive (moved to `_archive/`, never deleted) |
+| Get rid of a note, deck, topic or board | Hover it on the shelf and press ✕ (topics: **Delete** in the Topics table), **More ▾** → Delete on a note, **Delete** in the editor, **More** → Delete this board on a board, or Ctrl+K. It is moved to `_archive/`, not really erased, and **Undo** on the toast brings it back |
 
 ## Opening a library
 
@@ -167,11 +167,25 @@ Press **Alt+N** (⌥N on Mac) anywhere, or Ctrl+K → "Capture to inbox". Write 
 | `[[slides:deck]]` | Link to a deck |
 | `![[note#heading]]` | Excerpt a section of a note inside a slide |
 
-### More ▾ (rename, move, archive)
+### More ▾ (rename, move, delete)
 
 - **Rename** and **Move** first list which files will change along with it (`[[links]]` to it, a deck's `source`, cards on boards) and only proceed after you confirm. If the destination already has a file of that name, it refuses and never overwrites.
-- **Archive** moves it to `_archive/`, and removes the original only after reading the copy back to confirm it is complete.
+- **Delete** moves it to `_archive/`, and removes the original only after reading the copy back to confirm it is complete.
 - Leafpile never really deletes your files.
+
+### Delete and undo
+
+| What | Where | What goes with it |
+|---|---|---|
+| Note | **More ▾** → Delete on the note page; **Delete** in the editor toolbar; ✕ on the shelf (table rows, cards, note rows in the topic sections); Ctrl+K | Just that file |
+| Deck | ✕ at the top right of a deck card on the shelf; Ctrl+K “Delete this deck” while presenting | The whole deck folder, media included |
+| Topic | Shelf → **Table** → **Topics** mode, **Delete** on its row | `notes/<topic>/` and `slides/<topic>/` with every note and deck inside |
+| Board | **More ▾** → Delete this board on the board; Ctrl+K | Only the `.canvas` file; the notes and decks on it are untouched |
+
+- The confirm dialog says what will be affected: which notes or decks link to it (those links will break; **✓ Check** lists them), which boards it appears on, how much a topic holds.
+- The toast after deleting has **Undo**, which moves it straight back.
+- To bring something back later: Ctrl+K → “Restore deleted items…” lists notes, decks, boards and whole topics found in `_archive/`; pick one and it is moved back. Nothing is touched if the original place is taken. Slides archived one by one and the import-undo folders (`_archive/import-…`) are not in the list; move those back by hand.
+- To really get rid of things, delete `_archive/` yourself (Leafpile never does it for you).
 
 ## Decks
 

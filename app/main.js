@@ -26,7 +26,8 @@ import { HttpSource, HandleSource, FileListSource, sourceFromDrop, canPickDirect
 import { listRecent, remember, getRecent, forget, ensurePermission } from './sources/store.js';
 import { renderShelf } from './ui/shelf.js';
 import { renderReader } from './ui/notes/reader.js';
-import { renderEditor, newNoteFileName, newNoteText } from './ui/notes/editor.js';
+import { renderEditor, newNoteFileName, newNoteText, draftKey, dropDraft } from './ui/notes/editor.js';
+import { trashItems } from './core/trash.js';
 import { openPalette } from './ui/palette.js';
 import { mountSidebar, recordRecent } from './ui/sidebar.js';
 import { topicDialog, previewDialog, describeChange, categoriesDialog } from './ui/topic-manage.js';
@@ -48,7 +49,7 @@ import { applyUITheme, setUIChoice, uiChoiceNow, THEMES, themeName } from './pla
 import { readPref, writePref } from './ui/prefs.js';
 import { t, setLang, getLang, normalizeLang } from './core/i18n.js';
 
-export const VERSION = '0.17.0';
+export const VERSION = '0.18.0';
 const REPO_URL = 'https://github.com/ToruSmith/Leafpile';
 const MDSLIDE_URL = 'https://github.com/ToruSmith/Mdslide-Pile';
 
@@ -116,7 +117,7 @@ async function route() {
   else { leaveView(); state.current = { key: '', rel: '', deck: null }; return home(); }
 
   const [mode, a, b, c, d] = rest;
-  state.current = { key, rel: ['n', 'e', 'f'].includes(mode) ? a || '' : '', deck: mode === 'd' && a && b ? { topicId: a, projectId: b } : null };
+  state.current = { key, rel: ['n', 'e', 'f'].includes(mode) ? a || '' : '', deck: mode === 'd' && a && b ? { topicId: a, projectId: b } : null, board: mode === 'b' && a ? a : '' };
   if (mode === 'd' && a && b) return showDeck(key, a, b, Number(c || 1) - 1, d === 'read');
   if (mode === 'f' && a) return showFlash(key, a, Number(b || 1) - 1);
   if (mode === 'n' && a) return leaveView(), showNote(key, a, b);
@@ -481,6 +482,7 @@ async function showShelf(key) {
         onGenerate: vault.kind === 'leafpile' && source.canWrite && !state.visitor ? () => generateFlow(key) : null,
         onNewNote: vault.notesSource?.canWrite ? () => newNote(key) : null,
         onTopicEdit: vault.kind === 'leafpile' && source.canWrite ? id => editTopic(key, id) : null,
+        onDelete: vault.kind === 'leafpile' && source.canWrite && source.archiveTree && !state.visitor ? ({ kind, id, topic }) => (kind === 'note' ? trashNote(key, id) : kind === 'deck' ? trashDeck(key, topic, id) : kind === 'topic' ? trashTopic(key, id) : null) : null,
         onTopicNew: vault.kind === 'leafpile' && source.canWrite && vault.notesSource ? () => newTopic(key) : null,
         onCategories: vault.kind === 'leafpile' && source.canWrite ? () => editCategories(key) : null,
         boardRefs: vault.kind === 'leafpile' && (vault.boards || []).length ? allBoards(key).then(boardRefs) : null,
@@ -539,6 +541,7 @@ async function showBoard(key, name, peek = '') {
       board, name, header: header(key === 'repo' ? 'repo' : 'home'), href, graph, choices, source: src,
       refs: (vault.boards || []).length > 1 ? allBoards(key).then(boardRefs) : null,
       notePath: rel => vault.notePath(rel), peek, canAsk: !state.visitor,
+      onDelete: vault.kind === 'leafpile' && src.canWrite && src.archiveTree ? () => trashBoard(key, name) : null,
       makePeek: vault.kind === 'leafpile' && vault.notesSource ? (box, hooks) => (peekApi = createPeek(box, {
         vault, libId: key, href, graph, visible: canSee,
         onBoard: hooks.onBoard, addToBoard: hooks.addToBoard, ask: hooks.ask,
@@ -815,7 +818,17 @@ async function openJournal(key, day = localDay()) {
     if (!vault.notesSource.canWrite) return toast(t('journal.none', { date: day }));
     await vault.notesSource.writeText(j.rel, j.text, { mkdir: true, expect: null });
     invalidate(key);
-    toast(t('journal.created', { path: j.rel }), { ms: 4000 });
+    const discard = async () => {
+      try {
+        await moveToTrash(state.sources.get(key), [vault.notePath(j.rel)]);
+        dropDraft(draftKey(key, j.rel));
+        if (state.view) state.view.isDirty = () => false;
+        invalidate(key);
+        toast(t('trash.discarded', { name: j.rel }), { ms: 4000 });
+        goHash(hrefs(key).shelf);
+      } catch (e) { noteErr(e); }
+    };
+    toast(t('journal.created', { path: j.rel }), { ms: 10000, actions: state.sources.get(key)?.archiveTree ? [{ label: t('trash.discard'), run: discard }] : [] });
     location.hash = hrefs(key).edit(j.rel);
   } catch (e) { noteErr(e); }
 }
@@ -1146,21 +1159,120 @@ async function relocateNote(key, rel, mode) {
   } catch (e) { noteErr(e); }
 }
 
-/** 封存:搬到 _archive/notes/(不刪除)。連到它的連結不改,檢查工具會列出。 */
-async function archiveNote(key, rel) {
+// ---------------- 刪除(搬到 _archive/,不真的刪檔,可以復原) ----------------
+const goHash = hash => { if (location.hash === hash) route(); else location.hash = hash; };
+
+/** 一組路徑依序搬到 _archive/;中途失敗就把已經搬走的搬回來。回傳 [[原本, 封存後], …]。 */
+async function moveToTrash(src, paths) {
+  const moved = [];
+  try { for (const p of paths) moved.push([p, await src.archiveTree(p)]); }
+  catch (e) {
+    for (const [from, to] of [...moved].reverse()) { try { await src.moveTree(to, from); } catch { /* 留在 _archive/ */ } }
+    throw e;
+  }
+  return moved;
+}
+
+async function restoreFromTrash(key, moved, name, hash) {
   try {
-    const vault = await getVault(key);
-    if (!vault) return;
-    const notes = vault.notesSource;
-    if (!notes?.canWrite || !notes.archive) return toast(t('ne.readonly'));
-    const g = await getGraph(key);
-    const refs = (g.backlinks.get(vault.notePath(rel)) || []).map(b => b.from.title);
-    const msg = [t('move.archiveAsk', { path: rel }), ...(refs.length ? [t('move.archiveRefs', { n: refs.length }), ...refs.slice(0, 8).map(x => '· ' + x)] : [])];
-    if (!(await confirmDialog(msg.join('\n'), t('move.doArchive')))) return;
-    const to = await notes.archive(rel);
+    const src = state.sources.get(key);
+    for (const [from, to] of [...moved].reverse()) await src.moveTree(to, from);
     invalidate(key);
-    toast(t('move.archived', { path: to }), { ms: 6000 });
-    location.hash = hrefs(key).shelf;
+    toast(t('trash.restored', { name }), { ms: 4000 });
+    goHash(hash || hrefs(key).shelf);
+  } catch (e) { if (e.message === 'exists') toast(t('trash.exists'), { ms: 8000 }); else noteErr(e); }
+}
+
+/** 共用流程:確認(說清楚搬去哪、有什麼影響)→ 搬到 _archive/ → 提示可以復原。 */
+async function trash(key, { paths, name, ask, list = [], note = '', onDone, back = null, after = null }) {
+  try {
+    const src = state.sources.get(key);
+    if (!src?.canWrite || !src.archiveTree) return toast(t('ne.readonly'));
+    const r = await dialog({ message: ask, list, note: [note, t('trash.safe')].filter(Boolean).join('\n'), buttons: [{ label: t('dialog.cancel'), value: false }, { label: t('trash.confirm'), value: true, primary: true }] });
+    if (!r?.value) return;
+    const moved = await moveToTrash(src, paths);
+    onDone?.();
+    invalidate(key);
+    toast(t('trash.done', { name }), { ms: 12000, actions: [{ label: t('trash.undo'), run: () => restoreFromTrash(key, moved, name, back) }] });
+    goHash(after ?? hrefs(key).shelf);
+  } catch (e) { noteErr(e); }
+}
+
+async function trashNote(key, rel, { onDone } = {}) {
+  const vault = await getVault(key);
+  if (!vault?.notesSource) return;
+  const g = await getGraph(key);
+  const path = vault.notePath(rel);
+  const name = findNote(vault, rel)?.note.title || rel;
+  const refs = [...new Set((g.backlinks.get(path) || []).map(b => b.from.title))];
+  const boards = vault.boards?.length ? await boardsOfNote(key, rel).catch(() => []) : [];
+  await trash(key, {
+    paths: [path], name, back: hrefs(key).note(rel),
+    ask: [t('trash.noteAsk', { title: name }), refs.length ? t('trash.refs', { n: refs.length }) : ''].filter(Boolean).join('\n'),
+    list: refs.slice(0, 8),
+    note: boards.length ? t('trash.onBoards', { names: boards.join('、') }) : '',
+    onDone: () => { dropDraft(draftKey(key, rel)); onDone?.(); },
+  });
+}
+
+async function trashDeck(key, topicId, projectId) {
+  const vault = await getVault(key);
+  const project = vault?.kind === 'leafpile' ? findDeck(vault, topicId, projectId) : null;
+  if (!project) return;
+  await trash(key, { paths: [vault.deckPath(project)], name: project.title || projectId, back: hrefs(key).deck(topicId, projectId), ask: t('trash.deckAsk', { title: project.title || projectId }) });
+}
+
+async function trashTopic(key, id) {
+  const vault = await getVault(key);
+  const src = state.sources.get(key);
+  const tp = vault?.topics.find(x => x.id === id);
+  if (!tp || !src?.kindOf) return;
+  const paths = [];
+  for (const root of ['notes', 'slides']) if ((await src.kindOf(`${root}/${id}`)) === 'dir') paths.push(`${root}/${id}`);
+  if (!paths.length) return;
+  const notes = tp.notes ? notesOfTopic(tp.notes).length : 0, decks = tp.decks?.length || 0;
+  await trash(key, { paths, name: tp.title || id, ask: `${t('trash.topicAsk', { title: tp.title || id })}\n${t('trash.topicCounts', { notes, decks })}` });
+}
+
+async function trashBoard(key, name) {
+  const vault = await getVault(key);
+  const b = vault?.boards?.find(x => x.name === name);
+  if (b) await trash(key, { paths: [b.path], name, back: hrefs(key).board(name), ask: t('trash.boardAsk', { name }) });
+}
+
+/** 從 _archive/ 找回筆記、畫布、簡報、主題(搬回原本的位置,原位置有同名的就不動)。 */
+async function restoreMenu(key) {
+  try {
+    const src = state.sources.get(key);
+    if (!src?.canWrite || !src.archiveTree) return toast(t('ne.readonly'));
+    src.refresh?.();
+    const files = [];
+    const walk = async dir => {
+      for (const e of await src.list(dir).catch(() => [])) {
+        if (files.length > 5000) return;
+        const p = `${dir}/${e.name}`;
+        if (e.kind === 'dir') await walk(p); else files.push(p);
+      }
+    };
+    await walk('_archive');
+    const live = new Set(), liveDecks = new Set();
+    for (const root of ['notes', 'slides']) {
+      for (const e of await src.list(root).catch(() => [])) {
+        if (e.kind !== 'dir') continue;
+        live.add(e.name);
+        if (root === 'slides') for (const d of await src.list(`slides/${e.name}`).catch(() => [])) if (d.kind === 'dir') liveDecks.add(`${e.name}/${d.name}`);
+      }
+    }
+    const items = trashItems(files, { liveTopics: live, liveDecks });
+    if (!items.length) return toast(t('trash.restoreNone'), { ms: 5000 });
+    const r = await dialog({
+      title: t('trash.restoreTitle'), message: t('trash.restoreHint'),
+      fields: [{ name: 'i', label: t('trash.restorePick'), type: 'select', value: '0', options: items.map((it, i) => ({ value: String(i), label: `${t('trash.kind.' + it.kind)} · ${it.label}` })) }],
+      buttons: [{ label: t('dialog.cancel'), value: false }, { label: t('trash.restoreDo'), value: true, primary: true }],
+    });
+    if (!r?.value) return;
+    const it = items[Number(r.fields.i)];
+    await restoreFromTrash(key, [[it.to, it.path]], it.label, null);
   } catch (e) { noteErr(e); }
 }
 
@@ -1190,7 +1302,7 @@ async function distill(key, topicId, projectId) {
 window.addEventListener('leafpile:promote', e => promote(state.current.key, e.detail));
 window.addEventListener('leafpile:note-action', e => {
   const { action, rel } = e.detail, key = state.current.key;
-  if (action === 'archive') archiveNote(key, rel); else relocateNote(key, rel, action);
+  if (action === 'delete') trashNote(key, rel, { onDone: e.detail.onDone }); else relocateNote(key, rel, action);
 });
 
 // ---------------- 指令面板(Ctrl+K / ⌘K) ----------------
@@ -1208,8 +1320,12 @@ async function paletteItems() {
         act(t('palette.flashThis'), () => { location.hash = href.flash(rel); }, 'P');
         if (vault.notesSource?.canWrite) act(t('palette.editThis'), () => { location.hash = href.edit(rel); }, 'E');
         if (vault.kind === 'leafpile' && state.sources.get(key)?.canWrite) act(t('promote.button'), () => promote(key, rel));
+        if (vault.kind === 'leafpile' && state.sources.get(key)?.canWrite) act(t('trash.palette.note'), () => trashNote(key, rel));
       }
       if (deck && vault.kind === 'leafpile' && state.sources.get(key)?.canWrite) act(t('distill.action'), () => distill(key, deck.topicId, deck.projectId));
+      if (deck && vault.kind === 'leafpile' && state.sources.get(key)?.canWrite) act(t('trash.palette.deck'), () => trashDeck(key, deck.topicId, deck.projectId));
+      if (state.current.board && vault.kind === 'leafpile' && state.sources.get(key)?.canWrite) act(t('trash.palette.board'), () => trashBoard(key, state.current.board));
+      if (vault.kind === 'leafpile' && state.sources.get(key)?.canWrite) act(t('trash.palette.restore'), () => restoreMenu(key));
       if (vault.kind === 'leafpile') act(t('privacy.title'), () => runPrivacy(key));
       for (const b of vault.boards || []) act(t('board.open', { name: b.name }), () => { location.hash = href.board(b.name); });
       if (vault.kind === 'leafpile' && state.sources.get(key)?.canWrite) act(t('board.newTitle'), () => newBoard(key));

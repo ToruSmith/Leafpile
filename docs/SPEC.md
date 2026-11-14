@@ -214,7 +214,9 @@ from_deck: slides/10-reading/2026-11-x
 
 ## 8. 封存
 
-刪除一律是封存：搬到書庫根目錄的 `_archive/`，保留原本的相對路徑（例如 `_archive/slides/10-reading/2026-11-x/01-why/02-old.md`）；同名時加編號。Leafpile 從不直接刪除你的檔案。
+刪除一律是封存：搬到書庫根目錄的 `_archive/`，保留原本的相對路徑（例如 `_archive/slides/10-reading/2026-11-x/01-why/02-old.md`）；同名時加編號（`a-2.md`；資料夾 `x-2`）。Leafpile 從不直接刪除你的檔案。
+
+可以整份刪除的有：一篇筆記（`notes/…/*.md`）、一份簡報（整個簡報資料夾，含素材）、一個主題（`notes/<主題>/` 與 `slides/<主題>/`）、一張畫布（`boards/*.canvas`）。復原就是搬回原本的路徑；原位置已經有同名的項目就不動。
 
 開啟的是 Mdslide Pile 書庫或單一簡報（沒有 `notes/` 與 `slides/`）時，封存放在該簡報資料夾下的 `_archive/`。
 

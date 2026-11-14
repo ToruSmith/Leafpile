@@ -12,6 +12,7 @@
 
 const enc = p => p.split('/').map(encodeURIComponent).join('/');
 import { t } from '../core/i18n.js';
+import { trashablePath, treePath, archivePath } from '../core/trash.js';
 
 /** 倉庫模式:讀 GitHub Pages 上的 content/,目錄清單來自建置時產生的 catalog.json。 */
 export class HttpSource {
@@ -241,6 +242,55 @@ export class HandleSource {
     return `${archiveDir}/${target}`;
   }
 
+  /** 路徑指到檔案或資料夾?回傳 { kind, h, parent, name },沒有就是 null。不用快取,每次都問檔案系統。 */
+  async entryOf(path) {
+    const parts = path.split('/'), name = parts.pop();
+    let d = this.handle;
+    try { for (const p of parts) d = await d.getDirectoryHandle(p); } catch { return null; }
+    try { return { kind: 'file', h: await d.getFileHandle(name), parent: d, name }; } catch { /* 不是檔案 */ }
+    try { return { kind: 'dir', h: await d.getDirectoryHandle(name), parent: d, name }; } catch { return null; }
+  }
+
+  /**
+   * 搬一個檔案或整個資料夾(筆記、簡報資料夾、畫布、主題):整份複製過去、逐檔讀回來比對,全部一致才移除原本的。
+   * 目的地已經有東西就拒絕('exists'),不覆蓋;複製或比對失敗就把剛複製的清掉、原本的完全沒動。
+   * 只能在 notes/ slides/ boards/ 與 _archive/ 之間搬。
+   */
+  async moveTree(from, to) {
+    if (!treePath(from) || !treePath(to)) throw new Error('bad path');
+    if (!(await this.ensureWritable())) throw new Error('denied');
+    const src = await this.entryOf(from);
+    if (!src) throw new Error('missing');
+    if (await this.entryOf(to)) throw new Error('exists');
+    const parts = to.split('/'), name = parts.pop();
+    let d = this.handle;
+    for (const part of parts) d = await d.getDirectoryHandle(part, { create: true });
+    try {
+      await copyEntry(src, d, name);
+      const copy = await this.entryOf(to);
+      if (!copy || !(await sameEntry(src, copy))) throw new Error('verify');
+    } catch (e) {
+      try { await d.removeEntry(name, { recursive: true }); } catch { /* 清不掉就留著,原本的沒動 */ }
+      throw e;
+    }
+    await src.parent.removeEntry(src.name, { recursive: true });
+    this.refresh();
+    return to;
+  }
+
+  /** 「刪除」:整個檔案或資料夾搬到 _archive/(保留原本的路徑,同名加編號)。回傳封存後的位置。 */
+  async archiveTree(path) {
+    if (!trashablePath(path)) throw new Error('bad path');
+    const src = await this.entryOf(path);
+    if (!src) throw new Error('missing');
+    let to = archivePath(path, 1, src.kind === 'dir');
+    for (let n = 2; await this.entryOf(to); n++) to = archivePath(path, n, src.kind === 'dir');
+    return this.moveTree(path, to);
+  }
+
+  /** 路徑是 'file'、'dir' 或 null(不存在)。 */
+  async kindOf(path) { return (await this.entryOf(path))?.kind ?? null; }
+
   /**
    * 監看簡報資料夾:每隔一段時間比對 .md 與設定檔的修改時間(只讀檔案資訊,不讀內容),
    * 以及子資料夾的增減;有變化就呼叫 onChange。分頁不在前景時暫停。回傳停止監看的函式。
@@ -289,6 +339,33 @@ function checkPath(path, binary = false) {
 function sameBytes(a, b) {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+const kindOfHandle = h => (h.kind === 'directory' ? 'dir' : 'file');
+
+/** 遞迴複製檔案或資料夾(二進位照位元組)。 */
+async function copyEntry(e, destParent, name) {
+  if (e.kind === 'file') {
+    const w = await (await destParent.getFileHandle(name, { create: true })).createWritable();
+    try { await w.write(await e.h.getFile()); } finally { await w.close(); }
+    return;
+  }
+  const d = await destParent.getDirectoryHandle(name, { create: true });
+  for await (const [n, h] of e.h.entries()) await copyEntry({ kind: kindOfHandle(h), h }, d, n);
+}
+
+/** 兩份檔案或資料夾逐檔、逐位元組一致才算相同。 */
+async function sameEntry(a, b) {
+  if (a.kind !== b.kind) return false;
+  if (a.kind === 'file') {
+    const [fa, fb] = [await a.h.getFile(), await b.h.getFile()];
+    return fa.size === fb.size && sameBytes(new Uint8Array(await fa.arrayBuffer()), new Uint8Array(await fb.arrayBuffer()));
+  }
+  const list = async d => { const m = new Map(); for await (const [n, h] of d.entries()) m.set(n, { kind: kindOfHandle(h), h }); return m; };
+  const [la, lb] = [await list(a.h), await list(b.h)];
+  if (la.size !== lb.size) return false;
+  for (const [n, ea] of la) { const eb = lb.get(n); if (!eb || !(await sameEntry(ea, eb))) return false; }
   return true;
 }
 
