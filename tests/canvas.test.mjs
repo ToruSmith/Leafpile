@@ -130,3 +130,49 @@ test('PDF 卡的頁碼:subpath "#page=N"(和 Obsidian 相同),其他寫法一律
   const b = parseCanvas('{"nodes":[{"id":"p","type":"file","file":"a.pdf","subpath":"#page=7","x":0,"y":0,"width":100,"height":100}],"edges":[]}');
   assert.match(serializeCanvas(b), /"subpath": "#page=7"/);
 });
+
+import { boardRefs, otherBoards, foldNode, unfoldNode, isFolded, fitHeight, FOLDED_HEIGHT } from '../app/core/canvas.js';
+
+test('boardRefs / otherBoards:每個檔案在哪些畫布(不重複、/ 開頭也算同一個)', () => {
+  const boards = [
+    { name: 'A', board: { nodes: [{ type: 'file', file: 'notes/x.md' }, { type: 'file', file: '/notes/x.md' }, { type: 'text', text: 'notes/y.md' }] } },
+    { name: 'B', board: { nodes: [{ type: 'file', file: 'notes/x.md' }, { type: 'file', file: 'notes/y.md' }] } },
+    { name: 'C', board: { nodes: [] } },
+  ];
+  const refs = boardRefs(boards);
+  assert.deepEqual(refs.get('notes/x.md'), ['A', 'B']);
+  assert.deepEqual(refs.get('notes/y.md'), ['B']);
+  assert.deepEqual(otherBoards(refs, '/notes/x.md', 'A'), ['B']);
+  assert.deepEqual(otherBoards(refs, 'notes/z.md', 'A'), []);
+  assert.deepEqual(otherBoards(null, 'notes/x.md', 'A'), []);
+});
+
+test('摺疊與展開:記住原本高度;只有文字卡與筆記卡能摺', () => {
+  const n = { id: 'a', type: 'file', file: 'notes/x.md', height: 320 };
+  assert.equal(foldNode(n), true);
+  assert.equal(isFolded(n), true);
+  assert.equal(n.height, FOLDED_HEIGHT);
+  assert.equal(n['x-leafpile-height'], 320);
+  assert.equal(foldNode(n), false, '已經摺了');
+  assert.equal(unfoldNode(n), true);
+  assert.deepEqual(n, { id: 'a', type: 'file', file: 'notes/x.md', height: 320 }, '展開後不留 x- 欄位');
+  assert.equal(unfoldNode(n), false);
+  assert.equal(foldNode({ type: 'file', file: 'boards/media/a.png', height: 100 }), false);
+  assert.equal(foldNode({ type: 'group', height: 100 }), false);
+  const t2 = { type: 'text', text: 'x', height: 90, 'x-leafpile-folded': true };
+  unfoldNode(t2);
+  assert.equal(t2.height, 240, '沒有記錄原本高度時用預設值');
+  // 存檔再讀回來,摺疊狀態還在(x- 欄位原樣保留)
+  const b = parseCanvas(serializeCanvas({ nodes: [{ id: 'a', type: 'text', text: 'x', x: 0, y: 0, width: 200, height: 320 }], edges: [], extra: {} }));
+  foldNode(b.nodes[0]);
+  const back = parseCanvas(serializeCanvas(b));
+  assert.equal(isFolded(back.nodes[0]), true);
+  assert.equal(back.nodes[0]['x-leafpile-height'], 320);
+});
+
+test('fitHeight:取整數、有上下限', () => {
+  assert.equal(fitHeight(123.2), 124);
+  assert.equal(fitHeight(10), 60);
+  assert.equal(fitHeight(99999), 2400);
+  assert.equal(fitHeight(NaN), 60);
+});

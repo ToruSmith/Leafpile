@@ -43,6 +43,7 @@ Leafpile 沿用 Mdslide Pile 的分層：資料只往下流，**來源 → `core
 | `ui/palette.js`、`ui/dialog.js` | Ctrl+K 指令面板、對話框與提示 |
 | `core/nav.js`、`ui/sidebar.js` | 側邊欄（書庫導覽，唯讀）：樹狀目錄、目前位置、釘選與最近開過 |
 | `core/table.js` | 書庫的表格檢視（唯讀）：front matter 欄位、排序、篩選 |
+| `ui/board-peek.js` | 畫布的側邊卡片面板：閱讀與編輯一篇筆記（寫入規則、草稿與筆記頁的編輯器相同）；畫布只給它容器與幾個回呼 |
 | `ui/prefs.js` | 本機偏好設定（localStorage）的唯一入口；所有用到的鍵列在檔案開頭 |
 | `core/yaml-edit.js` | 設定檔的局部改寫：只改最上層某個鍵的那幾行，保留其他行與註解 |
 | `core/topics.js`、`ui/topic-manage.js` | 主題管理（設定類）：規則、預覽清單、對話框；寫檔與復原在 `main.js` 的 `editTopic`、`newTopic`、`editCategories` |

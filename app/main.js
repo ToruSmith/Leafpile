@@ -16,7 +16,8 @@ import { parseNote, slugify, splitFrontMatter, wikilinksOf } from './core/note.j
 import { expandEmbeds, promoteNote, promoteBook, distillDeck, withSourceHash } from './core/bridge.js';
 import { openPrivacyPanel } from './ui/privacy-view.js';
 import { renderBoard } from './ui/canvas-view.js';
-import { parseCanvas, emptyCanvas, boardFileName, textToNote, boardsWith } from './core/canvas.js';
+import { parseCanvas, emptyCanvas, boardFileName, textToNote, boardsWith, boardRefs } from './core/canvas.js';
+import { createPeek } from './ui/board-peek.js';
 import { auditPrivacy, visitorVault, isLocalOnly } from './core/privacy.js';
 import { planLinkUpdates, retitle, renamedFile, rebaseLinks, retargetSource, dirOf } from './core/move.js';
 import { checkVault } from './core/check.js';
@@ -47,7 +48,7 @@ import { applyUITheme, setUIChoice, uiChoiceNow, THEMES, themeName } from './pla
 import { readPref, writePref } from './ui/prefs.js';
 import { t, setLang, getLang, normalizeLang } from './core/i18n.js';
 
-export const VERSION = '0.14.1';
+export const VERSION = '0.15.0';
 const REPO_URL = 'https://github.com/ToruSmith/Leafpile';
 const MDSLIDE_URL = 'https://github.com/ToruSmith/Mdslide-Pile';
 
@@ -99,7 +100,7 @@ function hrefs(key) {
     edit: rel => `${base}/e/${enc(rel)}`,
     flash: (rel, n) => `${base}/f/${enc(rel)}${n ? '/' + n : ''}`,
     deck: (topicId, projectId, n, read) => `${base}/d/${enc(topicId)}/${enc(projectId)}${n ? '/' + n : ''}${read ? '/read' : ''}`,
-    board: name => `${base}/b/${enc(name)}`,
+    board: (name, peek) => `${base}/b/${enc(name)}${peek ? '/' + enc(peek) : ''}`,
     go: (link, fromRel) => `${base}/go/${enc(JSON.stringify({ c: link.channel, t: link.target, h: link.heading }))}/${enc(fromRel)}`,
   };
 }
@@ -121,7 +122,11 @@ async function route() {
   if (mode === 'n' && a) return leaveView(), showNote(key, a, b);
   if (mode === 'e' && a) return leaveView(), showEditor(key, a);
   if (mode === 'go' && a) return followLink(key, a, b || '');
-  if (mode === 'b' && a) return leaveView(), showBoard(key, a);
+  if (mode === 'b' && a) {
+    // 只換了側邊面板(網址最後一段)就不重畫畫布
+    if (state.board?.key === key && state.board.name === a && state.view?.peek) return state.view.peek(b || '');
+    return leaveView(), showBoard(key, a, b || '');
+  }
   // Mdslide Pile 的舊網址:#/<書庫>/<主題>/<簡報>/<第幾張>
   if (mode && a && !['n', 'e', 'f', 'd', 'go', 'b'].includes(mode)) return location.replace(hrefs(key).deck(mode, a, b, c === 'read'));
   leaveView();
@@ -502,7 +507,7 @@ function watchVault(key, vault) {
 }
 
 // ---------------- 畫布 ----------------
-async function showBoard(key, name) {
+async function showBoard(key, name, peek = '') {
   loading(t('loading.library'));
   try {
     const vault = await getVault(key);
@@ -522,13 +527,34 @@ async function showBoard(key, name) {
       ...[...g.notes.values()].map(n => ({ value: 'n:' + n.path, file: n.path, label: `${t('board.kindNote')} · ${vault.topics.find(tp => tp.id === n.topicId)?.title || ''} › ${n.title}` })),
       ...[...g.decks.values()].map(d => ({ value: 'd:' + d.path, file: `${d.path}/deck.yml`, deck: true, label: `${t('board.kindDeck')} · ${vault.topics.find(tp => tp.id === d.topicId)?.title || ''} › ${d.title}` })),
     ] : [];
-    state.view = renderBoard(app, {
-      board, name, header: header(key === 'repo' ? 'repo' : 'home'), href: hrefs(key), graph, choices, source: src,
+    const href = hrefs(key);
+    const canSee = state.visitor && vault.kind === 'leafpile' && g ? visibleTo(g, vault) : () => true;
+    let peekApi = null, view = null;
+    view = renderBoard(app, {
+      board, name, header: header(key === 'repo' ? 'repo' : 'home'), href, graph, choices, source: src,
+      refs: (vault.boards || []).length > 1 ? allBoards(key).then(boardRefs) : null,
+      notePath: rel => vault.notePath(rel), peek,
+      makePeek: vault.kind === 'leafpile' && vault.notesSource ? (box, hooks) => (peekApi = createPeek(box, {
+        vault, libId: key, href, graph, visible: canSee,
+        onBoard: hooks.onBoard, addToBoard: hooks.addToBoard,
+        onChange: rel => {
+          hooks.onChange(rel);
+          // 網址記住面板開著哪一篇(重新整理、分享連結都會回到這裡);不新增瀏覽紀錄
+          const want = href.board(name, rel || '');
+          if (location.hash !== want) history.replaceState(null, '', want);
+        },
+        onSaved: async () => { state.graphs.delete(key); const ng = await getGraph(key).catch(() => null); if (ng) view?.refreshGraph(ng); },
+      })) : null,
       colorOf: id => vault.topics.find(tp => tp.id === id)?.color || '',
       save: src.canWrite ? async text => { expect = await src.writeText(info.path, text, { expect }); } : null,
       toNote: src.canWrite && vault.notesSource?.canWrite ? text => boardTextToNote(key, text) : null,
       reloadGraph: async () => { await getVault(key); return getGraph(key); },
     });
+    state.view = view;
+    state.view.peek = rel => peekApi?.open(rel);
+    state.board = { key, name };
+    const done = state.view.cleanup;
+    state.view.cleanup = () => { if (state.board?.name === name) state.board = null; done(); };
     withSide(state.view, sideFor(key, vault, { type: 'b', id: name, title: name }, 'board'));
     document.title = `${name} · Leafpile`;
   } catch (e) { showError(e, keyBase(key)); }
@@ -558,14 +584,20 @@ async function boardTextToNote(key, text) {
   } catch (e) { noteErr(e); return null; }
 }
 
-/** 這篇筆記出現在哪些畫布(筆記頁右側欄用)。 */
-async function boardsOfNote(key, rel) {
+/** 書庫裡所有畫布(壞掉的略過)。 */
+async function allBoards(key) {
   const vault = await getVault(key);
   const src = state.sources.get(key);
   const boards = await Promise.all((vault.boards || []).map(async b => {
     try { return { name: b.name, board: parseCanvas(await src.readText(b.path)) }; } catch { return null; }
   }));
-  return boardsWith(boards.filter(Boolean), vault.notePath(rel));
+  return boards.filter(Boolean);
+}
+
+/** 這篇筆記出現在哪些畫布(筆記頁右側欄用)。 */
+async function boardsOfNote(key, rel) {
+  const vault = await getVault(key);
+  return boardsWith(await allBoards(key), vault.notePath(rel));
 }
 
 async function newBoard(key) {

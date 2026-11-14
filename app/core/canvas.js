@@ -201,8 +201,67 @@ export function textToNote(text) {
   return { title, body };
 }
 
+const fileKey = file => norm(String(file || '').replace(/^\/+/, ''));
+
 /** 筆記出現在哪些畫布的哪些卡片(只比對 file 欄位)。 */
 export function boardsWith(boards, path) {
-  const p = norm(path);
-  return boards.filter(b => b.board.nodes.some(n => n.type === 'file' && norm(String(n.file || '').replace(/^\/+/, '')) === p)).map(b => b.name);
+  return boardRefs(boards).get(fileKey(path)) || [];
+}
+
+/**
+ * 每個檔案出現在哪些畫布:Map(正規化的路徑 → 畫布名稱[],依 boards 的順序、不重複)。
+ * 筆記頁的「出現在這些畫布」、畫布卡片的徽章、書庫索引共用這一份。
+ * @param {{ name: string, board: { nodes: object[] } }[]} boards
+ */
+export function boardRefs(boards) {
+  const out = new Map();
+  for (const b of boards) {
+    for (const n of b.board?.nodes || []) {
+      if (n.type !== 'file') continue;
+      const k = fileKey(n.file);
+      if (!k) continue;
+      if (!out.has(k)) out.set(k, []);
+      const list = out.get(k);
+      if (!list.includes(b.name)) list.push(b.name);
+    }
+  }
+  return out;
+}
+
+/** 這張卡片(file)還出現在哪些「其他」畫布。 */
+export function otherBoards(refs, file, current) {
+  return (refs?.get(fileKey(file)) || []).filter(name => name !== current);
+}
+
+// ---------- 摺疊與適合內容(Leafpile 自訂欄位,Obsidian 會略過) ----------
+export const FOLD_KEY = 'x-leafpile-folded';
+export const FOLD_HEIGHT_KEY = 'x-leafpile-height';
+export const FOLDED_HEIGHT = 56;
+export const FOLDABLE = n => n.type === 'text' || (n.type === 'file' && fileKind(n.file) === 'note');
+
+export const isFolded = n => n?.[FOLD_KEY] === true;
+
+/** 摺疊:只留標題列;原本的高度記在 x-leafpile-height,展開時還原。回傳有沒有改。 */
+export function foldNode(n) {
+  if (!n || isFolded(n) || !FOLDABLE(n)) return false;
+  n[FOLD_HEIGHT_KEY] = n.height;
+  n[FOLD_KEY] = true;
+  n.height = FOLDED_HEIGHT;
+  return true;
+}
+
+/** 展開:還原摺疊前的高度(沒有記錄或太小就用 240)。回傳有沒有改。 */
+export function unfoldNode(n) {
+  if (!n || !isFolded(n)) return false;
+  const h = Number(n[FOLD_HEIGHT_KEY]);
+  n.height = Number.isFinite(h) && h > FOLDED_HEIGHT ? h : 240;
+  delete n[FOLD_KEY];
+  delete n[FOLD_HEIGHT_KEY];
+  return true;
+}
+
+/** 適合內容:量到的內容高度 → 卡片高度(有上下限,取整數)。 */
+export function fitHeight(contentHeight, { min = 60, max = 2400 } = {}) {
+  const h = Math.ceil(Number(contentHeight) || 0);
+  return Math.min(max, Math.max(min, h));
 }
