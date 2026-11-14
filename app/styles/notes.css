@@ -856,3 +856,56 @@ tr:hover .del-x, tr:focus-within .del-x, .lib-card:hover .del-x, .lib-card:focus
 .topic-table .tm-del { color: var(--danger); }
 .board-menu button.danger, .note-more-menu button.danger { color: var(--danger); }
 .ne-bar .del { color: var(--danger); }
+
+/* 空書庫的起手式 */
+.shelf-empty.setup { max-width: 640px; margin: 48px auto 72px; padding: 32px 36px; background: var(--card, #fff); border: 1px solid var(--line, #e5ded3); border-radius: 16px; text-align: center; color: var(--ink, inherit); font-size: 15px; }
+.shelf-empty.setup h2 { margin: 0 0 8px; font-size: 22px; }
+.shelf-empty.setup p { color: var(--muted); margin: 0 0 20px; }
+.setup-choices { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.setup-choices .btn { display: flex; flex-direction: column; gap: 4px; padding: 14px 22px; min-width: 220px; }
+.setup-choices small { font-size: 12px; opacity: .75; font-weight: 400; }
+.setup-note { margin: 22px 0 0 !important; font-size: 12px; }
+
+/* ---------- 手機與觸控:頂列不被截斷、按鈕夠大、側欄字夠大 ---------- */
+@media (max-width: 560px) {
+  .brand { font-size: 0; gap: 0; }            /* 窄螢幕只留圖示,文字讓給右邊的按鈕 */
+  .brand small { display: none; }
+  .topbar nav a[href="#/repo"], .topbar nav a[href="#/"] { max-width: 8.5em; overflow: hidden; text-overflow: ellipsis; }
+  .topbar .theme-menu { margin-left: 2px; }
+}
+@media (pointer: coarse) {
+  .btn, .pbtn, .stage-select, .lang-toggle, .theme-toggle, .topbar nav a { min-height: 40px; }
+  .theme-toggle { width: 40px; }
+  .topbar nav a { display: inline-flex; align-items: center; }
+  .btn { padding-top: 9px; padding-bottom: 9px; }
+  .sn-item { padding: 10px 10px; font-size: 15px; }
+  .sn-item small, .sn-item kbd { font-size: 12px; }
+  .sn-sec h3, .sn-h { font-size: 12px; }
+  .sn-pin-cur, .sn-manage { font-size: 12px; padding: 5px 10px; }
+  .sn-fold { width: 40px; height: 40px; }
+  .sn-empty { font-size: 13px; }
+  .badge, .note-table .lock { font-size: 12px; }
+  .lib-tools .btn, .table-head .btn { min-height: 40px; }
+}
+@media (pointer: coarse) {
+  .brand { min-width: 44px; min-height: 40px; justify-content: center; }
+  .sn-lib { padding: 10px 0; }
+  .sn-h { padding: 10px 8px; }
+  .sn-manage { padding: 10px 8px; }
+  details.toc > summary { padding-top: 12px; padding-bottom: 12px; }
+  .fs-btn, .note-tools button, .size-ctl button, .note-actions .btn { min-height: 40px; }
+}
+@media (pointer: coarse) {
+  .segmented button, .seg-mini button, .chip { min-height: 40px; }
+  .sn-pin-cur { min-height: 36px; }
+}
+
+/* ---------- 細節統一 ---------- */
+/* 空狀態:同一種樣子(置中、淡色、虛線框),各頁不再各寫各的 */
+.table-empty, .search-empty, .lib-empty, .shelf-empty:not(.setup) { text-align: center; color: var(--muted); font-size: 14px; padding: 28px 20px; border: 1px dashed var(--line); border-radius: 14px; }
+.shelf-empty:not(.setup) { max-width: 560px; margin: 36px auto 60px; }
+.search-empty { margin: 16px 0; }
+/* 刪除 ✕:觸控裝置一律看得到,大小一致;簡報項目原本在觸控裝置上會一直是透明的 */
+@media (hover: none), (pointer: coarse) {
+  .del-x, .deck-item .del-x { opacity: .75; width: 34px; height: 34px; font-size: 15px; }
+}
