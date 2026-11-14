@@ -893,7 +893,6 @@ tr:hover .del-x, tr:focus-within .del-x, .lib-card:hover .del-x, .lib-card:focus
   .sn-h { padding: 10px 8px; }
   .sn-manage { padding: 10px 8px; }
   details.toc > summary { padding-top: 12px; padding-bottom: 12px; }
-  .crumbs a, .breadcrumb a { display: inline-block; padding: 10px 2px; }
   .fs-btn, .note-tools button, .size-ctl button, .note-actions .btn { min-height: 40px; }
 }
 @media (pointer: coarse) {
