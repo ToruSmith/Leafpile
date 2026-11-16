@@ -51,7 +51,7 @@ import { applyUITheme, setUIChoice, uiChoiceNow, THEMES, themeName } from './pla
 import { readPref, writePref } from './ui/prefs.js';
 import { t, setLang, getLang, normalizeLang } from './core/i18n.js';
 
-export const VERSION = '0.20.0';
+export const VERSION = '0.20.1';
 const REPO_URL = 'https://github.com/ToruSmith/Leafpile';
 const MDSLIDE_URL = 'https://github.com/ToruSmith/Mdslide-Pile';
 
@@ -1285,7 +1285,8 @@ async function restoreFromTrash(key, moved, name, hash) {
 }
 
 /** 共用流程:確認(說清楚搬去哪、有什麼影響)→ 搬到 _archive/ → 提示可以復原。 */
-async function trash(key, { paths, name, ask, list = [], note = '', onDone, back = null, after = null }) {
+async function trash(key, { paths, name, ask, list = [], note = '', onDone, after = null }) {
+  const origin = location.hash || hrefs(key).shelf; // 復原 = 回到按下刪除前的畫面
   try {
     const src = state.sources.get(key);
     if (!src?.canWrite || !src.archiveTree) return toast(t('ne.readonly'));
@@ -1294,7 +1295,7 @@ async function trash(key, { paths, name, ask, list = [], note = '', onDone, back
     const moved = await moveToTrash(src, paths);
     onDone?.();
     invalidate(key);
-    toast(t('trash.done', { name }), { ms: 12000, actions: [{ label: t('trash.undo'), run: () => restoreFromTrash(key, moved, name, back) }] });
+    toast(t('trash.done', { name }), { ms: 12000, actions: [{ label: t('trash.undo'), run: () => restoreFromTrash(key, moved, name, origin) }] });
     goHash(after ?? hrefs(key).shelf);
   } catch (e) { noteErr(e); }
 }
@@ -1308,7 +1309,7 @@ async function trashNote(key, rel, { onDone } = {}) {
   const refs = [...new Set((g.backlinks.get(path) || []).map(b => b.from.title))];
   const boards = vault.boards?.length ? await boardsOfNote(key, rel).catch(() => []) : [];
   await trash(key, {
-    paths: [path], name, back: hrefs(key).note(rel),
+    paths: [path], name,
     ask: [t('trash.noteAsk', { title: name }), refs.length ? t('trash.refs', { n: refs.length }) : ''].filter(Boolean).join('\n'),
     list: refs.slice(0, 8),
     note: boards.length ? t('trash.onBoards', { names: boards.join('、') }) : '',
@@ -1320,7 +1321,7 @@ async function trashDeck(key, topicId, projectId) {
   const vault = await getVault(key);
   const project = vault?.kind === 'leafpile' ? findDeck(vault, topicId, projectId) : null;
   if (!project) return;
-  await trash(key, { paths: [vault.deckPath(project)], name: project.title || projectId, back: hrefs(key).deck(topicId, projectId), ask: t('trash.deckAsk', { title: project.title || projectId }) });
+  await trash(key, { paths: [vault.deckPath(project)], name: project.title || projectId, ask: t('trash.deckAsk', { title: project.title || projectId }) });
 }
 
 async function trashTopic(key, id) {
@@ -1338,7 +1339,7 @@ async function trashTopic(key, id) {
 async function trashBoard(key, name) {
   const vault = await getVault(key);
   const b = vault?.boards?.find(x => x.name === name);
-  if (b) await trash(key, { paths: [b.path], name, back: hrefs(key).board(name), ask: t('trash.boardAsk', { name }) });
+  if (b) await trash(key, { paths: [b.path], name, ask: t('trash.boardAsk', { name }) });
 }
 
 /** 從 _archive/ 找回筆記、畫布、簡報、主題(搬回原本的位置,原位置有同名的就不動)。 */

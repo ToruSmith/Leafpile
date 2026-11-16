@@ -55,6 +55,9 @@ jobs:
           python -m http.server 8000 &
           sleep 2
           python tests/smoke/smoke.py http://localhost:8000/ ${{ matrix.browser }}
+      - name: 可寫入書庫的冒煙測試(只有 Chromium 有 File System Access)
+        if: matrix.browser == 'chromium'
+        run: python tests/smoke/write.py http://localhost:8000/
 
   # PR 才跑:和目標分支逐張比對官方範例的畫面,結果寫在摘要(提醒用,不會擋 PR)
   visual:

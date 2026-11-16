@@ -173,7 +173,6 @@ export const LOCALE_EN = {
   'lib.refreshTitle': 'Read the folder again',
   'lib.all': 'All',
   'lib.issues': '⚠ {n} config problems',
-  'lib.empty': 'No decks in this topic yet',
   'lib.chapters': 'Sections: {n}',
 
   // ---------- Check panel ----------
@@ -322,7 +321,6 @@ export const LOCALE_EN = {
   'slide.interactive': 'Interactive page',
   'slide.openPage': '↗ Open in new tab',
   'player.edit': 'Edit',
-  'player.editTitle': "Edit this slide's Markdown (E)",
   'key.edit': "Edit this slide's source",
   'key.clear': 'Clear drawings on this slide (while the pen is on)',
   'key.goto': "Type a slide number to jump to it",
@@ -1251,7 +1249,6 @@ export const LOCALE_EN = {
   'distill.create': 'Create note',
   'bridge.needWrite': 'This needs a writable library: open the folder with Chrome or Edge.',
   'bridge.needVault': 'This needs a Leafpile library (a folder with notes/ and slides/).',
-  'embed.missing': '{n} excerpts could not find their note and are shown as written.',
   'scaffold.siteTitle': 'My Leafpile',
   'scaffold.siteDesc': 'Notes live in notes/, slides in slides/. This folder stays on your computer; nothing is uploaded.',
   'scaffold.topicName': 'Inbox',
@@ -1265,7 +1262,6 @@ export const LOCALE_EN = {
   'scaffold.emptyHint': 'Creates only the settings and an Inbox topic',
   'scaffold.readonly': 'This folder is read-only. Reopen it with "Open a local folder" and allow writing.',
   'scaffold.done': 'Library structure created',
-  'scaffold.exists': 'This folder already has {path}; nothing was overwritten.',
   'scaffold.failed': 'Could not create {path}',
   'home.create': 'Create a new library',
   'home.createTitle': 'Pick an empty folder and set up the Leafpile structure',

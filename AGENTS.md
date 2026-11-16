@@ -67,7 +67,7 @@ starter/              範例書庫的說明、設定與歡迎筆記（scripts/bu
 dist/                 單檔檢查工具 leafpile-check.mjs（自動產生，請勿手改）
 docs/                 SPEC、INTEROP、FEATURES（功能手冊）、ARCHITECTURE、ROADMAP、AI_PROMPTS、AI_PACK（給 AI 的書庫包規格，「AI 生成」的提示詞指向它）、slides/（簡報指南與手冊）
 scripts/              check、guard-content、promote、after-talk、source-sync、bench-graph、new-deck、build-catalog、bundle-check、build-starter
-tests/                node:test 單元測試；smoke/（Playwright）；visual/（畫面比對）
+tests/                node:test 單元測試；smoke/（Playwright：smoke.py 唯讀流程、write.py 可寫入流程）；visual/（畫面比對）
 ```
 
 ## 驗證
@@ -84,6 +84,7 @@ node scripts/bundle-check.mjs            # 改了 app/core/ 之後：重新產�
 ```bash
 node scripts/build-catalog.mjs && python3 -m http.server 8000 &
 python tests/smoke/smoke.py http://localhost:8000/ chromium
+python tests/smoke/write.py http://localhost:8000/    # 可寫入書庫(起手式、記到收件匣、刪除與復原);只有 Chromium
 ```
 
 版本號有三處要一致（`tests/version.test.mjs` 會檢查）：`package.json`、`app/main.js` 的 `VERSION`、`CHANGELOG.md` 最新標題。
