@@ -173,7 +173,6 @@ export const LOCALE_ZH_HANT = {
   'lib.refreshTitle': '重新讀取資料夾',
   'lib.all': '全部',
   'lib.issues': '⚠ {n} 個設定檔問題',
-  'lib.empty': '這個主題還沒有簡報',
   'lib.chapters': '{n} 章',
 
   // ---------- 檢查面板 ----------
@@ -322,7 +321,6 @@ export const LOCALE_ZH_HANT = {
   'slide.interactive': '互動頁面',
   'slide.openPage': '↗ 在新分頁開啟',
   'player.edit': '編輯',
-  'player.editTitle': '編輯這張投影片的 Markdown(E)',
   'key.edit': '編輯這張的原始碼',
   'key.clear': '清除這張的畫(畫筆開著時)',
   'key.goto': "輸入頁碼,跳到第幾張",
@@ -1251,7 +1249,6 @@ export const LOCALE_ZH_HANT = {
   'distill.create': '建立筆記',
   'bridge.needWrite': '需要可以寫入的書庫:請用 Chrome 或 Edge 按「開啟本機資料夾」。',
   'bridge.needVault': '這個功能需要 Leafpile 書庫(有 notes/ 與 slides/ 的資料夾)。',
-  'embed.missing': '有 {n} 個摘錄找不到來源筆記,會顯示原本的文字。',
   'scaffold.siteTitle': '我的頁堆',
   'scaffold.siteDesc': '筆記在 notes/,簡報在 slides/。這個資料夾在你自己的電腦上,內容不會上傳。',
   'scaffold.topicName': '收件匣',
@@ -1265,7 +1262,6 @@ export const LOCALE_ZH_HANT = {
   'scaffold.emptyHint': '只建立設定檔與「收件匣」主題',
   'scaffold.readonly': '這個資料夾是唯讀的,無法建立。請用「開啟本機資料夾」重新選取並允許寫入。',
   'scaffold.done': '已建立書庫結構',
-  'scaffold.exists': '這個資料夾已經有 {path},沒有覆蓋。',
   'scaffold.failed': '建立失敗:{path}',
   'home.create': '建立新書庫',
   'home.createTitle': '選一個空資料夾,自動建立 Leafpile 的結構',

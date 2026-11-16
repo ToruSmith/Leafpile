@@ -15,6 +15,8 @@
 //   leafpile-last-board        卡片庫「放到畫布」上次選的畫布(main.js)
 //   leafpile-board-minimap     畫布小地圖開關(canvas-view.js)
 //   leafpile-board-pin         畫布工具列固定(canvas-view.js)
+//   leafpile-board-outline     畫布大綱面板開關(canvas-view.js)
+//   leafpile-gen-last          「用 AI 生成」與「問 AI」上次選的類別、主題與 AI(generate.js、ask.js)
 //   leafpile-side              側邊欄收合狀態(sidebar.js)
 //   leafpile-nav:<書庫>        側邊欄的釘選與最近開過(sidebar.js)
 //   leafpile-motion            簡報動畫(player.js)
