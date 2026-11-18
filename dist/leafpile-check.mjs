@@ -1442,6 +1442,9 @@ const LOCALE_ZH_HANT = {
   'scaffold.import': '匯入現有書庫',
   'scaffold.importHint': '從電腦選資料夾或 zip,上傳到這個書庫',
   'pack.importing': '正在上傳 {n} 個檔案…請不要關閉分頁',
+  'player.editTitle': '編輯目前這張投影片(E)',
+  'share.deckTitle': '產生連結,讓別人不用登入就能看這份簡報',
+  'share.boardTitle': '產生連結,讓別人不用登入就能看這張畫布(卡片上的筆記與簡報會一起分享)',
 };
 return { LOCALE_ZH_HANT };
 })();
@@ -2757,6 +2760,9 @@ const LOCALE_EN = {
   'scaffold.import': 'Import an existing library',
   'scaffold.importHint': 'Pick a folder or zip on your computer and upload it here',
   'pack.importing': 'Uploading {n} files… keep this tab open',
+  'player.editTitle': 'Edit the current slide (E)',
+  'share.deckTitle': 'Create a link so others can view this deck without signing in',
+  'share.boardTitle': 'Create a link so others can view this board without signing in (notes and decks on it are shared too)',
 };
 return { LOCALE_EN };
 })();
