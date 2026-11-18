@@ -10,8 +10,7 @@
 //   localStorage.setItem('leafpile-google', JSON.stringify({ clientId: '…', apiKey: '…' }))
 // 可以暫時覆蓋這裡的值(只影響那個瀏覽器)。
 
-const fixed = { clientId: '10035283080-89vrlpikp53jk211jceeoebr3f6k1qtb.apps.googleusercontent.com
-', apiKey: 'AIzaSyDwpMd2xw6L5MqzE9hMvGJTLZW0NLr08RE' };
+const fixed = { clientId: '10035283080-89vrlpikp53jk211jceeoebr3f6k1qtb.apps.googleusercontent.com', apiKey: 'AIzaSyDwpMd2xw6L5MqzE9hMvGJTLZW0NLr08RE' };
 
 let override = null;
 try { override = JSON.parse(globalThis.localStorage?.getItem('leafpile-google') || 'null'); } catch { /* 沒有或格式錯:用上面的值 */ }
