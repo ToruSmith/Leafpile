@@ -326,12 +326,12 @@ export class HandleSource {
 }
 
 /** 只允許寫入書庫資料夾裡的 .md / .yml,路徑不能跳出去。 */
-const TEXT_EXT = /\.(md|ya?ml|canvas)$/i; // 筆記、設定、畫布
-const BINARY_EXT = /\.(png|jpe?g|webp|gif|svg|avif|pdf|html?)$/i; // 圖片、PDF、HTML(只有 writeFile、archive 收)
-const FILE_LIMIT = 10 * 1024 * 1024, HTML_LIMIT = 1024 * 1024;
+export const TEXT_EXT = /\.(md|ya?ml|canvas)$/i; // 筆記、設定、畫布
+export const BINARY_EXT = /\.(png|jpe?g|webp|gif|svg|avif|pdf|html?)$/i; // 圖片、PDF、HTML(只有 writeFile、archive 收)
+export const FILE_LIMIT = 10 * 1024 * 1024, HTML_LIMIT = 1024 * 1024;
 
 /** 路徑檢查:只能在書庫裡;預設只收文字檔,binary = true 時也收圖片、PDF、HTML。 */
-function checkPath(path, binary = false) {
+export function checkPath(path, binary = false) {
   if (!/^[^/][^\0]*$/.test(path) || path.split('/').some(p => !p || p === '.' || p === '..')) throw new Error('bad path');
   if (!TEXT_EXT.test(path) && !(binary && BINARY_EXT.test(path))) throw new Error('bad type');
 }
