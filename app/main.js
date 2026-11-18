@@ -711,6 +711,7 @@ async function showBoard(key, name, peek = '') {
       refs: (vault.boards || []).length > 1 ? allBoards(key).then(boardRefs) : null,
       notePath: rel => vault.notePath(rel), peek, canAsk: !state.visitor,
       onDelete: vault.kind === 'leafpile' && src.canWrite && src.archiveTree ? () => trashBoard(key, name) : null,
+      onShare: canShare(key) ? () => shareBoard(key, name) : null,
       makePeek: vault.kind === 'leafpile' && vault.notesSource ? (box, hooks) => (peekApi = createPeek(box, {
         vault, libId: key, href, graph, visible: canSee,
         onBoard: hooks.onBoard, addToBoard: hooks.addToBoard, ask: hooks.ask,
@@ -1147,6 +1148,7 @@ async function showDeck(key, topicId, projectId, start, reading = false) {
       deck, source, start, reading, theme: deck.theme || vault.theme, onReload: reload,
       qaKey: vault.kind === 'leafpile' ? deckKey : '', // 講後筆記只在 Leafpile 書庫產生
       onExport: p => exportWithLinks(key, vault, p, topicId),
+      onShare: canShare(key) && !single ? () => shareDeck(key, topicId, projectId) : null,
       onExit: () => { location.hash = single ? '#/' : href.shelf; },
       onIndex: (i, read) => history.replaceState(null, '', href.deck(topicId, projectId, i + 1, read ?? state.player?.reader)),
     });

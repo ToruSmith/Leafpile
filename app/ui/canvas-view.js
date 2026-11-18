@@ -51,7 +51,7 @@ const INKS = ['#2b2925', '#c0504d', '#3f6fb0', '#5a8f5a'];
  * @param {(rel: string) => string} [o.notePath]        筆記渠道的路徑 → 書庫路徑(notes/…)
  * @param {boolean} [o.canAsk]                          可不可以「問 AI」(訪客視角不行)
  */
-export function renderBoard(root, { board, name, header, href, graph, source, save, choices = [], colorOf = () => '', toNote = null, onDelete = null, reloadGraph = null, refs = null, makePeek = null, peek: initialPeek = '', notePath = rel => 'notes/' + rel, canAsk = true }) {
+export function renderBoard(root, { board, name, header, href, graph, source, save, choices = [], colorOf = () => '', toNote = null, onDelete = null, onShare = null, reloadGraph = null, refs = null, makePeek = null, peek: initialPeek = '', notePath = rel => 'notes/' + rel, canAsk = true }) {
   const canEdit = !!save;
   const canMedia = canEdit && !!source?.writeMedia;
   root.innerHTML = `<div class="board-shell">${header}
@@ -78,6 +78,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
               <hr>` : ''}
               <button role="menuitem" data-b="present" title="${esc(t('board.presentTitle'))}">${esc(t('board.present'))}</button>
               <button role="menuitem" data-b="export" title="${esc(t('board.exportTitle'))}">${esc(t('board.export'))}</button>
+              ${onShare ? `<button role="menuitem" data-b="share" title="${esc(t('share.boardTitle'))}">${esc(t('share.button'))}</button>` : ''}
               <button role="menuitem" data-b="outline" data-keep aria-pressed="false" title="${esc(t('board.outlineViewTitle'))}">${esc(t('board.outlineView'))}<kbd>O</kbd></button>
               <button role="menuitem" data-b="minimap" data-keep aria-pressed="false">${esc(t('board.minimap'))}<kbd>M</kbd></button>
               <button role="menuitem" data-b="pin" data-keep aria-pressed="false">${esc(t('board.pin'))}</button>
@@ -1215,6 +1216,7 @@ export function renderBoard(root, { board, name, header, href, graph, source, sa
     if (b === 'card') addCard();
     if (b === 'link') addLink();
     if (b === 'trash') onDelete?.();
+    if (b === 'share') onShare?.();
     if (b === 'file') fileInput.click();
     if (b === 'draw') startDraw();
     if (b === 'search') openSearch();
