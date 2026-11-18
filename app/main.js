@@ -475,12 +475,14 @@ async function shareItem(key, item, title, { paths = null, ask = null } = {}) {
   try {
     paths ||= await sharePaths(src, item);
     busy = toast(paths.length > 10 ? t('share.workingN', { n: paths.length }) : t('share.working'), { ms: 600000 });
+    // 已經公開的不必再設:上次這個分享還在進行中的檔案,加上其他分享正在用的
     let old = null;
-    if (already) try { old = parseManifest(await src.readText(name)).files; } catch { /* 舊清單壞了:當作沒有 */ }
-    const files = await src.publish(paths);
-    if (old) await src.unpublish(noLongerShared(old, files, await idsStillShared(src, name)));
+    if (already) try { const raw = JSON.parse(await src.readText(name)); if (raw.active !== false) old = parseManifest(JSON.stringify(raw)).files; } catch { /* 舊清單壞了:當作沒有 */ }
+    const others = await idsStillShared(src, name);
+    const files = await src.publish(paths, { skip: new Set([...Object.values(old || {}), ...others]) });
+    if (old) await src.unpublish(noLongerShared(old, files, others));
     await src.put(name, JSON.stringify({ ...buildManifest(item, title, files), active: true }, null, 1));
-    const [id] = Object.values(await src.publish([name]));
+    const [id] = Object.values(await src.publish([name])); // 清單本身每次都重設(停止分享時會取消它)
     url = `${location.origin}${location.pathname}#/s/${id}`;
   } catch (e) {
     busy?.close();

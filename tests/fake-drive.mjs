@@ -7,7 +7,7 @@ const FOLDER = 'application/vnd.google-apps.folder';
 const decode = bytes => { try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes); } catch { return bytes; } };
 
 export class FakeDrive {
-  constructor() { this.files = new Map(); this.n = 0; this.token = 'tok-1'; this.calls = []; this.at = Date.parse('2026-11-18T00:00:00Z'); }
+  constructor() { this.files = new Map(); this.n = 0; this.token = 'tok-1'; this.calls = []; this.throttle = 0; this.throttleWith = 429; this.at = Date.parse('2026-11-18T00:00:00Z'); }
   add(f) { const id = `id${String(++this.n).padStart(10, '0')}`; this.files.set(id, { id, parents: ['root'], shared: false, content: '', ...f, modifiedTime: new Date(this.at += 1000).toISOString() }); return id; }
   meta(f) { const { content, shared, ...m } = f; return { ...m, size: f.mimeType === FOLDER ? undefined : String(typeof f.content === 'string' ? new TextEncoder().encode(f.content).length : f.content.length) }; }
   json(o, status = 200) { return new Response(JSON.stringify(o), { status, headers: { 'Content-Type': 'application/json' } }); }
@@ -16,6 +16,10 @@ export class FakeDrive {
     const authed = init.headers?.Authorization === `Bearer ${this.token}`;
     const key = url.searchParams.get('key') === 'KEY';
     this.calls.push(`${method} ${url.pathname}`);
+    if (this.throttle > 0) { // 模擬 Google 限速:接下來幾個請求回 429 或「限速」的 403
+      this.throttle--;
+      return this.throttleWith === 403 ? this.json({ error: { code: 403, message: 'User rate limit exceeded', errors: [{ reason: 'userRateLimitExceeded' }] } }, 403) : this.json({}, 429);
+    }
     if (!authed && !key) return this.json({}, 401);
     const m = url.pathname.match(/^\/(upload\/)?drive\/v3\/files(?:\/([^/]+))?(\/permissions(?:\/([^/]+))?)?$/);
     if (!m) return this.json({}, 400);

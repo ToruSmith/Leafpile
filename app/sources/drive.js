@@ -23,14 +23,41 @@ const q = s => `'${String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 const MIME = { md: 'text/markdown', yml: 'text/yaml', yaml: 'text/yaml', canvas: 'application/json', json: 'application/json', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', svg: 'image/svg+xml', avif: 'image/avif', pdf: 'application/pdf', html: 'text/html', htm: 'text/html' };
 export const mimeOf = name => MIME[(name.match(/\.([^.]+)$/)?.[1] || '').toLowerCase()] || 'application/octet-stream';
 
-/** 呼叫 Drive API。401 時重新取得通行證再試一次;其他錯誤轉成 Leafpile 認得的訊息。 */
-export function driveClient({ fetch = globalThis.fetch.bind(globalThis), auth = null, apiKey = '' } = {}) {
-  async function call(url, init = {}, retry = true) {
+/** 同時最多跑 n 個(預設 4):比一個一個快好幾倍,又不會快到被 Google 限速。結果照原本順序。 */
+export async function pool(items, fn, n = 4) {
+  const out = new Array(items.length);
+  let next = 0;
+  const worker = async () => { while (next < items.length) { const i = next++; out[i] = await fn(items[i], i); } };
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, worker));
+  return out;
+}
+
+/** Google 要我們「等一下再試」的回應:429、5xx,以及原因是限速的 403(其他 403 是沒有權限,不重試)。 */
+async function isRateLimited(res) {
+  if (res.status === 429 || res.status >= 500) return true;
+  if (res.status !== 403) return false;
+  try { return /rate ?limit/i.test(JSON.stringify((await res.clone().json())?.error || '')); } catch { return false; }
+}
+
+/**
+ * 呼叫 Drive API。所有讀寫(存檔、匯入、分享)都經過這裡:
+ *   - 401:通行證過期,重新取得一次再試;
+ *   - 被限速(429、限速的 403、5xx):照 Google 建議等 1、2、4、8、16 秒(加一點隨機)再試,最多 5 次;
+ *   - 其他錯誤轉成 Leafpile 認得的訊息('missing'、'denied'、'not shared')。
+ * sleep 可以換掉,測試時不必真的等。
+ */
+export function driveClient({ fetch = globalThis.fetch.bind(globalThis), auth = null, apiKey = '', sleep = ms => new Promise(r => setTimeout(r, ms)), retries = 5 } = {}) {
+  async function call(url, init = {}, renew = true, attempt = 0) {
     const headers = { ...(init.headers || {}) };
+    let href = url;
     if (auth) headers.Authorization = `Bearer ${await auth.token()}`;
-    else if (apiKey) url += (url.includes('?') ? '&' : '?') + 'key=' + encodeURIComponent(apiKey);
-    const res = await fetch(url, { ...init, headers });
-    if (res.status === 401 && auth && retry) { await auth.renew(); return call(url, init, false); }
+    else if (apiKey) href += (href.includes('?') ? '&' : '?') + 'key=' + encodeURIComponent(apiKey);
+    const res = await fetch(href, { ...init, headers });
+    if (res.status === 401 && auth && renew) { await auth.renew(); return call(url, init, false, attempt); }
+    if (attempt < retries && await isRateLimited(res)) {
+      await sleep(1000 * 2 ** attempt + Math.floor(Math.random() * 500));
+      return call(url, init, renew, attempt + 1);
+    }
     if (res.status === 404) throw new Error('missing');
     if (res.status === 401 || res.status === 403) throw new Error(auth ? 'denied' : 'not shared');
     if (!res.ok) throw new Error(`drive ${res.status}`);
@@ -276,25 +303,24 @@ export class DriveSource {
   }
 
   // ---------------- 分享 ----------------
-  /** 把這些路徑設成「知道連結的人都能看」。回傳 { 路徑: 檔案 id }。 */
-  async publish(paths) {
-    const out = {};
-    for (const p of paths) {
-      const f = await this.need(p);
-      await this.client.call(`${DRIVE_API}/files/${encodeURIComponent(f.id)}/permissions?fields=id`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: 'reader', type: 'anyone' }),
-      });
-      out[p] = f.id;
-    }
-    return out;
+  /**
+   * 把這些路徑設成「知道連結的人都能看」。回傳 { 路徑: 檔案 id }。
+   * skip:已經公開的檔案 id(上次分享過、或別的分享正在用),不必再設一次 —— 重新分享時通常只剩幾個請求。
+   */
+  async publish(paths, { skip = new Set() } = {}) {
+    const files = await Promise.all(paths.map(p => this.need(p)));
+    await pool(files.filter(f => !skip.has(f.id)), f => this.client.call(`${DRIVE_API}/files/${encodeURIComponent(f.id)}/permissions?fields=id`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: 'reader', type: 'anyone' }),
+    }));
+    return Object.fromEntries(paths.map((p, i) => [p, files[i].id]));
   }
 
-  /** 取消「知道連結的人都能看」。檔案已經不在也不算錯。 */
+  /** 取消「知道連結的人都能看」。檔案已經不在、或本來就沒公開,都不算錯。 */
   async unpublish(ids) {
-    for (const id of ids) {
+    await pool([...new Set(ids)], async id => {
       try { await this.client.call(`${DRIVE_API}/files/${encodeURIComponent(id)}/permissions/anyoneWithLink`, { method: 'DELETE' }); }
       catch (e) { if (e.message !== 'missing') throw e; }
-    }
+    });
   }
 }
 

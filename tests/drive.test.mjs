@@ -188,3 +188,46 @@ test('分享書庫:清單格式、導到書架;重新分享時只取消「不再
   assert.deepEqual(noLongerShared(old, { a: 'id-a' }, new Set(['id-c'])), ['id-b']);
   assert.deepEqual(noLongerShared(old, {}, new Set()), ['id-a', 'id-b', 'id-c']);
 });
+
+test('被 Google 限速(429、限速的 403)時等一下再試,等待時間加倍;沒有權限的 403 不重試', async () => {
+  const drive = new FakeDrive();
+  const waits = [];
+  const auth = { token: async () => drive.token, renew: async () => drive.token };
+  const client = driveClient({ fetch: drive.fetch, auth, sleep: async ms => { waits.push(ms); } });
+  const root = await findOrCreateRoot(client);
+  const src = new DriveSource(root, client);
+  drive.throttle = 3;
+  await src.writeText('notes/a/x.md', '# x');
+  assert.equal(waits.length, 3);
+  assert.ok(waits[0] >= 1000 && waits[0] < 1500 && waits[1] >= 2000 && waits[2] >= 4000, String(waits));
+  drive.throttle = 2; drive.throttleWith = 403; waits.length = 0;
+  src.refresh();
+  assert.equal(await src.readText('notes/a/x.md'), '# x');
+  assert.equal(waits.length, 2);
+  // 一直被限速:試 5 次後放棄,不會無限等下去
+  drive.throttle = 99; drive.throttleWith = 429; waits.length = 0;
+  await assert.rejects(src.client.media(root), /drive 429/);
+  assert.equal(waits.length, 5);
+  drive.throttle = 0;
+  // 真的沒權限(API key 讀沒公開的檔):不重試
+  const pub = driveClient({ fetch: drive.fetch, apiKey: 'KEY', sleep: async ms => { waits.push(ms); } });
+  waits.length = 0;
+  await assert.rejects(pub.media((await src.fileOf('notes/a/x.md')).id), /missing|not shared/);
+  assert.equal(waits.length, 0);
+});
+
+test('publish:已經公開的跳過;同時送幾個,結果照原本順序', async () => {
+  const { src, drive } = await setup();
+  const paths = [];
+  for (let i = 0; i < 12; i++) { const p = `notes/01-inbox/n${String(i).padStart(2, '0')}.md`; await src.writeText(p, `# ${i}`); paths.push(p); }
+  const count = () => drive.calls.filter(c => c.startsWith('POST') && c.endsWith('/permissions')).length;
+  const before = count();
+  const first = await src.publish(paths);
+  assert.equal(count() - before, 12);
+  assert.deepEqual(Object.keys(first), paths);
+  const mid = count();
+  const again = await src.publish([...paths, 'notes/01-inbox/welcome.md'], { skip: new Set(Object.values(first)) });
+  assert.equal(count() - mid, 1, '重新分享只公開新加入的那一個');
+  assert.equal(Object.keys(again).length, 13);
+  assert.ok([...drive.files.values()].filter(f => /^n\d\d\.md$/.test(f.name)).every(f => f.shared));
+});
