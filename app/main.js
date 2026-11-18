@@ -32,7 +32,7 @@ import { scaffoldFiles } from './core/scaffold.js';
 import { DriveSource, SharedSource, driveClient, findOrCreateRoot } from './sources/drive.js';
 import { googleEnabled, preload as preloadGoogle, signIn as googleSignIn, signOut as googleSignOut, signedIn as googleSignedIn, auth as googleAuth } from './sources/google.js';
 import { GOOGLE } from './config.js';
-import { sharePaths, manifestName, buildManifest, parseManifest, shareTarget, SHARE_DIR } from './core/share.js';
+import { sharePaths, manifestName, buildManifest, parseManifest, shareTarget, noLongerShared, SHARE_DIR } from './core/share.js';
 import { pasteMarkdown } from './core/html-md.js';
 import { openPalette } from './ui/palette.js';
 import { mountSidebar, recordRecent } from './ui/sidebar.js';
@@ -123,7 +123,8 @@ async function route() {
   else if (parts[0] === 'drive') { key = 'drive'; rest = parts.slice(1); }
   else if (parts[0] === 's' && parts[1]) {
     key = `s/${parts[1]}`; rest = parts.slice(2);
-    if (!rest.length) return openShared(key); // 只有分享連結本身:導到分享的那一篇／那一份／那一張
+    // 只有分享連結本身:重新讀分享清單;單篇／單份／單張就導過去,整個書庫就留在這裡顯示書架
+    if (!rest.length && !(await openShared(key))) return;
   }
   else { leaveView(); state.current = { key: '', rel: '', deck: null }; return home(); }
 
@@ -197,7 +198,7 @@ async function getSource(key) {
     if (!GOOGLE.apiKey) throw new UserError(t('share.noKey'));
     const client = driveClient({ apiKey: GOOGLE.apiKey });
     const m = parseManifest(await (await client.media(key.slice(2)).catch(driveError)).text().catch(() => ''));
-    const virtual = { '_site.yml': `leafpile: 1\ntitle: ${JSON.stringify(m.title || t('share.title'))}\n` };
+    const virtual = m.files['_site.yml'] ? {} : { '_site.yml': `leafpile: 1\ntitle: ${JSON.stringify(m.title || t('share.title'))}\n` };
     if (!Object.keys(m.files).some(p => /^(notes|slides)\//.test(p))) virtual['notes/.share'] = ''; // 只有畫布時也要被認成 Leafpile 書庫
     src = new SharedSource(m.files, client, { label: m.title || t('share.title'), virtual });
     src.share = m;
@@ -436,36 +437,58 @@ async function openShared(key) {
   try {
     const src = await getSource(key);
     const { mode, args } = shareTarget(src.share);
+    if (mode === 's') return true; // 整個書庫:書架的網址就是分享連結本身,直接往下顯示書架
     const h = hrefs(key);
     location.replace(mode === 'n' ? h.note(args[0]) : mode === 'd' ? h.deck(args[0], args[1]) : h.board(args[0]));
   } catch (e) { leaveView(); showError(e); }
+  return false;
 }
 
 /** 目前的書庫是 Drive 書庫時,能分享的項目。 */
 const canShare = key => state.sources.get(key) instanceof DriveSource;
 
-async function shareItem(key, item, title) {
+/** 其他還在分享中的項目用到的檔案 id(停止分享或縮小分享範圍時,這些要保留公開)。 */
+async function idsStillShared(src, exceptName) {
+  const keep = new Set();
+  for (const e of await src.list(SHARE_DIR).catch(() => [])) {
+    const p = `${SHARE_DIR}/${e.name}`;
+    if (p === exceptName || e.kind !== 'file') continue;
+    try {
+      const raw = JSON.parse(await src.readText(p));
+      if (raw.active === false) continue;
+      for (const id of Object.values(parseManifest(JSON.stringify(raw)).files)) keep.add(id);
+      const f = await src.fileOf(p); if (f) keep.add(f.id);
+    } catch { /* 壞掉的清單略過 */ }
+  }
+  return keep;
+}
+
+/** paths:要公開的檔案(省略時由 sharePaths 決定)。ask:第一次分享前的確認文字。 */
+async function shareItem(key, item, title, { paths = null, ask = null } = {}) {
   const src = state.sources.get(key);
   if (!(src instanceof DriveSource)) return toast(t('share.driveOnly'), { ms: 6000 });
   if (!GOOGLE.apiKey) return toast(t('share.noKey'), { ms: 6000 });
   const name = manifestName(item);
   const already = await src.fileOf(name).then(f => !!f).catch(() => false);
-  if (!already && !(await confirmDialog(t('share.ask', { title }), t('share.do')))) return;
-  const busy = toast(t('share.working'), { ms: 60000 });
-  let url;
+  if (!already && !(await confirmDialog(ask || t('share.ask', { title }), t('share.do')))) return;
+  let url, busy;
   try {
-    const paths = await sharePaths(src, item);
+    paths ||= await sharePaths(src, item);
+    busy = toast(paths.length > 10 ? t('share.workingN', { n: paths.length }) : t('share.working'), { ms: 600000 });
+    let old = null;
+    if (already) try { old = parseManifest(await src.readText(name)).files; } catch { /* 舊清單壞了:當作沒有 */ }
     const files = await src.publish(paths);
+    if (old) await src.unpublish(noLongerShared(old, files, await idsStillShared(src, name)));
     await src.put(name, JSON.stringify({ ...buildManifest(item, title, files), active: true }, null, 1));
     const [id] = Object.values(await src.publish([name]));
     url = `${location.origin}${location.pathname}#/s/${id}`;
   } catch (e) {
-    busy?.close?.();
+    busy?.close();
     return toast(t('share.failed', { error: e.message || e }), { ms: 6000 });
   }
-  busy?.close?.();
+  busy?.close();
   const r = await dialog({
-    title: t('share.doneTitle', { title }), message: t('share.doneText'), note: t('share.note'),
+    title: t('share.doneTitle', { title }), message: t(item.kind === 'library' ? 'share.libraryDone' : 'share.doneText'), note: t(item.kind === 'library' ? 'share.libraryNote' : 'share.note'),
     fields: [{ label: t('share.link'), name: 'url', value: url }],
     buttons: [{ label: t('share.stop'), value: 'stop' }, { label: t('share.open'), value: 'open' }, { label: t('share.copy'), value: 'copy', primary: true }],
   });
@@ -475,20 +498,32 @@ async function shareItem(key, item, title) {
   else if (r?.value === 'stop') await unshareItem(key, item, title);
 }
 
+/** 分享整個書庫:只公開「公開」的內容,規則與公開版書庫包相同(core/pack.js 的 exportPlan)。 */
+async function shareLibrary(key) {
+  try {
+    const vault = await getVault(key);
+    const src = state.sources.get(key);
+    if (!vault || !(src instanceof DriveSource)) return toast(t('share.driveOnly'), { ms: 6000 });
+    const graph = await getGraph(key);
+    const { include } = exportPlan(await walkFiles(src), { vault, graph, publicOnly: true });
+    const notes = include.filter(p => /^notes\/.+\.md$/i.test(p)).length;
+    const decks = new Set(include.filter(p => p.startsWith('slides/')).map(p => p.split('/').slice(0, 3).join('/')).filter(p => p.split('/').length === 3 && include.some(x => x.startsWith(p + '/') && !/_topic\.ya?ml$/i.test(x)))).size;
+    if (!notes && !decks) {
+      return toast(t('share.libraryEmpty'), { ms: 9000, actions: [{ label: t('privacy.button'), run: () => runPrivacy(key) }] });
+    }
+    await shareItem(key, { kind: 'library', path: '' }, vault.title || t('share.title'), { paths: include, ask: t('share.libraryAsk', { notes, decks }) });
+  } catch (e) { toast(t('share.failed', { error: e.message || e }), { ms: 6000 }); }
+}
+
 /** 停止分享:這個項目的檔案取消公開(其他還在分享中的項目也用到的檔案保留)。 */
 async function unshareItem(key, item, title) {
   const src = state.sources.get(key);
   const name = manifestName(item);
   try {
     const mine = parseManifest(await src.readText(name));
-    const keep = new Set();
-    for (const e of await src.list(SHARE_DIR).catch(() => [])) {
-      const p = `${SHARE_DIR}/${e.name}`;
-      if (p === name || e.kind !== 'file') continue;
-      try { const raw = JSON.parse(await src.readText(p)); if (raw.active !== false) for (const id of Object.values(parseManifest(JSON.stringify(raw)).files)) keep.add(id); } catch { /* 壞掉的清單略過 */ }
-    }
+    const keep = await idsStillShared(src, name);
     const f = await src.fileOf(name);
-    await src.unpublish([...Object.values(mine.files).filter(id => !keep.has(id)), f.id]);
+    await src.unpublish([...noLongerShared(mine.files, {}, keep), f.id]);
     await src.put(name, JSON.stringify({ ...buildManifest(item, title, mine.files), active: false }, null, 1));
     toast(t('share.stopped'));
   } catch (e) { toast(t('share.failed', { error: e.message || e }), { ms: 6000 }); }
@@ -563,7 +598,7 @@ async function openFolder() {
 
 /** 把起手式的檔案寫進書庫資料夾。已經有的檔案一律不覆蓋。回傳 false 表示中途失敗。 */
 async function writeScaffold(src, kind) {
-  for (const f of scaffoldFiles(kind)) {
+  for (const f of scaffoldFiles(kind, { drive: src.kind === 'drive' })) {
     try { await src.writeText(f.path, f.text, { expect: null, mkdir: true }); }
     catch (e) {
       if (String(e.message) === 'stale') continue; // 已經有這個檔:保留原樣
@@ -641,11 +676,12 @@ async function showShelf(key) {
         vault: shown, sourceKey: key, href,
         header: header(key === 'repo' ? 'repo' : 'home'),
         graph,
-        onPrivacy: vault.kind === 'leafpile' ? () => runPrivacy(key) : null,
+        onPrivacy: vault.kind === 'leafpile' && !key.startsWith('s/') ? () => runPrivacy(key) : null,
         onNewBoard: vault.kind === 'leafpile' && source.canWrite ? () => newBoard(key) : null,
         onRefresh: key === 'repo' ? null : () => { invalidate(key); showShelf(key); },
-        onCheck: () => runCheck(key),
-        onPack: vault.kind === 'leafpile' && !state.visitor ? () => packMenu(key) : null,
+        onCheck: key.startsWith('s/') ? null : () => runCheck(key), // 看別人分享的書庫:只能看,不需要檢查
+        onPack: vault.kind === 'leafpile' && !state.visitor && !key.startsWith('s/') ? () => packMenu(key) : null,
+        onShareLibrary: vault.kind === 'leafpile' && canShare(key) && !state.visitor ? () => shareLibrary(key) : null,
         onGenerate: vault.kind === 'leafpile' && source.canWrite && !state.visitor ? () => generateFlow(key) : null,
         onNewNote: vault.notesSource?.canWrite ? () => newNote(key) : null,
         onTopicEdit: vault.kind === 'leafpile' && source.canWrite ? id => editTopic(key, id) : null,
@@ -1576,6 +1612,7 @@ async function paletteItems() {
       if (deck && vault.kind === 'leafpile' && state.sources.get(key)?.canWrite) act(t('trash.palette.deck'), () => trashDeck(key, deck.topicId, deck.projectId));
       if (state.current.board && vault.kind === 'leafpile' && state.sources.get(key)?.canWrite) act(t('trash.palette.board'), () => trashBoard(key, state.current.board));
       if (vault.kind === 'leafpile' && state.sources.get(key)?.canWrite) act(t('trash.palette.restore'), () => restoreMenu(key));
+      if (canShare(key) && vault.kind === 'leafpile') act(t('share.palette.library'), () => shareLibrary(key));
       if (canShare(key) && rel) act(t('share.palette.note'), () => shareNote(key, rel));
       if (canShare(key) && deck) act(t('share.palette.deck'), () => shareDeck(key, deck.topicId, deck.projectId));
       if (canShare(key) && state.current.board) act(t('share.palette.board'), () => shareBoard(key, state.current.board));

@@ -7,7 +7,7 @@ import { t, getLang } from './i18n.js';
 
 const q = s => JSON.stringify(String(s)); // YAML 字串一律加引號,避免冒號、井字號出問題
 
-export function scaffoldFiles(kind = 'sample', { title = '' } = {}) {
+export function scaffoldFiles(kind = 'sample', { title = '', drive = false } = {}) {
   const lang = getLang() === 'en' ? 'en' : 'zh-Hant';
   const topic = [
     `name: ${q(t('scaffold.topicName'))}`,
@@ -22,7 +22,7 @@ export function scaffoldFiles(kind = 'sample', { title = '' } = {}) {
       text: [
         `leafpile: 1`,
         `title: ${q(title || t('scaffold.siteTitle'))}`,
-        `description: ${q(t('scaffold.siteDesc'))}`,
+        `description: ${q(t(drive ? 'scaffold.siteDescDrive' : 'scaffold.siteDesc'))}`,
         'theme: paper',
         `lang: ${lang}`,
         '',
