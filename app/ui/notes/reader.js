@@ -42,7 +42,7 @@ export function noteMediaPath(src, notePath) {
  * @param {{ vault, rel: string, note: object, topic: object, book: object|null, header: string, href: object, graph: Promise, heading?: string, canEdit: boolean }} opts
  *   note = core/note.js 的 parseNote 結果;href = { shelf, note(rel, heading?), go(raw, fromRel), deck(topicId, projectId), flash(rel), edit(rel), deckByPath(path) }
  */
-export function renderReader(root, { vault, rel, note, topic, book, header, href, graph, heading, canEdit, canPromote, boards = null }) {
+export function renderReader(root, { vault, rel, note, topic, book, header, href, graph, heading, canEdit, canPromote, canShare = false, boards = null }) {
   applyUITheme(vault.theme || 'paper');
   const siblings = book ? book.notes : notesOfTopic(topic).filter(n => !n.bookPath);
   const idx = siblings.findIndex(n => n.path === rel);
@@ -93,7 +93,7 @@ export function renderReader(root, { vault, rel, note, topic, book, header, href
             ${canEdit ? `<a class="btn ghost" href="${href.edit(rel)}" title="${esc(t('note.editTitle'))}">${esc(t('note.edit'))}</a>` : ''}
             ${canPromote ? `<button class="btn ghost promote" title="${esc(t('promote.buttonTitle'))}">${esc(t('promote.button'))}</button>` : ''}
             ${canPromote ? `<details class="note-more"><summary class="btn ghost" title="${esc(t('move.moreTitle'))}">${esc(t('move.more'))}</summary><div class="note-more-menu">
-              <button data-act="rename">${esc(t('move.rename'))}</button><button data-act="move">${esc(t('move.move'))}</button><button data-act="delete" title="${esc(t('trash.buttonTitle'))}">${esc(t('move.archive'))}</button></div></details>` : ''}
+              <button data-act="rename">${esc(t('move.rename'))}</button><button data-act="move">${esc(t('move.move'))}</button>${canShare ? `<button data-act="share" title="${esc(t('share.buttonTitle'))}">${esc(t('share.button'))}</button>` : ''}<button data-act="delete" title="${esc(t('trash.buttonTitle'))}">${esc(t('move.archive'))}</button></div></details>` : ''}
             <button class="btn ghost imm" data-rd="enter" title="${esc(t('note.immersiveTitle'))}">${esc(t('note.immersive'))}</button>
             <span class="scale"><button data-scale="-1" title="${esc(t('note.smaller'))}" aria-label="${esc(t('note.smaller'))}">A−</button><button class="val" data-scale="0" title="${esc(t('note.scaleReset'))}">${pct(scale)}</button><button data-scale="1" title="${esc(t('note.larger'))}" aria-label="${esc(t('note.larger'))}">A+</button></span>
           </div>

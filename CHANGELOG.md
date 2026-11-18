@@ -4,6 +4,12 @@
 
 ## 未發布
 
+- 實驗：**Google Drive 書庫**。用自己的 Google 帳號登入，書庫存在自己 Google Drive 的「Leafpile」資料夾，換電腦、用手機都能打開與編輯。權限只有 `drive.file`（只看得到 Leafpile 自己建立的檔案），沒有伺服器。存檔前一定向 Drive 確認，另一台裝置改過就停下來問，不會蓋掉。刪除一樣是搬到 `_archive/`。
+- 實驗：**匯入到 Drive 書庫**。空的 Drive 書庫多一個「匯入現有書庫」，沿用書庫包匯入（資料夾、zip、貼上文字；先預覽、不覆蓋、可復原），檔案由 Leafpile 上傳，之後就看得到。上傳時顯示進度提示。
+- 實驗：**分享連結**（筆記、簡報、畫布）。對方不用登入就能看（唯讀）；之後改內容對方也會更新；可以停止分享。畫布會一起分享卡片上的筆記與簡報。
+- 這兩項只有網站填了 `app/config.js`（用戶端 ID 與 API 金鑰）才會出現；設定步驟見 [`docs/GOOGLE-DRIVE.md`](docs/GOOGLE-DRIVE.md)。只在模擬的 Drive 上測過。
+- 規則：Google 的登入腳本必須從 Google 載入，列為依賴原則的第三種例外（2026-11-18 維護者同意），記錄在新的 `docs/VENDOR.md`；內容安全政策只多允許這一個網址與 `https://www.googleapis.com`。
+- 內部：`sources/drive.js`、`sources/google.js`、`core/share.js`、`app/config.js`；`tests/drive.test.mjs`、`tests/fake-drive.mjs`（模擬的 Drive）。
 - 規則：`AGENTS.md` 的依賴原則寫明兩種例外（App 外殼可以有依賴；選用功能可以內嵌第三方檔案，放 `app/vendor/`、附授權、記錄在 `docs/VENDOR.md`），其他一律先問維護者。
 
 ## 0.20.1 — 2026-11-16

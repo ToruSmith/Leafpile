@@ -37,7 +37,7 @@ function savedView() {
 /** 刪除(搬到 _archive/)的小按鈕;沒有寫入權限的書庫不會有。 */
 const delBtn = (kind, id, extra = '', cls = 'del-x') => `<button type="button" class="${cls}" data-del="${esc(kind)}" data-id="${esc(id)}"${extra} title="${esc(t('trash.buttonTitle'))}" aria-label="${esc(t('trash.button'))}">\u2715</button>`;
 
-export function renderShelf(root, { vault, sourceKey, header, href, graph, onRefresh, onCheck, onNewNote, onPrivacy, onPack, onGenerate, onNewBoard, onTopicEdit, onTopicNew, onCategories, boardRefs = null, onAddToBoard = null, onJournal = null, onDelete = null, onSetup = null }) {
+export function renderShelf(root, { vault, sourceKey, header, href, graph, onRefresh, onCheck, onNewNote, onPrivacy, onPack, onGenerate, onNewBoard, onTopicEdit, onTopicNew, onCategories, boardRefs = null, onAddToBoard = null, onJournal = null, onDelete = null, onSetup = null, onImport = null }) {
   applyUITheme(vault.theme || 'paper');
   const noteCount = vault.notes.topics.reduce((n, tp) => n + notesOfTopic(tp).length, 0);
   const deckCount = vault.topics.reduce((n, tp) => n + tp.decks.length, 0);
@@ -98,6 +98,7 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
         <div class="setup-choices">
           <button class="btn primary" data-setup="sample">${esc(t('scaffold.sample'))}<small>${esc(t('scaffold.sampleHint'))}</small></button>
           <button class="btn ghost" data-setup="empty">${esc(t('scaffold.empty'))}<small>${esc(t('scaffold.emptyHint'))}</small></button>
+          ${onImport ? `<button class="btn ghost" data-setup="import">${esc(t('scaffold.import'))}<small>${esc(t('scaffold.importHint'))}</small></button>` : ''}
         </div>
         <p class="setup-note">${esc(t('shelf.emptyLibrary'))}</p></div>` : `<div class="shelf-empty"><p>${esc(t('shelf.emptyLibrary'))}</p></div>`) : ''}
     </div>`;
@@ -113,7 +114,7 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
     e.preventDefault();
     onDelete({ kind: dl.dataset.del, id: dl.dataset.id, topic: dl.dataset.topic });
   });
-  root.querySelectorAll('[data-setup]').forEach(b => b.addEventListener('click', () => onSetup?.(b.dataset.setup)));
+  root.querySelectorAll('[data-setup]').forEach(b => b.addEventListener('click', () => (b.dataset.setup === 'import' ? onImport?.() : onSetup?.(b.dataset.setup))));
   const stopCards = wireDeckCards(cards, { find: findDeck, source: vault.slidesSource, theme: vault.theme });
   if (vault.notesSource) root.querySelectorAll('.books').forEach(el => hydrate(el, vault.notesSource)); // 筆記本封面(簡報封面由 wireDeckCards 用簡報渠道讀)
 

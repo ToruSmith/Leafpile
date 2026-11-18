@@ -88,4 +88,5 @@ export function toast(message, { ms, actions = [] } = {}) {
   stack.append(el);
   requestAnimationFrame(() => el.classList.add('on'));
   timer = setTimeout(close, ms);
+  return { close };
 }

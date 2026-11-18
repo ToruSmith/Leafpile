@@ -30,7 +30,10 @@ test('CSP:框架只收 https 與本機 blob(畫布嵌入);行內程式一律擋�
   const html = await read('index.html');
   const csp = html.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/)[1];
   const dir = name => csp.split(';').map(s => s.trim()).find(s => s.startsWith(name + ' '))?.split(/\s+/).slice(1) || [];
-  assert.deepEqual(dir('script-src'), ["'self'"]);
+  // 唯一的例外:Google Drive 書庫的登入腳本(docs/VENDOR.md),只收這一個確切網址,不是整個網域;
+  // 而且只有在網站設定了 Google、使用者按「Google Drive」時才會載入。
+  assert.deepEqual(dir('script-src'), ["'self'", 'https://accounts.google.com/gsi/client']);
+  assert.deepEqual(dir('connect-src').filter(x => x.startsWith('https:')), ['https://www.googleapis.com'], '連線只多收 Google API');
   const frames = dir('frame-src');
   for (const url of ['https://youtu.be/aqz-KE-bpKQ', 'https://www.bilibili.com/video/BV1xx411c7mD', 'https://drive.google.com/file/d/abc123/view', 'https://vimeo.com/76979871', 'https://codepen.io/jo/pen/AbCd12']) {
     const m = classifyMedia(url);
