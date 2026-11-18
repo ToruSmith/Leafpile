@@ -65,6 +65,8 @@ async function topicFile(source, root, topic, out) {
  * item = { kind: 'note', path: 'notes/主題/a.md' }
  *      | { kind: 'deck', path: 'slides/主題/簡報' }
  *      | { kind: 'board', path: 'boards/名稱.canvas' }
+ * (整個書庫 kind: 'library' 不走這裡:要公開哪些檔案由 core/pack.js 的 exportPlan(publicOnly) 決定,
+ *  與「公開版書庫包」同一套規則。)
  * 回傳要公開的路徑(排好序)。
  */
 export async function sharePaths(source, item) {
@@ -96,7 +98,7 @@ export async function sharePaths(source, item) {
 export function manifestName(item) {
   let h = 0x811c9dc5;
   for (const ch of `${item.kind}:${item.path}`) h = Math.imul(h ^ ch.codePointAt(0), 0x01000193) >>> 0;
-  const base = item.path.split('/').pop().replace(/\.(md|canvas)$/i, '').replace(/[^\p{L}\p{N}_-]+/gu, '-').slice(0, 40) || item.kind;
+  const base = item.kind === 'library' ? 'library' : item.path.split('/').pop().replace(/\.(md|canvas)$/i, '').replace(/[^\p{L}\p{N}_-]+/gu, '-').slice(0, 40) || item.kind;
   return `${SHARE_DIR}/${item.kind}-${base}-${h.toString(36)}.json`;
 }
 
@@ -108,20 +110,28 @@ export function buildManifest(item, title, files) {
 export function parseManifest(text) {
   let m;
   try { m = JSON.parse(text); } catch { throw new Error('bad share'); }
-  if (!m || m.leafpile !== 'share' || !['note', 'deck', 'board'].includes(m.kind) || typeof m.path !== 'string' || !m.files || typeof m.files !== 'object') throw new Error('bad share');
+  if (!m || m.leafpile !== 'share' || !['note', 'deck', 'board', 'library'].includes(m.kind) || typeof m.path !== 'string' || !m.files || typeof m.files !== 'object') throw new Error('bad share');
   const files = {};
   for (const [p, id] of Object.entries(m.files)) {
     if (typeof id !== 'string' || !/^[\w-]{10,}$/.test(id)) continue;
     if (!p || p.startsWith('/') || p.split('/').some(x => !x || x === '.' || x === '..')) continue;
     files[p] = id;
   }
-  const has = m.kind === 'deck' ? Object.keys(files).some(p => p.startsWith(m.path + '/')) : m.path in files; // 簡報是資料夾
+  const has = m.kind === 'library' ? Object.keys(files).length > 0 // 整個書庫:路徑是空的
+    : m.kind === 'deck' ? Object.keys(files).some(p => p.startsWith(m.path + '/')) : m.path in files; // 簡報是資料夾
   if (!has) throw new Error('bad share');
   return { kind: m.kind, path: m.path, title: String(m.title || ''), files };
 }
 
+/** 重新分享時:上次公開、這次不再需要的檔案 id(改成私人、刪掉的投影片…)。keep = 其他分享還在用的。 */
+export function noLongerShared(oldFiles, newFiles, keep = new Set()) {
+  const now = new Set(Object.values(newFiles || {}));
+  return [...new Set(Object.values(oldFiles || {}))].filter(id => !now.has(id) && !keep.has(id));
+}
+
 /** 對方打開連結時,要導到書庫裡的哪個畫面:{ mode, args }。 */
 export function shareTarget(m) {
+  if (m.kind === 'library') return { mode: 's', args: [] }; // 整個書庫:打開書架
   const p = m.path.split('/');
   if (m.kind === 'note') return { mode: 'n', args: [p.slice(1).join('/')] };
   if (m.kind === 'deck') return { mode: 'd', args: [p[1], p.slice(2).join('/')] };

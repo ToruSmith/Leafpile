@@ -1442,6 +1442,20 @@ const LOCALE_ZH_HANT = {
   'scaffold.import': '匯入現有書庫',
   'scaffold.importHint': '從電腦選資料夾或 zip,上傳到這個書庫',
   'pack.importing': '正在上傳 {n} 個檔案…請不要關閉分頁',
+  'player.editTitle': '編輯目前這張投影片(E)',
+  'share.deckTitle': '產生連結,讓別人不用登入就能看這份簡報',
+  'share.boardTitle': '產生連結,讓別人不用登入就能看這張畫布(卡片上的筆記與簡報會一起分享)',
+  'share.library': '分享書庫…',
+  'share.libraryTitle': '把標成「公開」的筆記與簡報一起分享成一個連結,私人的不會被分享',
+  'share.palette.library': '分享整個書庫(只有公開的內容)…',
+  'share.libraryAsk': '分享書庫中「公開」的內容?\n\n會公開 {notes} 篇筆記、{decks} 份簡報,以及它們用到的圖片。私人的筆記、畫布不會被分享。\n\n拿到連結的人都能瀏覽(包括被轉傳的人),不用登入。之後隨時可以停止分享。',
+  'share.libraryEmpty': '書庫裡還沒有標成「公開」的筆記或簡報。可以用「公開檢查」看看哪些內容會公開。',
+  'share.libraryDone': '對方打開連結會看到書架,可以瀏覽所有公開的筆記與簡報,不用登入。',
+  'share.libraryNote': '把筆記改成公開、或改回私人之後,再按一次「分享書庫」才會更新(連結不變;改回私人的會取消公開)。',
+  'share.workingN': '正在設定分享({n} 個檔案)…請不要關閉分頁',
+  'lib.drive': 'Google Drive 書庫',
+  'lib.shared': '分享的書庫',
+  'scaffold.siteDescDrive': '筆記在 notes/,簡報在 slides/。這個書庫存在你自己的 Google Drive(「Leafpile」資料夾),只有你看得到,分享出去的除外。',
 };
 return { LOCALE_ZH_HANT };
 })();
@@ -2757,6 +2771,20 @@ const LOCALE_EN = {
   'scaffold.import': 'Import an existing library',
   'scaffold.importHint': 'Pick a folder or zip on your computer and upload it here',
   'pack.importing': 'Uploading {n} files… keep this tab open',
+  'player.editTitle': 'Edit the current slide (E)',
+  'share.deckTitle': 'Create a link so others can view this deck without signing in',
+  'share.boardTitle': 'Create a link so others can view this board without signing in (notes and decks on it are shared too)',
+  'share.library': 'Share library…',
+  'share.libraryTitle': 'Share everything marked public as one link; private content is not shared',
+  'share.palette.library': 'Share the whole library (public content only)…',
+  'share.libraryAsk': 'Share the public content of this library?\n\n{notes} notes and {decks} decks will be shared, with the images they use. Private notes and boards are not shared.\n\nAnyone with the link can browse without signing in, including people it is forwarded to. You can stop sharing at any time.',
+  'share.libraryEmpty': 'Nothing in this library is marked public yet. Use the privacy check to see what would be shared.',
+  'share.libraryDone': 'Viewers see the shelf and can browse every public note and deck without signing in.',
+  'share.libraryNote': 'After making notes public or private, press Share library again to update (the link stays the same; anything made private stops being shared).',
+  'share.workingN': 'Setting up sharing ({n} files)… keep this tab open',
+  'lib.drive': 'Google Drive library',
+  'lib.shared': 'Shared library',
+  'scaffold.siteDescDrive': 'Notes live in notes/, slides in slides/. This library is in your own Google Drive (the "Leafpile" folder); only you can see it, except what you share.',
 };
 return { LOCALE_EN };
 })();

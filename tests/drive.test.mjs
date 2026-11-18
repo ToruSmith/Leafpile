@@ -175,3 +175,16 @@ test('圖片(二進位)上傳後讀回來位元組完全一致;匯入用的 expe
   await assert.rejects(src.writeFile('notes/01-inbox/img/a.png', new Uint8Array([1]), { expect: null }), /stale/);
   assert.deepEqual(await src.readBytes('notes/01-inbox/img/a.png'), png);
 });
+
+test('分享書庫:清單格式、導到書架;重新分享時只取消「不再需要、別處也沒用到」的檔案', async () => {
+  const { noLongerShared } = await import('../app/core/share.js');
+  const lib = { kind: 'library', path: '' };
+  assert.match(manifestName(lib), /^_shared\/library-library-/);
+  const m = parseManifest(JSON.stringify(buildManifest(lib, '書庫', { '_site.yml': 'abcdefghij01', 'notes/a/x.md': 'abcdefghij02' })));
+  assert.deepEqual(shareTarget(m), { mode: 's', args: [] });
+  assert.throws(() => parseManifest(JSON.stringify(buildManifest(lib, '書庫', {}))), /bad share/);
+  const old = { a: 'id-a', b: 'id-b', c: 'id-c' };
+  assert.deepEqual(noLongerShared(old, { a: 'id-a' }), ['id-b', 'id-c']);
+  assert.deepEqual(noLongerShared(old, { a: 'id-a' }, new Set(['id-c'])), ['id-b']);
+  assert.deepEqual(noLongerShared(old, {}, new Set()), ['id-a', 'id-b', 'id-c']);
+});

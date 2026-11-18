@@ -37,7 +37,7 @@ function savedView() {
 /** 刪除(搬到 _archive/)的小按鈕;沒有寫入權限的書庫不會有。 */
 const delBtn = (kind, id, extra = '', cls = 'del-x') => `<button type="button" class="${cls}" data-del="${esc(kind)}" data-id="${esc(id)}"${extra} title="${esc(t('trash.buttonTitle'))}" aria-label="${esc(t('trash.button'))}">\u2715</button>`;
 
-export function renderShelf(root, { vault, sourceKey, header, href, graph, onRefresh, onCheck, onNewNote, onPrivacy, onPack, onGenerate, onNewBoard, onTopicEdit, onTopicNew, onCategories, boardRefs = null, onAddToBoard = null, onJournal = null, onDelete = null, onSetup = null, onImport = null }) {
+export function renderShelf(root, { vault, sourceKey, header, href, graph, onRefresh, onCheck, onNewNote, onPrivacy, onPack, onGenerate, onNewBoard, onTopicEdit, onTopicNew, onCategories, boardRefs = null, onAddToBoard = null, onJournal = null, onDelete = null, onSetup = null, onImport = null, onShareLibrary = null }) {
   applyUITheme(vault.theme || 'paper');
   const noteCount = vault.notes.topics.reduce((n, tp) => n + notesOfTopic(tp).length, 0);
   const deckCount = vault.topics.reduce((n, tp) => n + tp.decks.length, 0);
@@ -54,7 +54,7 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
       ${header}
       <div class="lib-head">
         <div>
-          <div class="eyebrow">${esc(t(hasNotes ? 'shelf.eyebrow' : 'lib.eyebrow', { kind: t(sourceKey === 'repo' ? 'lib.repo' : 'lib.local'), topics: vault.topics.length, decks: deckCount, notes: noteCount }))}</div>
+          <div class="eyebrow">${esc(t(hasNotes ? 'shelf.eyebrow' : 'lib.eyebrow', { kind: t(sourceKey === 'repo' ? 'lib.repo' : sourceKey === 'drive' ? 'lib.drive' : sourceKey?.startsWith('s/') ? 'lib.shared' : 'lib.local'), topics: vault.topics.length, decks: deckCount, notes: noteCount }))}</div>
           <h1>${esc(vault.title)}</h1>
           ${vault.description ? `<p class="desc">${esc(vault.description)}</p>` : ''}
         </div>
@@ -63,10 +63,11 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
           <button class="btn ghost palette-btn" title="${esc(t('palette.open'))}"><kbd>${/Mac|iPhone|iPad/.test(globalThis.navigator?.platform || '') ? '⌘K' : 'Ctrl K'}</kbd></button>
           ${onNewNote ? `<button class="btn ghost new-note" title="${esc(t('shelf.newNoteTitle'))}">${esc(t('shelf.newNote'))}</button>`
             : hasNotes && sourceKey !== 'repo' ? `<button class="ro-chip" title="${esc(t(canPickDirectory() ? 'shelf.readonlyTip' : 'shelf.readonlyBrowserTip'))}">${esc(t('shelf.readonly'))}</button>` : ''}
-          <button class="btn ghost check" title="${esc(t('lib.checkTitle'))}">${esc(t('lib.check'))}</button>
+          ${onCheck ? `<button class="btn ghost check" title="${esc(t('lib.checkTitle'))}">${esc(t('lib.check'))}</button>` : ''}
           ${onPrivacy ? `<button class="btn ghost privacy" title="${esc(t('privacy.buttonTitle'))}">${esc(t('privacy.button'))}</button>` : ''}
           ${onGenerate ? `<button class="btn ghost gen-btn" title="${esc(t('gen.buttonTitle'))}">${esc(t('gen.button'))}</button>` : ''}
           ${onPack ? `<button class="btn ghost pack-btn" title="${esc(t('pack.buttonTitle'))}">${esc(t('pack.button'))}</button>` : ''}
+          ${onShareLibrary ? `<button class="btn ghost share-lib-btn" title="${esc(t('share.libraryTitle'))}">${esc(t('share.library'))}</button>` : ''}
           ${onRefresh ? `<button class="btn ghost refresh" title="${esc(t('lib.refreshTitle'))}">${esc(t('lib.refresh'))}</button>` : ''}
         </div>
       </div>
@@ -403,6 +404,7 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
   $('.check')?.addEventListener('click', onCheck);
   $('.privacy')?.addEventListener('click', () => onPrivacy?.());
   $('.pack-btn')?.addEventListener('click', () => onPack?.());
+  $('.share-lib-btn')?.addEventListener('click', () => onShareLibrary?.());
   $('.gen-btn')?.addEventListener('click', () => onGenerate?.());
   $('.new-board')?.addEventListener('click', () => onNewBoard?.());
   $('.ro-chip')?.addEventListener('click', e => {

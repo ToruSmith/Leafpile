@@ -53,3 +53,11 @@ test('寫完之後 openVault 認得出是 Leafpile 書庫,而且有收件匣主�
   const inbox = vault.topics.find(tp => tp.id === '01-inbox');
   assert.equal(inbox.notes.items.length, 1);
 });
+
+test('scaffoldFiles:Drive 書庫的說明不寫「在你的電腦上」', () => {
+  setLang('zh-Hant');
+  const site = f => parseYaml(scaffoldFiles('empty', f).find(x => x.path === '_site.yml').text).description;
+  assert.match(site({}), /電腦/);
+  assert.match(site({ drive: true }), /Google Drive/);
+  assert.doesNotMatch(site({ drive: true }), /電腦/);
+});
