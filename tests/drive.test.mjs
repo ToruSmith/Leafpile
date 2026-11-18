@@ -165,3 +165,13 @@ test('resolveRel 與 mediaRefs', () => {
   assert.equal(resolveRel('notes/a/b.md', 'img/%E5%9C%96.png'), 'notes/a/img/圖.png');
   assert.deepEqual(mediaRefs('![a](x.png "t") <img src="y.jpg">'), ['x.png', 'y.jpg']);
 });
+
+test('圖片(二進位)上傳後讀回來位元組完全一致;匯入用的 expect: null 不覆蓋', async () => {
+  const { src } = await setup();
+  const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 255, 128, 13, 10]);
+  await src.writeFile('notes/01-inbox/img/a.png', png, { expect: null });
+  src.refresh();
+  assert.deepEqual(await src.readBytes('notes/01-inbox/img/a.png'), png);
+  await assert.rejects(src.writeFile('notes/01-inbox/img/a.png', new Uint8Array([1]), { expect: null }), /stale/);
+  assert.deepEqual(await src.readBytes('notes/01-inbox/img/a.png'), png);
+});

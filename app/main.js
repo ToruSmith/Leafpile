@@ -651,6 +651,7 @@ async function showShelf(key) {
         onTopicEdit: vault.kind === 'leafpile' && source.canWrite ? id => editTopic(key, id) : null,
         onDelete: vault.kind === 'leafpile' && source.canWrite && source.archiveTree && !state.visitor ? ({ kind, id, topic }) => (kind === 'note' ? trashNote(key, id) : kind === 'deck' ? trashDeck(key, topic, id) : kind === 'topic' ? trashTopic(key, id) : null) : null,
         onSetup: vault.kind === 'mdslide' && source.canWrite && (source.kind === 'handle' || source.kind === 'drive') && !state.visitor ? kind => scaffoldLibrary(key, kind) : null,
+        onImport: vault.kind === 'mdslide' && source.kind === 'drive' && !state.visitor ? () => importPack(key) : null,
         onTopicNew: vault.kind === 'leafpile' && source.canWrite && vault.notesSource ? () => newTopic(key) : null,
         onCategories: vault.kind === 'leafpile' && source.canWrite ? () => editCategories(key) : null,
         boardRefs: vault.kind === 'leafpile' && (vault.boards || []).length ? allBoards(key).then(boardRefs) : null,
@@ -1820,6 +1821,8 @@ async function importFiles(key, files, label) {
     read: p => readLibraryFile(src, p),
   });
   if (!(await packPreview(plan, { label }))) return;
+  const todo = plan.items.filter(it => ['add', 'rename', 'merge'].includes(it.action)).length;
+  const busy = src.kind === 'drive' && todo > 3 ? toast(t('pack.importing', { n: todo }), { ms: 600000 }) : null; // 雲端一個檔一個檔上傳,比較慢
   const written = [], failed = [];
   let siteOld = null;
   for (const it of plan.items) {
@@ -1840,6 +1843,7 @@ async function importFiles(key, files, label) {
       if (e.message === 'denied') break;
     }
   }
+  busy?.close();
   invalidate(key);
   route();
   const d = new Date(), two = x => String(x).padStart(2, '0');

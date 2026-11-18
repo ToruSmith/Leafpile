@@ -1439,6 +1439,9 @@ const LOCALE_ZH_HANT = {
   'share.palette.board': '分享這張畫布…',
   'share.button': '分享…',
   'share.buttonTitle': '產生連結,讓別人不用登入就能看這篇筆記',
+  'scaffold.import': '匯入現有書庫',
+  'scaffold.importHint': '從電腦選資料夾或 zip,上傳到這個書庫',
+  'pack.importing': '正在上傳 {n} 個檔案…請不要關閉分頁',
 };
 return { LOCALE_ZH_HANT };
 })();
@@ -2751,6 +2754,9 @@ const LOCALE_EN = {
   'share.palette.board': 'Share this board…',
   'share.button': 'Share…',
   'share.buttonTitle': 'Create a link so others can read this note without signing in',
+  'scaffold.import': 'Import an existing library',
+  'scaffold.importHint': 'Pick a folder or zip on your computer and upload it here',
+  'pack.importing': 'Uploading {n} files… keep this tab open',
 };
 return { LOCALE_EN };
 })();

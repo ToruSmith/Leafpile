@@ -1304,4 +1304,7 @@ export const LOCALE_EN = {
   'share.palette.board': 'Share this board…',
   'share.button': 'Share…',
   'share.buttonTitle': 'Create a link so others can read this note without signing in',
+  'scaffold.import': 'Import an existing library',
+  'scaffold.importHint': 'Pick a folder or zip on your computer and upload it here',
+  'pack.importing': 'Uploading {n} files… keep this tab open',
 };
