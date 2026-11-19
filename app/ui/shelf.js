@@ -22,6 +22,26 @@ const GROUP_KEY = 'leafpile-table-group'; // 表格的分組依據:{ notes: 'cat
 const FOLD_KEY = 'leafpile-table-fold'; // 收起來的組:{ '<模式>:<分組依據>': [組 id] }
 const LAYOUT_KEY = 'leafpile-table-layout'; // 筆記用表格、看板還是月曆看
 const LAYOUTS = ['table', 'cards', 'kanban', 'calendar'];
+const CAT_FOLD_KEY = 'leafpile-shelf-fold'; // 書庫總覽收起來的分類 id
+const INTRO_KEY = 'leafpile-intro-closed';  // 新手說明卡關掉了沒
+
+/** 新手說明卡:用這個書庫自己的一個分類、一個主題當例子,畫出「分類 › 主題 › 筆記與簡報」。 */
+function introHTML(vault) {
+  const cat = vault.categories.find(c => c.topics.length) || null;
+  const tp = cat?.topics[0] || vault.topics[0];
+  if (!tp) return '';
+  return `<aside class="intro-card" role="note">
+    <button type="button" class="intro-x" aria-label="${esc(t('intro.close'))}" title="${esc(t('intro.close'))}">\u2715</button>
+    <div class="intro-map" aria-hidden="true">
+      <div class="im-cat"><span class="im-label">${esc(t('intro.category'))}</span><b>${esc(cat?.name || t('intro.categoryNone'))}</b>
+        <div class="im-topic" style="--c:${esc(tp.color || '#8a8178')}"><span class="im-label">${esc(t('intro.topic'))}</span><b>${esc(tp.title)}</b>
+          <div class="im-items"><span>${esc(t('intro.note'))}</span><span>${esc(t('intro.deck'))}</span><span>${esc(t('intro.book'))}</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="intro-text"><h2>${esc(t('intro.title'))}</h2><p>${esc(t('intro.body'))}</p></div>
+  </aside>`;
+}
 
 function savedView() {
   const v = readPref(VIEW_KEY); return VIEWS.includes(v) ? v : 'all';
@@ -45,6 +65,7 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
   let view = hasNotes ? savedView() : 'slides';
   const emptyTopics = vault.topics.filter(tp => !(tp.notes && notesOfTopic(tp.notes).length) && !tp.decks.length);
   const groups = vault.categories.length ? vault.categories : [{ id: '*', name: '', topics: vault.topics }];
+  const foldedCats = new Set(readJSON(CAT_FOLD_KEY) || []);
   const chipsOf = vault.categories.length
     ? vault.categories.map(c => ({ id: 'c:' + c.id, name: c.name, color: c.color || c.topics[0]?.color, n: c.topics.length }))
     : vault.topics.length > 1 ? vault.topics.map(tp => ({ id: 't:' + tp.id, name: tp.title, color: tp.color, n: (tp.notes ? notesOfTopic(tp.notes).length : 0) + tp.decks.length })) : [];
@@ -60,19 +81,28 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
         </div>
         <div class="lib-tools">
           <input type="search" class="search" placeholder="${esc(t(hasNotes ? 'shelf.search' : 'lib.search'))}" aria-label="${esc(t('lib.search'))}">
-          <button class="btn ghost palette-btn" title="${esc(t('palette.open'))}"><kbd>${/Mac|iPhone|iPad/.test(globalThis.navigator?.platform || '') ? '⌘K' : 'Ctrl K'}</kbd></button>
           ${onNewNote ? `<button class="btn ghost new-note" title="${esc(t('shelf.newNoteTitle'))}">${esc(t('shelf.newNote'))}</button>`
             : hasNotes && sourceKey !== 'repo' ? `<button class="ro-chip" title="${esc(t(canPickDirectory() ? 'shelf.readonlyTip' : 'shelf.readonlyBrowserTip'))}">${esc(t('shelf.readonly'))}</button>` : ''}
-          ${onCheck ? `<button class="btn ghost check" title="${esc(t('lib.checkTitle'))}">${esc(t('lib.check'))}</button>` : ''}
-          ${onPrivacy ? `<button class="btn ghost privacy" title="${esc(t('privacy.buttonTitle'))}">${esc(t('privacy.button'))}</button>` : ''}
-          ${onGenerate ? `<button class="btn ghost gen-btn" title="${esc(t('gen.buttonTitle'))}">${esc(t('gen.button'))}</button>` : ''}
-          ${onPack ? `<button class="btn ghost pack-btn" title="${esc(t('pack.buttonTitle'))}">${esc(t('pack.button'))}</button>` : ''}
-          ${onShareLibrary ? `<button class="btn ghost share-lib-btn" title="${esc(t('share.libraryTitle'))}">${esc(t('share.library'))}</button>` : ''}
-          ${sharesHref ? `<a class="btn ghost shares-btn" href="${sharesHref}" title="${esc(t('shares.buttonTitle'))}">${esc(t('shares.button'))}</a>` : ''}
-          ${onRefresh ? `<button class="btn ghost refresh" title="${esc(t('lib.refreshTitle'))}">${esc(t('lib.refresh'))}</button>` : ''}
+          <details class="lib-more">
+            <summary class="btn ghost" title="${esc(t('shelf.moreTitle'))}" aria-label="${esc(t('shelf.moreTitle'))}">\u22EF</summary>
+            <div class="lib-more-pop" role="menu">
+              ${onShareLibrary ? `<button role="menuitem" class="share-lib-btn" title="${esc(t('share.libraryTitle'))}">${esc(t('share.library'))}</button>` : ''}
+              ${sharesHref ? `<a role="menuitem" class="shares-btn" href="${sharesHref}" title="${esc(t('shares.buttonTitle'))}">${esc(t('shares.button'))}</a>` : ''}
+              ${onGenerate ? `<button role="menuitem" class="gen-btn" title="${esc(t('gen.buttonTitle'))}">${esc(t('gen.button'))}</button>` : ''}
+              ${onPack ? `<button role="menuitem" class="pack-btn" title="${esc(t('pack.buttonTitle'))}">${esc(t('pack.menu'))}</button>` : ''}
+              ${onCheck || onPrivacy ? '<hr>' : ''}
+              ${onCheck ? `<button role="menuitem" class="check" title="${esc(t('lib.checkTitle'))}">${esc(t('lib.checkMenu'))}</button>` : ''}
+              ${onPrivacy ? `<button role="menuitem" class="privacy" title="${esc(t('privacy.buttonTitle'))}">${esc(t('privacy.menu'))}</button>` : ''}
+              <hr>
+              ${hasNotes ? `<button role="menuitem" class="intro-open">${esc(t('intro.open'))}</button>` : ''}
+              <button role="menuitem" class="palette-btn">${esc(t('shelf.paletteMenu'))} <kbd>${/Mac|iPhone|iPad/.test(globalThis.navigator?.platform || '') ? '⌘K' : 'Ctrl K'}</kbd></button>
+              ${onRefresh ? `<button role="menuitem" class="refresh" title="${esc(t('lib.refreshTitle'))}">${esc(t('lib.refresh'))}</button>` : ''}
+            </div>
+          </details>
         </div>
       </div>
       <p class="ro-note" role="status" hidden></p>
+      ${hasNotes && (noteCount || deckCount) ? `<div class="intro-slot"${readPref(INTRO_KEY) ? ' hidden' : ''}>${introHTML(vault)}</div>` : ''}
       <div class="shelf-bar">
         ${hasNotes ? `<div class="segmented" role="tablist" aria-label="${esc(t('shelf.viewLabel'))}">${VIEWS.map(v => `<button role="tab" data-view="${v}" aria-selected="${v === view}">${esc(t('shelf.view.' + v))}<small>${v === 'notes' || v === 'table' ? noteCount : v === 'slides' ? deckCount : noteCount + deckCount}</small></button>`).join('')}</div>` : ''}
         ${chipsOf.length ? `<nav class="chips"><button class="chip on" data-filter="*">${esc(t('lib.all'))}</button>${chipsOf.map(c => `<button class="chip${c.n ? '' : ' zero'}" data-filter="${esc(c.id)}" style="${c.color ? `--c:${esc(c.color)};--on:#fff` : ''}">${esc(c.name)}<small>${c.n}</small></button>`).join('')}</nav>` : ''}
@@ -85,8 +115,8 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
       <p class="empty search-empty" hidden></p>
       <div class="topics">
         ${groups.map(g => `
-          <div class="category" data-category="${esc(g.id)}">
-            ${g.name ? `<h2 class="category-name">${esc(g.name)}</h2>` : ''}
+          <div class="category${g.name && foldedCats.has(g.id) ? ' folded' : ''}" data-category="${esc(g.id)}">
+            ${g.name ? `<h2 class="category-name"><button type="button" class="cat-fold" aria-expanded="${!foldedCats.has(g.id)}" title="${esc(t('shelf.foldTitle'))}"><span class="cat-chev" aria-hidden="true">\u25BE</span>${esc(g.name)}<small class="cat-count"></small></button></h2>` : ''}
             ${g.topics.map(tp => topicHTML(tp, vault, href, !!onDelete)).join('')}
           </div>`).join('')}
       </div>
@@ -144,7 +174,13 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
       sec.querySelector('.notes-col').hidden = !sec.querySelector('.notes-col [data-search]:not([hidden])');
       sec.querySelector('.decks-col').hidden = !sec.querySelector('.decks-col [data-search]:not([hidden])');
     }
-    for (const c of root.querySelectorAll('.category')) c.hidden = ![...c.querySelectorAll('.topic')].some(x => !x.hidden);
+    for (const c of root.querySelectorAll('.category')) {
+      c.hidden = ![...c.querySelectorAll('.topic')].some(x => !x.hidden);
+      const n = c.querySelectorAll('.topic [data-search]:not([hidden])').length;
+      const cnt = c.querySelector('.cat-count');
+      if (cnt) cnt.textContent = n ? String(n) : '';
+    }
+    shelf.classList.toggle('searching', words.length > 0); // 搜尋時折疊的分類也要看得到結果
     const found = $('.found');
     found.hidden = !words.length && filter === '*';
     found.textContent = found.hidden ? '' : t('lib.found', { n: shown, total: items.length });
@@ -176,7 +212,8 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
   const layoutBar = () => `<span class="seg-mini" role="group" aria-label="${esc(t('table.layoutLabel'))}">${LAYOUTS.map(l => `<button data-layout="${l}" aria-pressed="${layout === l}">${esc(t('table.layout.' + l))}</button>`).join('')}</span>`;
   const modeBar = () => `<span class="seg-mini" role="group" aria-label="${esc(t('table.modeLabel'))}">${['notes', 'topics'].map(m => `<button data-mode="${m}" aria-pressed="${mode === m}">${esc(t('table.mode.' + m))}</button>`).join('')}</span>`;
   // ---------- 分組與折疊(兩種模式共用) ----------
-  const groupPref = { notes: '', topics: '', ...(readJSON(GROUP_KEY) || {}) };
+  // 預設依「分類」分組(書庫沒有分類時,選單裡沒有這一項,自然就是不分組);使用者選過的照舊
+  const groupPref = { notes: 'category', topics: 'category', ...(readJSON(GROUP_KEY) || {}) };
   const folds = readJSON(FOLD_KEY) || {};
   const foldId = () => `${mode}:${groupPref[mode]}`;
   const isFolded = id => (folds[foldId()] || []).includes(id);
@@ -414,6 +451,22 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
     note.hidden = !note.hidden;
   });
   $('.new-note')?.addEventListener('click', () => onNewNote());
+  // 「⋯」選單:點了任何一項就收起來;點外面也收起來
+  const more = $('.lib-more');
+  more?.addEventListener('click', e => { if (e.target.closest('.lib-more-pop button, .lib-more-pop a')) more.open = false; });
+  const closeMore = e => { if (more?.open && !e.target.closest('.lib-more')) more.open = false; };
+  document.addEventListener('click', closeMore);
+  // 分類折疊
+  root.querySelectorAll('.cat-fold').forEach(b => b.addEventListener('click', () => {
+    const cat = b.closest('.category');
+    const folded = cat.classList.toggle('folded');
+    b.setAttribute('aria-expanded', String(!folded));
+    if (folded) foldedCats.add(cat.dataset.category); else foldedCats.delete(cat.dataset.category);
+    writeJSON(CAT_FOLD_KEY, [...foldedCats]);
+  }));
+  // 新手說明卡
+  $('.intro-x')?.addEventListener('click', () => { $('.intro-slot').hidden = true; writePref(INTRO_KEY, '1'); });
+  $('.intro-open')?.addEventListener('click', () => { const slot = $('.intro-slot'); if (slot) { slot.hidden = false; writePref(INTRO_KEY, null); slot.scrollIntoView({ block: 'nearest' }); } });
   $('.palette-btn')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('leafpile:palette')));
   apply();
 
@@ -449,7 +502,7 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
     if (seg && view !== d.view) seg.click(); else renderTable();
   };
   window.addEventListener('leafpile-shelf', onShelfNav);
-  return () => { alive = false; stopCards(); window.removeEventListener('keydown', onKey); window.removeEventListener('leafpile-shelf', onShelfNav); };
+  return () => { alive = false; stopCards(); document.removeEventListener('click', closeMore); window.removeEventListener('keydown', onKey); window.removeEventListener('leafpile-shelf', onShelfNav); };
 }
 
 function topicHTML(tp, vault, href, canDelete = false) {

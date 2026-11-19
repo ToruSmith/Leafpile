@@ -124,6 +124,10 @@ export function mountSidebar(app, { lib, vault, boards = [], href, current = { t
     const groups = tree.map(g => (g.id == null
       ? g.topics.map(topic).join('')
       : `<details data-k="c:${esc(g.id)}" class="sn-cat"${isOpen('c:' + g.id, true) ? ' open' : ''}><summary class="sn-item"><span>${esc(g.name)}</span><small>${g.count}</small></summary>${g.topics.map(topic).join('')}</details>`)).join('');
+    // 沒有任何筆記、簡報的主題不放進樹裡(否則一長串空資料夾);但要讓人知道它們在哪裡
+    const shownTopics = tree.reduce((n, g) => n + g.topics.length, 0);
+    const hiddenTopics = Math.max(0, (v.topics?.length || 0) - shownTopics);
+    const emptyHint = hiddenTopics ? `<a class="sn-manage sn-empty-topics" href="${href.shelf}" data-view="table" data-mode="topics" title="${esc(t('side.emptyTopicsTitle'))}">${esc(t('side.emptyTopics', { n: hiddenTopics }))}</a>` : '';
     const prevScroll = aside.querySelector('.sn-scroll')?.scrollTop ?? scrollPos.get(lib) ?? 0;
     aside.innerHTML = `<div class="sn-top">
         <a class="sn-lib" href="${href.shelf}" title="${esc(t('side.shelf'))}">${esc(v.title || t('side.shelf'))}</a>
@@ -140,7 +144,7 @@ export function mountSidebar(app, { lib, vault, boards = [], href, current = { t
         </section>
         ${recent.length ? `<section class="sn-sec"><h3>${esc(t('side.recent'))}</h3><ul>${recent.map(e => entry(e, `<button class="sn-act" data-pin="${esc(e.t)}|${esc(e.id)}|${esc(e.title)}" aria-label="${esc(t('side.pin'))}" title="${esc(t('side.pin'))}">${ICON.pin}</button>`)).join('')}</ul></section>` : ''}
         ${boards.length ? `<section class="sn-sec"><details data-k="boards"${isOpen('boards', boards.length <= 5 || current.type === 'b') ? ' open' : ''}><summary class="sn-h"><span>${esc(t('side.boards'))}</span><small>${boards.length}</small></summary><ul>${boards.map(b => `<li><a class="sn-item" href="${href.board(b)}"${cur('b', b)}>${ICON.b}<span>${esc(b)}</span></a></li>`).join('')}</ul></details></section>` : ''}
-        <section class="sn-sec sn-tree"><h3>${esc(t('side.topics'))}<a class="sn-manage" href="${href.shelf}" data-view="table" data-mode="topics" title="${esc(t('side.manageTitle'))}">${esc(t('side.manage'))}</a></h3>${groups || `<p class="sn-empty">${esc(t('side.topicsEmpty'))}</p>`}</section>
+        <section class="sn-sec sn-tree"><h3>${esc(t('side.topics'))}<a class="sn-manage" href="${href.shelf}" data-view="table" data-mode="topics" title="${esc(t('side.manageTitle'))}">${esc(t('side.manage'))}</a></h3>${groups || `<p class="sn-empty">${esc(t('side.topicsEmpty'))}</p>`}${emptyHint}</section>
       </div>`;
     const sc = aside.querySelector('.sn-scroll');
     sc.scrollTop = prevScroll;

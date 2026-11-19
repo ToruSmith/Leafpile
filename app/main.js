@@ -616,14 +616,17 @@ async function home() {
         <div class="hero-text">
           <div class="eyebrow">${t('home.eyebrow')}</div>
           <h1>${t('home.title')}</h1>
-          <p>${t('home.lead')}</p>
+          <p>${t(googleEnabled() ? 'home.leadDrive' : 'home.lead')}</p>
           <div class="actions">
             <button class="btn primary open-folder">${t('home.open')}</button>
-            ${canPickDirectory() ? `<button class="btn ghost create-lib" title="${esc(t('home.createTitle'))}">${t('home.create')}</button>` : ''}
-            ${googleEnabled() ? `<button class="btn ghost open-drive" title="${esc(t('drive.homeTitle'))}">${esc(t('drive.home'))}</button>${googleSignedIn() ? ` <button class="btn ghost g-out">${esc(t('drive.signOut'))}</button> <small class="g-who muted"></small>` : ''}` : ''}
-            ${repoOK ? `<a class="btn ghost" href="#/repo">${t('home.repo')}</a>` : ''}
-            <button class="btn ghost open-zip" title="${esc(t('home.openZipTitle'))}">${t('home.openZip')}</button>
+            ${googleEnabled() ? `<button class="btn ghost open-drive" title="${esc(t('drive.homeTitle'))}">${esc(t('drive.home'))}</button>` : ''}
           </div>
+          ${googleEnabled() && googleSignedIn() ? `<p class="home-account"><span class="g-who"></span><button class="linkish g-out">${esc(t('drive.signOut'))}</button></p>` : ''}
+          <p class="home-links">
+            ${canPickDirectory() ? `<button class="linkish create-lib" title="${esc(t('home.createTitle'))}">${t('home.create')}</button>` : ''}
+            <button class="linkish open-zip" title="${esc(t('home.openZipTitle'))}">${t('home.openZip')}</button>
+            ${repoOK ? `<a class="linkish" href="#/repo">${t('home.repo')}</a>` : ''}
+          </p>
           <p class="small">${canPickDirectory() ? t('home.tipPicker') : t('home.tipNoPicker')}</p>
         </div>
         <div class="hero-art leaf-art" aria-hidden="true">
