@@ -909,3 +909,15 @@ tr:hover .del-x, tr:focus-within .del-x, .lib-card:hover .del-x, .lib-card:focus
 @media (hover: none), (pointer: coarse) {
   .del-x, .deck-item .del-x { opacity: .75; width: 34px; height: 34px; font-size: 15px; }
 }
+
+/* 我的分享 */
+.shares-page { max-width: 960px; margin: 32px auto; padding: 0 24px; }
+.shares-page h1 { margin: 0 0 6px; }
+.shares-table { width: 100%; border-collapse: collapse; margin: 18px 0 24px; font-size: 14px; }
+.shares-table th, .shares-table td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.shares-table th { color: var(--muted); font-weight: 500; font-size: 12px; }
+.shares-act { white-space: nowrap; text-align: right !important; }
+.shares-act .btn { padding: 5px 10px; font-size: 13px; }
+.btn.danger { color: #b3261e; }
+.g-who { margin-left: 6px; }
+@media (max-width: 640px) { .shares-table thead { display: none; } .shares-table tr { display: grid; grid-template-columns: 1fr auto; } .shares-table td:nth-child(3) { display: none; } .shares-act { grid-column: 1 / -1; text-align: left !important; } }

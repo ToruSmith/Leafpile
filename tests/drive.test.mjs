@@ -231,3 +231,46 @@ test('publish:已經公開的跳過;同時送幾個,結果照原本順序', asyn
   assert.equal(Object.keys(again).length, 13);
   assert.ok([...drive.files.values()].filter(f => /^n\d\d\.md$/.test(f.name)).every(f => f.shared));
 });
+
+test('changed():自己存檔不算外部變動;另一台裝置改過、新增檔案就偵測得到', async () => {
+  const { src, drive } = await setup();
+  await src.list('notes');
+  assert.equal(await src.changed(), false);
+  await src.writeText('notes/01-inbox/welcome.md', '# 我改的', { expect: await src.stat('notes/01-inbox/welcome.md') });
+  await src.writeText('notes/01-inbox/new.md', '# 新的');
+  await src.archiveTree('notes/01-inbox/new.md');
+  assert.equal(await src.changed(), false, '自己的修改不算');
+  // 另一台裝置:改內容
+  const f = [...drive.files.values()].find(x => x.name === 'welcome.md');
+  f.content = '# 手機改的'; f.modifiedTime = new Date(drive.at += 1000).toISOString();
+  assert.equal(await src.changed(), true);
+  assert.equal(await src.readText('notes/01-inbox/welcome.md'), '# 手機改的');
+  assert.equal(await src.changed(), false);
+  // 另一台裝置:新增檔案
+  const inbox = (await src.fileOf('notes/01-inbox')).id;
+  drive.add({ name: 'phone.md', parents: [inbox], content: '# 手機新增' });
+  assert.equal(await src.changed(), true);
+  assert.ok(await src.fileOf('notes/01-inbox/phone.md'));
+});
+
+test('whoami:用 Drive 的 about 拿到帳號;拿不到回傳 null', async () => {
+  const { src, drive } = await setup();
+  assert.deepEqual(await src.whoami(), { displayName: '測試者', emailAddress: 'me@example.com' });
+  drive.token = 'other';
+  const bad = new DriveSource(src.rootId, driveClient({ fetch: drive.fetch, auth: { token: async () => 'nope', renew: async () => { throw new Error('denied'); } } }));
+  assert.equal(await bad.whoami(), null);
+});
+
+test('readShared:剛分享時 Google 還沒生效,讀不到就等一下再試;一直讀不到才放棄', async () => {
+  const { readShared } = await import('../app/sources/drive.js');
+  const { src, drive } = await setup();
+  const id = (await src.fileOf('notes/01-inbox/welcome.md')).id;
+  const pub = driveClient({ fetch: drive.fetch, apiKey: 'KEY' });
+  const waits = [];
+  const res = await readShared(pub, id, { waits: [10, 20, 30], sleep: async ms => { waits.push(ms); if (waits.length === 2) drive.files.get(id).shared = true; } });
+  assert.match(await res.text(), /歡迎/);
+  assert.deepEqual(waits, [10, 20]);
+  drive.files.get(id).shared = false; waits.length = 0;
+  await assert.rejects(readShared(pub, id, { waits: [1, 2], sleep: async ms => { waits.push(ms); } }), /missing/);
+  assert.deepEqual(waits, [1, 2]);
+});

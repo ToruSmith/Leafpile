@@ -108,8 +108,33 @@ export class DriveSource {
 
   /** 一次列出看得到的所有檔案,組成「路徑 → 檔案」。同一個資料夾有同名檔時取最新的那個。 */
   load() {
-    this.index ||= (async () => {
-      const files = (await this.client.listAll('trashed = false')).filter(f => !f.trashed);
+    this.index ||= this.client.listAll('trashed = false').then(files => this.build(files)).catch(e => { this.index = null; throw e; });
+    return this.index;
+  }
+
+  /** 檔案清單的指紋:任何檔案新增、刪除、搬移、修改都會改變它。 */
+  static signature(files) {
+    return files.filter(f => !f.trashed).map(f => `${f.id}:${f.modifiedTime}:${(f.parents || []).join(',')}:${f.name}`).sort().join('|');
+  }
+
+  /**
+   * 向 Drive 確認書庫有沒有被別處(另一台裝置)改過。有的話換成新的清單並回傳 true。
+   * 比對的是「Drive 給的原始清單」:自己寫檔時 remember() 會同步更新,所以自己的修改不算變化。
+   * 只花一次「列清單」的請求;用在切回分頁時。
+   */
+  async changed() {
+    if (!this.index) return false; // 還沒打開過:下次打開本來就會讀新的
+    await this.index;
+    const files = await this.client.listAll('trashed = false');
+    if (DriveSource.signature(files) === DriveSource.signature([...this.raw.values()])) return false;
+    this.index = Promise.resolve(this.build(files));
+    return true;
+  }
+
+  build(all) {
+    {
+      const files = all.filter(f => !f.trashed);
+      this.raw = new Map(files.map(f => [f.id, f])); // Drive 給的原始清單(changed() 比對用)
       const children = new Map();
       for (const f of files) for (const p of f.parents || []) {
         if (!children.has(p)) children.set(p, []);
@@ -128,8 +153,13 @@ export class DriveSource {
       };
       walk(this.rootId, '', 0);
       return { byPath, children };
-    })().catch(e => { this.index = null; throw e; });
-    return this.index;
+    }
+  }
+
+  /** 登入的是哪個 Google 帳號(名稱與信箱)。用 Drive 自己的 about,不必多要權限;拿不到就回傳 null。 */
+  async whoami() {
+    try { const r = await this.client.json(`${DRIVE_API}/about?fields=${encodeURIComponent('user(displayName,emailAddress)')}`); return r.user || null; }
+    catch { return null; }
   }
 
   async fileOf(path) { return (await this.load()).byPath.get(path) || null; }
@@ -165,6 +195,7 @@ export class DriveSource {
   /** 記下 Drive 回傳的新狀態(不必整個重新列一次)。 */
   async remember(path, f) {
     const idx = await this.load();
+    this.raw?.set(f.id, f);
     idx.byPath.set(path, f);
     for (const p of f.parents || []) {
       const list = idx.children.get(p) || [];
@@ -329,8 +360,24 @@ export class DriveSource {
  * files = { 路徑: 檔案 id },來自分享清單;另外可以放幾個「虛擬檔」(直接給文字)。
  * 只能讀,沒有任何寫入的方法。
  */
+/**
+ * 讀一個公開的檔案。剛分享時 Google 那邊可能還沒生效(幾秒到幾十秒),讀不到就等一下再試幾次。
+ * waits:每次重試前等多久(毫秒)。
+ */
+export async function readShared(client, id, { waits = [1500, 3000, 6000], sleep = ms => new Promise(r => setTimeout(r, ms)) } = {}) {
+  for (let i = 0; ; i++) {
+    try { return await client.media(id); }
+    catch (e) {
+      const retryable = ['missing', 'not shared'].includes(e.message) || e instanceof TypeError;
+      if (!retryable || i >= waits.length) throw e;
+      await sleep(waits[i]);
+    }
+  }
+}
+
 export class SharedSource {
-  constructor(files, client, { label = '', virtual = {} } = {}) {
+  constructor(files, client, { label = '', virtual = {}, waits } = {}) {
+    this.waits = waits;
     this.files = files;
     this.virtual = virtual;
     this.client = client;
@@ -354,12 +401,13 @@ export class SharedSource {
   id(path) { const id = this.files[path]; if (!id) throw new Error('missing'); return id; }
   async readText(path) {
     if (path in this.virtual) return this.virtual[path];
-    return (await this.client.media(this.id(path))).text();
+    return (await this.get(path)).text();
   }
-  async readBytes(path) { return new Uint8Array(await (await this.client.media(this.id(path))).arrayBuffer()); }
+  get(path) { return readShared(this.client, this.id(path), this.waits ? { waits: this.waits } : {}); }
+  async readBytes(path) { return new Uint8Array(await (await this.get(path)).arrayBuffer()); }
   async mediaURL(path) {
     if (this.urls.has(path)) return this.urls.get(path);
-    const url = URL.createObjectURL(await (await this.client.media(this.id(path))).blob());
+    const url = URL.createObjectURL(await (await this.get(path)).blob());
     this.urls.set(path, url);
     return url;
   }

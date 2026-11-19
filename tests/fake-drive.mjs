@@ -21,6 +21,7 @@ export class FakeDrive {
       return this.throttleWith === 403 ? this.json({ error: { code: 403, message: 'User rate limit exceeded', errors: [{ reason: 'userRateLimitExceeded' }] } }, 403) : this.json({}, 429);
     }
     if (!authed && !key) return this.json({}, 401);
+    if (url.pathname === '/drive/v3/about') return authed ? this.json({ user: { displayName: '測試者', emailAddress: 'me@example.com' } }) : this.json({}, 401);
     const m = url.pathname.match(/^\/(upload\/)?drive\/v3\/files(?:\/([^/]+))?(\/permissions(?:\/([^/]+))?)?$/);
     if (!m) return this.json({}, 400);
     const [, upload, id, perm, permId] = m;
