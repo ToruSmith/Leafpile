@@ -20,12 +20,12 @@ Start here when you forget what Leafpile can do. For file formats and rules see 
 | Find a note or deck | Ctrl+K, or the search box on the library page (it also searches note text) |
 | Add a note | **+ Note** on the library page, or Ctrl+K → "New note" |
 | Jot something down before it slips away | **Alt+N** (capture to inbox); sort it out later |
-| Write today's journal | Ctrl+K → "Today's journal", or library **Table** → **Calendar** → **Today's journal** |
+| Write today's journal | Ctrl+K → "Today's journal", or library **Table and manage** → **Calendar** → **Today's journal** |
 | Discuss a few cards with an AI | Select cards or a group on a board → right-click **Ask AI…** |
 | Find notes that are not on any board yet | Library **Table** → **Cards** → **Board: Not on any board** |
 | Read without distraction | Press **F** on a note (focus reading) |
 | Change the text size | A− / A+ at the top right of a note, or press **+** / **−** (ten steps, 0.8× to 2.2×) |
-| See every note, sorted by date or tag | **Table** on the library page |
+| See every note, sorted by date or tag | **Table and manage** on the library page |
 | Fold many notes by topic or month | **Table** → **Group by** |
 | Change colors, use dark mode | **Appearance** in the top bar |
 | Let an AI understand the whole library first | `node leafpile-check.mjs <library> --index` |

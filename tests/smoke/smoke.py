@@ -87,11 +87,12 @@ def main():
         assert page.locator('.used-by li').count() >= 1, '沒有顯示「被哪些簡報引用」'
         note_url = page.url
         # 字級(十級)與沉浸閱讀:隱藏頁首與側欄、浮動按鈕列、F 鍵離開
+        page.click('.note-more > summary')  # 字級、沉浸閱讀收在「更多」裡
         page.click('.note-tools [data-scale="1"]')
         assert page.locator('.note-tools .val').inner_text() == '112%', '字級沒有放大一級'
         page.click('.note-tools .val')
         assert page.locator('.note-tools .val').inner_text() == '100%', '字級沒有回到 100%'
-        page.click('.note-tools .imm'); page.wait_for_timeout(500)
+        page.click('.note-tools .imm'); page.wait_for_timeout(500)  # 選單還開著(字級按鈕不會收起選單)
         assert page.evaluate("document.body.classList.contains('immersive')"), '沒有進入沉浸閱讀'
         assert not page.locator('.topbar').is_visible() and page.locator('.rd-bar').is_visible(), '沉浸閱讀應隱藏頁首並顯示浮動按鈕列'
         page.keyboard.press('f'); page.wait_for_timeout(500)
@@ -280,7 +281,7 @@ def main():
             errors.append('service worker 沒有接手頁面')
         # 書庫包:內建範例可以匯出 zip;首頁「開啟 zip 書庫包」打開它(任何瀏覽器都能看,唯讀)
         page.goto(BASE + '#/repo'); page.wait_for_timeout(1500)
-        page.click('.pack-btn'); page.wait_for_timeout(300)
+        page.click('.lib-more > summary'); page.click('.pack-btn'); page.wait_for_timeout(300)  # 書庫包收在「⋯」裡
         assert page.locator('.lp-dialog button:has-text("匯入")').count() == 0, '唯讀的書庫不該有匯入'
         with page.expect_download() as dl:
             page.click('.lp-dialog .primary')

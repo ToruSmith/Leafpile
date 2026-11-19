@@ -61,3 +61,12 @@ test('scaffoldFiles:Drive 書庫的說明不寫「在你的電腦上」', () => 
   assert.match(site({ drive: true }), /Google Drive/);
   assert.doesNotMatch(site({ drive: true }), /電腦/);
 });
+
+test('scaffoldFiles:不建立分類(避免「收件匣 › 收件匣」這種同名的分類與主題)', () => {
+  setLang('zh-Hant');
+  for (const kind of ['empty', 'sample']) {
+    const files = scaffoldFiles(kind);
+    assert.equal(parseYaml(files.find(f => f.path === '_site.yml').text).categories, undefined);
+    assert.equal(parseYaml(files.find(f => f.path === 'notes/01-inbox/_topic.yml').text).category, undefined);
+  }
+});

@@ -91,11 +91,12 @@ export function renderReader(root, { vault, rel, note, topic, book, header, href
           <div class="note-tools">
             <a class="btn primary flash" href="${href.flash(rel)}" title="${esc(t('note.flashTitle'))}">▶ ${esc(t('note.flash'))}</a>
             ${canEdit ? `<a class="btn ghost" href="${href.edit(rel)}" title="${esc(t('note.editTitle'))}">${esc(t('note.edit'))}</a>` : ''}
-            ${canPromote ? `<button class="btn ghost promote" title="${esc(t('promote.buttonTitle'))}">${esc(t('promote.button'))}</button>` : ''}
-            ${canPromote ? `<details class="note-more"><summary class="btn ghost" title="${esc(t('move.moreTitle'))}">${esc(t('move.more'))}</summary><div class="note-more-menu">
-              <button data-act="rename">${esc(t('move.rename'))}</button><button data-act="move">${esc(t('move.move'))}</button>${canShare ? `<button data-act="share" title="${esc(t('share.buttonTitle'))}">${esc(t('share.button'))}</button>` : ''}<button data-act="delete" title="${esc(t('trash.buttonTitle'))}">${esc(t('move.archive'))}</button></div></details>` : ''}
-            <button class="btn ghost imm" data-rd="enter" title="${esc(t('note.immersiveTitle'))}">${esc(t('note.immersive'))}</button>
-            <span class="scale"><button data-scale="-1" title="${esc(t('note.smaller'))}" aria-label="${esc(t('note.smaller'))}">A−</button><button class="val" data-scale="0" title="${esc(t('note.scaleReset'))}">${pct(scale)}</button><button data-scale="1" title="${esc(t('note.larger'))}" aria-label="${esc(t('note.larger'))}">A+</button></span>
+            <details class="note-more"><summary class="btn ghost" title="${esc(t('move.moreTitle'))}">${esc(t('move.more'))}</summary><div class="note-more-menu">
+              ${canPromote ? `<button class="promote" title="${esc(t('promote.buttonTitle'))}">${esc(t('promote.button'))}</button>` : ''}
+              <button class="imm" data-rd="enter" title="${esc(t('note.immersiveTitle'))}">${esc(t('note.immersive'))}</button>
+              ${canPromote ? `<hr><button data-act="rename">${esc(t('move.rename'))}</button><button data-act="move">${esc(t('move.move'))}</button>${canShare ? `<button data-act="share" title="${esc(t('share.buttonTitle'))}">${esc(t('share.button'))}</button>` : ''}<button data-act="delete" title="${esc(t('trash.buttonTitle'))}">${esc(t('move.archive'))}</button>` : ''}
+              <hr><div class="scale-row"><span>${esc(t('note.textSize'))}</span><span class="scale"><button data-scale="-1" title="${esc(t('note.smaller'))}" aria-label="${esc(t('note.smaller'))}">A−</button><button class="val" data-scale="0" title="${esc(t('note.scaleReset'))}">${pct(scale)}</button><button data-scale="1" title="${esc(t('note.larger'))}" aria-label="${esc(t('note.larger'))}">A+</button></span></div>
+            </div></details>
           </div>
           ${toc.length ? `<details class="toc" open><summary><h3>${esc(t('note.toc'))}</h3></summary><ol>${toc.map(h => `<li class="l${h.level}"><a href="#" data-slug="${esc(h.slug)}">${esc(h.text)}</a></li>`).join('')}</ol></details>` : ''}
           <section class="backlinks"><h3>${esc(t('note.backlinks'))}</h3><p class="muted">${esc(t('note.indexing'))}</p></section>
@@ -140,6 +141,8 @@ export function renderReader(root, { vault, rel, note, topic, book, header, href
     sec.hidden = false;
   }, () => {});
   root.querySelector('.promote')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('leafpile:promote', { detail: rel })));
+  // 「更多」選單:點了做成簡報、沉浸閱讀就收起來(字級按鈕不收,方便連按)
+  root.querySelectorAll('.note-more .promote, .note-more .imm').forEach(b => b.addEventListener('click', () => { b.closest('details').open = false; }));
   root.querySelectorAll('.note-more [data-act]').forEach(b => b.addEventListener('click', () => {
     b.closest('details').open = false;
     window.dispatchEvent(new CustomEvent('leafpile:note-action', { detail: { action: b.dataset.act, rel } }));

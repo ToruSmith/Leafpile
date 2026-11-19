@@ -921,3 +921,84 @@ tr:hover .del-x, tr:focus-within .del-x, .lib-card:hover .del-x, .lib-card:focus
 .btn.danger { color: #b3261e; }
 .g-who { margin-left: 6px; }
 @media (max-width: 640px) { .shares-table thead { display: none; } .shares-table tr { display: grid; grid-template-columns: 1fr auto; } .shares-table td:nth-child(3) { display: none; } .shares-act { grid-column: 1 / -1; text-align: left !important; } }
+
+/* ---------- 書庫總覽 v0.21:「⋯」選單、新手說明卡、分類折疊、「全部」清單加縮圖 ---------- */
+.lib-tools { align-items: center; flex-wrap: nowrap; }
+.lib-tools .search { flex: 1; min-width: 0; }
+.lib-more { position: relative; }
+.lib-more > summary { list-style: none; cursor: pointer; font-size: 18px; line-height: 1; padding-left: 14px; padding-right: 14px; }
+.lib-more > summary::-webkit-details-marker { display: none; }
+.lib-more-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; min-width: 230px; display: flex; flex-direction: column; padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: 0 14px 36px rgb(var(--shadow) / .16); }
+.lib-more-pop button, .lib-more-pop a { display: flex; align-items: center; gap: 8px; justify-content: space-between; width: 100%; text-align: left; font: inherit; font-size: 14px; color: var(--ink); background: none; border: 0; border-radius: 8px; padding: 9px 12px; cursor: pointer; text-decoration: none; }
+.lib-more-pop button:hover, .lib-more-pop a:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.lib-more-pop hr { border: 0; border-top: 1px solid var(--line); margin: 4px 6px; }
+.lib-more-pop:not(:has(button, a)) { display: none; }
+
+.intro-slot { max-width: 1240px; margin: 18px auto 0; padding: 0 40px; }
+.intro-slot[hidden] { display: none; }
+@media (max-width: 640px) { .intro-slot { padding: 0 16px; } }
+.intro-card { position: relative; display: grid; grid-template-columns: minmax(220px, 300px) 1fr; gap: 22px; align-items: center; margin: 0; padding: 18px 22px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.intro-card h2 { font-size: 16px; margin: 0 0 6px; }
+.intro-card p { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.7; }
+.intro-x { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border: 0; background: none; color: var(--muted); border-radius: 8px; cursor: pointer; }
+.intro-x:hover { background: var(--bg-deep); color: var(--ink); }
+.im-label { display: block; font-size: 11px; letter-spacing: .12em; color: var(--muted); margin-bottom: 2px; }
+.im-cat { border: 1px dashed var(--line); border-radius: 12px; padding: 10px 12px; font-size: 13px; }
+.im-topic { margin-top: 8px; border: 1px solid var(--line); border-left: 4px solid var(--c); border-radius: 10px; padding: 8px 10px; background: var(--bg-deep); }
+.im-items { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.im-items span { font-size: 12px; padding: 3px 9px; border-radius: 6px; background: var(--surface); border: 1px solid var(--line); }
+@media (max-width: 640px) { .intro-card { grid-template-columns: 1fr; padding: 16px; } }
+
+.category-name .cat-fold { display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; padding: 4px 0; font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer; }
+.category-name .cat-fold:hover { color: var(--ink); }
+.cat-chev { display: inline-block; transition: transform .15s; font-size: 12px; }
+.category.folded .cat-chev { transform: rotate(-90deg); }
+.cat-count { font-weight: 400; letter-spacing: 0; opacity: .8; }
+.category.folded .topic { display: none; }
+.shelf.searching .category.folded .topic:not([hidden]) { display: block; }
+
+/* 「全部」:左邊筆記清單,右邊簡報小縮圖 */
+.shelf[data-view="all"] .topic:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); column-gap: 28px; align-items: start; }
+.shelf[data-view="all"] .category.folded .topic { display: none; }
+.shelf.searching[data-view="all"] .category.folded .topic:not([hidden]) { display: grid; }
+.shelf[data-view="all"] .topic > header { grid-column: 1 / -1; }
+.shelf[data-view="all"] .notes-col, .shelf[data-view="all"] .decks-col { margin: 0; }
+.shelf[data-view="all"] .notes-col[hidden] + .decks-col { grid-column: 1 / -1; }
+.shelf[data-view="all"] .notes-col + .decks-col { margin-top: 0; }
+.shelf[data-view="all"] .note-list { grid-template-columns: 1fr; gap: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); overflow: hidden; }
+.shelf[data-view="all"] .note-row a { display: flex; align-items: baseline; gap: 12px; padding: 10px 44px 10px 14px; border: 0; border-left: 3px solid transparent; border-radius: 0; background: none; }
+.shelf[data-view="all"] .note-row + .note-row a { border-top: 1px solid var(--line); }
+.shelf[data-view="all"] .note-row a:hover { transform: none; box-shadow: none; border-left-color: var(--c, var(--accent)); background: color-mix(in srgb, var(--c, var(--accent)) 6%, transparent); }
+.shelf[data-view="all"] .note-row .t { flex: 1; min-width: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shelf[data-view="all"] .note-row .x, .shelf[data-view="all"] .note-row .tags { display: none; }
+.shelf[data-view="all"] .note-row .m { flex: none; }
+.shelf[data-view="all"] .note-row .del-x { top: 50%; transform: translateY(-50%); }
+.shelf[data-view="all"] .books { flex-direction: column; gap: 0; margin-bottom: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); overflow: hidden; }
+.shelf[data-view="all"] .book-card { width: auto; border: 0; border-radius: 0; padding: 8px 14px; gap: 12px; }
+.shelf[data-view="all"] .book-card + .book-card { border-top: 1px solid var(--line); }
+.shelf[data-view="all"] .book-card:hover { transform: none; box-shadow: none; }
+.shelf[data-view="all"] .book-card .spine { width: 28px; height: 40px; }
+.shelf[data-view="all"] .book-card .spine-title { display: none; }
+.shelf[data-view="all"] .decks-col .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px 12px; }
+.shelf[data-view="all"] .deck-card .info { padding-top: 7px; }
+.shelf[data-view="all"] .deck-card h3 { font-size: 13px; }
+.shelf[data-view="all"] .deck-card .sub, .shelf[data-view="all"] .deck-card .tags, .shelf[data-view="all"] .deck-card .meta { display: none; }
+@media (max-width: 760px) { .shelf[data-view="all"] .topic:not([hidden]) { grid-template-columns: 1fr; } .shelf[data-view="all"] .decks-col { margin-top: 14px !important; } }
+
+/* 首頁:兩個主要入口 + 一行次要連結 */
+.home-links { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 18px !important; font-size: 14px; }
+.home-account { display: flex; align-items: center; gap: 10px; margin-top: 12px !important; font-size: 13px; color: var(--muted); }
+.home-account .g-who:empty { display: none; }
+.linkish { font: inherit; color: var(--muted); background: none; border: 0; padding: 4px 0; cursor: pointer; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--muted) 45%, transparent); text-underline-offset: 3px; }
+.linkish:hover { color: var(--ink); text-decoration-color: currentColor; }
+@media (pointer: coarse) { .linkish { min-height: 40px; } }
+
+/* 筆記頁「更多」:放在右側欄,選單往左展開;字級一列 */
+.note-tools .note-more-menu { left: auto; right: 0; min-width: 220px; }
+.note-more-menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 6px; }
+.note-more-menu .scale-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 6px 4px 12px; font-size: 13px; color: var(--muted); }
+.note-more-menu .scale-row .scale { margin: 0; }
+.note-more-menu .scale-row .scale button { padding: 6px 10px; }
+.note-side:has(.note-more[open]) { overflow: visible; } /* 側欄可以捲動,會裁掉選單:選單打開時暫時不裁 */
+.sn-empty-topics { display: block; margin: 6px 0 0 8px; font-size: 12px; color: var(--muted); text-decoration: none; }
+.sn-empty-topics:hover { color: var(--ink); }
