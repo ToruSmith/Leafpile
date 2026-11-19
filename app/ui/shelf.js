@@ -37,7 +37,7 @@ function savedView() {
 /** 刪除(搬到 _archive/)的小按鈕;沒有寫入權限的書庫不會有。 */
 const delBtn = (kind, id, extra = '', cls = 'del-x') => `<button type="button" class="${cls}" data-del="${esc(kind)}" data-id="${esc(id)}"${extra} title="${esc(t('trash.buttonTitle'))}" aria-label="${esc(t('trash.button'))}">\u2715</button>`;
 
-export function renderShelf(root, { vault, sourceKey, header, href, graph, onRefresh, onCheck, onNewNote, onPrivacy, onPack, onGenerate, onNewBoard, onTopicEdit, onTopicNew, onCategories, boardRefs = null, onAddToBoard = null, onJournal = null, onDelete = null, onSetup = null, onImport = null, onShareLibrary = null }) {
+export function renderShelf(root, { vault, sourceKey, header, href, graph, onRefresh, onCheck, onNewNote, onPrivacy, onPack, onGenerate, onNewBoard, onTopicEdit, onTopicNew, onCategories, boardRefs = null, onAddToBoard = null, onJournal = null, onDelete = null, onSetup = null, onImport = null, onShareLibrary = null, sharesHref = '' }) {
   applyUITheme(vault.theme || 'paper');
   const noteCount = vault.notes.topics.reduce((n, tp) => n + notesOfTopic(tp).length, 0);
   const deckCount = vault.topics.reduce((n, tp) => n + tp.decks.length, 0);
@@ -68,6 +68,7 @@ export function renderShelf(root, { vault, sourceKey, header, href, graph, onRef
           ${onGenerate ? `<button class="btn ghost gen-btn" title="${esc(t('gen.buttonTitle'))}">${esc(t('gen.button'))}</button>` : ''}
           ${onPack ? `<button class="btn ghost pack-btn" title="${esc(t('pack.buttonTitle'))}">${esc(t('pack.button'))}</button>` : ''}
           ${onShareLibrary ? `<button class="btn ghost share-lib-btn" title="${esc(t('share.libraryTitle'))}">${esc(t('share.library'))}</button>` : ''}
+          ${sharesHref ? `<a class="btn ghost shares-btn" href="${sharesHref}" title="${esc(t('shares.buttonTitle'))}">${esc(t('shares.button'))}</a>` : ''}
           ${onRefresh ? `<button class="btn ghost refresh" title="${esc(t('lib.refreshTitle'))}">${esc(t('lib.refresh'))}</button>` : ''}
         </div>
       </div>
